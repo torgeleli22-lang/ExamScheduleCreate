@@ -1,0 +1,7 @@
+{
+  "name": "exam-schedule-create",
+  "private": true,
+  "description": "학과 시험 시간표 편성 도구 (단일 HTML)",
+  "scripts": { "build": "python3 scripts/build.py", "test": "python3 tests/smoke_test.py" },
+  "devDependencies": { "exceljs": "4.4.0" }
+}

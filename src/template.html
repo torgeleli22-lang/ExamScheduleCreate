@@ -1,0 +1,1315 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>시험 시간표 편성</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+/* Layout: 행정용 작업 도구. 상단 요약 → 탭(날짜별 배치 / 과목 목록 / 교수님 확인 / 설정) → 오른쪽 편집 서랍.
+   학년 색(1 노랑, 2 파랑, 3 초록)은 학과 강의시간표 관례를 그대로 따른다. */
+:root{
+  --bg:#f3f4f7; --surface:#ffffff; --ink:#1b2333; --muted:#5b6474; --line:#d9dde5; --accent:#1f3a68; --accent-ink:#ffffff;
+  --y1:#fff4cf; --y1s:#f2c94c; --y2:#e1ecfb; --y2s:#5f8fdc; --y3:#e2f2dc; --y3s:#5ea64f;
+  --bad:#c42b2b; --bad-bg:#fde7e7; --warn:#9a5b00; --warn-bg:#fff0d6; --ok:#257346; --ok-bg:#e0f3e8;
+  --fixed:#e9ebf0; --fixed-ink:#6b7280; --lunch:#f7f7f9;
+  --font-body:"IBM Plex Sans KR","Apple SD Gothic Neo","Malgun Gothic",system-ui,sans-serif;
+  --font-display:"IBM Plex Sans KR","Apple SD Gothic Neo","Malgun Gothic",system-ui,sans-serif;
+  color-scheme:light;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#12161d; --surface:#1a2029; --ink:#e7eaf0; --muted:#a2aab8; --line:#2f3744; --accent:#8fb0ea; --accent-ink:#0f1520;
+    --y1:#3a3216; --y1s:#d9b23e; --y2:#1d2d47; --y2s:#6d9be6; --y3:#1f3320; --y3s:#6fbc5f;
+    --bad:#ff7b7b; --bad-bg:#3d1b1d; --warn:#f0b357; --warn-bg:#3a2b12; --ok:#6fd49a; --ok-bg:#163223;
+    --fixed:#262d38; --fixed-ink:#9aa3b2; --lunch:#161b23;
+    color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#12161d; --surface:#1a2029; --ink:#e7eaf0; --muted:#a2aab8; --line:#2f3744; --accent:#8fb0ea; --accent-ink:#0f1520;
+  --y1:#3a3216; --y1s:#d9b23e; --y2:#1d2d47; --y2s:#6d9be6; --y3:#1f3320; --y3s:#6fbc5f;
+  --bad:#ff7b7b; --bad-bg:#3d1b1d; --warn:#f0b357; --warn-bg:#3a2b12; --ok:#6fd49a; --ok-bg:#163223;
+  --fixed:#262d38; --fixed-ink:#9aa3b2; --lunch:#161b23;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--bg);color:var(--ink);font-family:var(--font-body);font-size:14px;line-height:1.5;font-variant-numeric:tabular-nums}
+button,input,select,textarea{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+h1,h2,h3{font-family:var(--font-display);text-wrap:balance;margin:0}
+.wrap{max-width:1360px;margin:0 auto;padding:0 20px}
+.top{display:flex;flex-wrap:wrap;gap:12px 24px;align-items:flex-end;justify-content:space-between;padding:22px 0 14px}
+.eyebrow{margin:0 0 2px;color:var(--muted);font-size:13px;font-weight:500}
+h1{font-size:24px;font-weight:700;letter-spacing:-0.01em}
+.actions{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.btn{border:1px solid var(--line);background:var(--surface);border-radius:8px;padding:7px 13px;font-weight:500}
+.btn:hover{border-color:var(--accent)}
+.btn.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent);font-weight:600}
+.btn.small{padding:4px 9px;font-size:13px}
+.btn.danger{color:var(--bad);border-color:var(--bad)}
+.btn[disabled]{opacity:.5;cursor:not-allowed}
+.savepill{font-size:12.5px;color:var(--muted);display:inline-flex;align-items:center;gap:6px}
+.savepill::before{content:"";width:8px;height:8px;border-radius:50%;background:var(--muted)}
+.savepill.cloud::before{background:var(--ok)}
+.savepill.saving::before,.savepill.loading::before{background:var(--warn)}
+.savepill.error::before{background:var(--bad)}
+
+.summary{display:flex;flex-wrap:wrap;gap:8px;padding:4px 0 14px}
+.chip{display:inline-flex;align-items:baseline;gap:6px;border:1px solid var(--line);background:var(--surface);border-radius:999px;padding:5px 12px;font-size:13px;color:var(--muted)}
+.chip b{color:var(--ink);font-size:15px}
+button.chip:hover{border-color:var(--accent)}
+.chip.bad{border-color:var(--bad);background:var(--bad-bg);color:var(--bad)}
+.chip.bad b{color:var(--bad)}
+.chip.warn{border-color:var(--warn);background:var(--warn-bg);color:var(--warn)}
+.chip.warn b{color:var(--warn)}
+.chip.ok{border-color:var(--ok);background:var(--ok-bg);color:var(--ok)}
+.chip.ok b{color:var(--ok)}
+
+.tabs{display:flex;gap:2px;border-bottom:1px solid var(--line);overflow-x:auto}
+.tabs button{border:0;background:none;padding:10px 14px;font-weight:600;color:var(--muted);border-bottom:2px solid transparent;margin-bottom:-1px;white-space:nowrap}
+.tabs button[aria-selected="true"]{color:var(--ink);border-bottom-color:var(--accent)}
+main{padding:16px 0 80px}
+.hint{color:var(--muted);font-size:13px;margin:0}
+
+/* board */
+.boardbar{display:flex;flex-wrap:wrap;gap:10px 18px;align-items:center;justify-content:space-between;margin-bottom:12px}
+.legend{display:flex;flex-wrap:wrap;gap:12px;font-size:12.5px;color:var(--muted);align-items:center}
+.sw{display:inline-block;width:14px;height:12px;border-radius:3px;vertical-align:-1px;margin-right:4px;border:1px solid var(--line)}
+.sw.y1{background:var(--y1);border-color:var(--y1s)} .sw.y2{background:var(--y2);border-color:var(--y2s)} .sw.y3{background:var(--y3);border-color:var(--y3s)}
+.sw.fx{background:repeating-linear-gradient(135deg,var(--fixed) 0 4px,transparent 4px 7px)}
+.sw.bd{background:var(--bad-bg);border:2px solid var(--bad)}
+.board{display:flex;flex-direction:column;gap:14px}
+.day{background:var(--surface);border:1px solid var(--line);border-radius:10px;overflow:hidden}
+.dayhead{display:flex;flex-wrap:wrap;gap:6px 12px;align-items:baseline;padding:10px 14px;border-bottom:1px solid var(--line)}
+.dayhead h3{font-size:17px}
+.dayhead .dow{font-weight:500;color:var(--muted);margin-left:2px}
+.tag{font-size:12px;border-radius:5px;padding:1px 7px;background:var(--fixed);color:var(--muted)}
+.tag.alt{background:var(--warn-bg);color:var(--warn)}
+.tag.free{background:var(--ok-bg);color:var(--ok)}
+.dayhead .cnt{margin-left:auto;font-size:13px;color:var(--muted)}
+.scroller{overflow-x:auto}
+.grid{min-width:940px}
+.ghead,.grow{display:grid;grid-template-columns:52px 1fr}
+.ghead .periods,.track{display:grid;grid-template-columns:repeat(4,minmax(0,1fr)) minmax(0,.55fr) repeat(5,minmax(0,1fr))}
+.ghead{font-size:11.5px;color:var(--muted);border-bottom:1px solid var(--line);background:var(--bg)}
+.ghead .periods div{padding:4px 0;text-align:center;border-left:1px solid var(--line);line-height:1.3}
+.ghead .periods b{display:block;color:var(--ink);font-size:12.5px}
+.glabel{display:flex;align-items:center;justify-content:center;font-weight:600;font-size:13px;border-right:1px solid var(--line);position:relative}
+.glabel::before{content:"";position:absolute;left:0;top:0;bottom:0;width:4px}
+.glabel.y1::before{background:var(--y1s)} .glabel.y2::before{background:var(--y2s)} .glabel.y3::before{background:var(--y3s)}
+.grow{border-bottom:1px solid var(--line)}
+.grow:last-child{border-bottom:0}
+.grow.yb{border-top:2px solid var(--line)}
+.track{position:relative;grid-auto-rows:minmax(42px,auto);padding:3px 0}
+.cell{grid-row:1/-1;border-left:1px solid var(--line);margin:-3px 0}
+.cell.lunch{background:var(--lunch)}
+.cell.ok{background:var(--ok-bg);box-shadow:inset 0 0 0 2px var(--ok)}
+.cell.bad{background:var(--bad-bg);box-shadow:inset 0 0 0 2px var(--bad)}
+.blk{margin:2px 3px;border-radius:6px;padding:4px 7px;font-size:12px;line-height:1.3;min-width:0;text-align:left;border:1px solid transparent;position:relative;z-index:1;overflow:hidden}
+.blk .t{display:block;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.blk .s{display:block;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:11.5px}
+.blk.fixed{background:repeating-linear-gradient(135deg,var(--fixed) 0 6px,transparent 6px 10px);border-color:var(--line);color:var(--fixed-ink)}
+.blk.fixed .t{font-weight:500}
+.blk.exam{cursor:grab;touch-action:none;user-select:none;-webkit-user-select:none}
+.blk.exam.y1{background:var(--y1);border-color:var(--y1s)} .blk.exam.y2{background:var(--y2);border-color:var(--y2s)} .blk.exam.y3{background:var(--y3);border-color:var(--y3s)}
+.blk.exam:hover{filter:brightness(.97)}
+.blk.exam.bad{border:2px solid var(--bad);box-shadow:0 0 0 2px var(--bad-bg)}
+.blk .badge{position:absolute;top:3px;right:4px;font-size:10.5px;font-weight:700;border-radius:4px;padding:0 4px;line-height:15px}
+.badge.b-bad{background:var(--bad);color:#fff}
+.badge.b-mv{background:var(--warn-bg);color:var(--warn);border:1px solid var(--warn)}
+.badge.b-ok{background:var(--ok);color:#fff}
+.blk.has-badge .t{padding-right:30px}
+body.dragging,body.dragging *{cursor:grabbing !important}
+body.dragging .blk{pointer-events:none}
+.blk.src{opacity:.35}
+.ghost{position:fixed;z-index:50;pointer-events:none;opacity:.92;box-shadow:0 6px 18px rgba(0,0,0,.25)}
+.dragtip{position:fixed;z-index:60;pointer-events:none;background:var(--ink);color:var(--surface);font-size:12px;border-radius:6px;padding:5px 8px;max-width:320px;line-height:1.4}
+.adddate{display:flex;gap:6px;align-items:center;font-size:13px}
+select,input[type="text"],input[type="number"],textarea{border:1px solid var(--line);background:var(--surface);border-radius:7px;padding:5px 8px}
+textarea{width:100%;resize:vertical}
+
+/* list */
+.filters{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:10px}
+.filters label{font-size:13px;color:var(--muted);display:flex;gap:6px;align-items:center}
+.tablebox{overflow-x:auto;background:var(--surface);border:1px solid var(--line);border-radius:10px}
+table{border-collapse:collapse;width:100%}
+th,td{padding:7px 8px;border-bottom:1px solid var(--line);text-align:left;vertical-align:middle}
+th{font-size:12px;color:var(--muted);font-weight:600;background:var(--bg);white-space:nowrap;position:sticky;top:0}
+tbody tr:last-child td{border-bottom:0}
+td .sub{display:block;color:var(--muted);font-size:12px}
+.listtable select,.listtable input[type="text"]{padding:3px 6px;font-size:13px}
+.listtable .note{min-width:160px;width:100%}
+.linkbtn{border:0;background:none;padding:0;color:var(--ink);font-weight:600;text-align:left}
+.linkbtn:hover{text-decoration:underline}
+.st{display:flex;flex-wrap:wrap;gap:4px}
+.pill{font-size:11.5px;font-weight:600;border-radius:5px;padding:1px 6px;white-space:nowrap}
+.pill.bad{background:var(--bad-bg);color:var(--bad)} .pill.warn{background:var(--warn-bg);color:var(--warn)} .pill.ok{background:var(--ok-bg);color:var(--ok)} .pill.mv{border:1px solid var(--warn);color:var(--warn)} .pill.na{background:var(--fixed);color:var(--muted)}
+tr.rbad td:first-child{box-shadow:inset 3px 0 0 var(--bad)}
+.gtag{font-weight:700}
+
+/* profs */
+.profgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(360px,1fr));gap:14px}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:14px;display:flex;flex-direction:column;gap:10px}
+.card h3{font-size:16px;display:flex;justify-content:space-between;gap:8px;align-items:baseline}
+.card h3 small{font-size:12.5px;color:var(--muted);font-weight:500}
+.msg{white-space:pre-wrap;font-size:12.5px;background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:10px;margin:0;max-height:240px;overflow:auto;font-family:var(--font-body)}
+
+/* settings */
+.setgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(420px,1fr));gap:14px}
+.card h2{font-size:15px}
+.field{display:flex;flex-direction:column;gap:4px;font-size:13px}
+.field span{color:var(--muted)}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.result{font-size:13px;border-radius:7px;padding:8px 10px;background:var(--bg)}
+.result.bad{background:var(--bad-bg);color:var(--bad)} .result.ok{background:var(--ok-bg);color:var(--ok)}
+ul.plain{margin:0;padding-left:18px;font-size:13px;color:var(--muted)}
+
+/* drawer */
+.drawer{position:fixed;top:0;right:0;bottom:0;width:min(420px,100%);background:var(--surface);border-left:1px solid var(--line);box-shadow:-8px 0 24px rgba(0,0,0,.12);z-index:40;display:flex;flex-direction:column}
+.drawer[hidden]{display:none}
+.dhead{padding:16px 18px 12px;border-bottom:1px solid var(--line);display:flex;gap:10px;justify-content:space-between;align-items:flex-start}
+.dhead h2{font-size:18px}
+.dhead .btn{white-space:nowrap;flex-shrink:0}
+.dhead p{margin:2px 0 0;color:var(--muted);font-size:13px}
+.dbody{padding:14px 18px 24px;overflow-y:auto;display:flex;flex-direction:column;gap:14px}
+.fgrid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.fgrid .full{grid-column:1/-1}
+.fgrid select,.fgrid input{width:100%}
+.fgrid input[type="checkbox"]{width:auto;margin:0 6px 0 0}
+.chk{display:flex;align-items:center;color:var(--ink) !important;min-height:30px}
+.checks{display:flex;flex-direction:column;gap:6px;font-size:13px}
+.checks .it{border-radius:7px;padding:7px 9px}
+.checks .it.bad{background:var(--bad-bg);color:var(--bad)} .checks .it.warn{background:var(--warn-bg);color:var(--warn)} .checks .it.ok{background:var(--ok-bg);color:var(--ok)}
+.slots{display:flex;flex-direction:column;gap:8px}
+.slotday{display:grid;grid-template-columns:118px 1fr;gap:6px;align-items:start;font-size:13px}
+.slotday .lbl{color:var(--muted);padding-top:3px}
+.slotday .lbl b{color:var(--ink)}
+.slotday .opts{display:flex;flex-wrap:wrap;gap:4px}
+.slotbtn{border:1px solid var(--line);background:var(--bg);border-radius:6px;padding:2px 7px;font-size:12.5px}
+.slotbtn:hover{border-color:var(--ok);background:var(--ok-bg)}
+.slotbtn.cur{border-color:var(--accent);background:var(--accent);color:var(--accent-ink)}
+.dsec h3{font-size:13px;color:var(--muted);font-weight:600;margin-bottom:6px}
+.toast{position:fixed;left:50%;bottom:22px;transform:translateX(-50%);background:var(--ink);color:var(--surface);padding:9px 14px;border-radius:8px;font-size:13.5px;z-index:70;opacity:0;transition:opacity .2s;pointer-events:none;max-width:90vw}
+.toast.on{opacity:1}
+@media (max-width:640px){
+  .wrap{padding:0 16px}
+  h1{font-size:20px}
+  .setgrid,.profgrid{grid-template-columns:1fr}
+}
+@media (prefers-reduced-motion: reduce){ .toast{transition:none} }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <div>
+      <p class="eyebrow" id="deptLabel"></p>
+      <h1 id="titleLabel"></h1>
+    </div>
+    <div class="actions">
+      <span id="saveState" class="savepill" role="status"></span>
+      <button type="button" class="btn" id="btnRegister">시험 일정 등록</button>
+      <button type="button" class="btn primary" id="btnExport">엑셀로 내보내기</button>
+    </div>
+  </header>
+  <section class="summary" id="summary" aria-label="요약"></section>
+  <nav class="tabs" role="tablist" aria-label="보기">
+    <button type="button" role="tab" id="tab-btn-board" data-tab="board" aria-selected="true">날짜별 배치</button>
+    <button type="button" role="tab" id="tab-btn-courses" data-tab="courses" aria-selected="false">과목 목록</button>
+    <button type="button" role="tab" id="tab-btn-professors" data-tab="professors" aria-selected="false">교수님 확인</button>
+    <button type="button" role="tab" id="tab-btn-setup" data-tab="setup" aria-selected="false">설정</button>
+  </nav>
+  <main>
+    <section id="tab-board" class="tabpanel" role="tabpanel">
+      <div class="boardbar">
+        <p class="hint">시험 블록을 끌어서 다른 시간·날짜로 옮기면 같은 반 수업, 교수님 일정, 강의실 겹침을 바로 확인해요. 블록을 누르면 방식·시간을 입력할 수 있어요.</p>
+        <div class="adddate"><label for="addDate">날짜 추가</label><select id="addDate"></select></div>
+      </div>
+      <div class="legend" style="margin-bottom:10px">
+        <span><i class="sw y1"></i>1학년 시험</span><span><i class="sw y2"></i>2학년 시험</span><span><i class="sw y3"></i>3학년 시험</span>
+        <span><i class="sw fx"></i>그날 정상 수업(옮길 수 없음)</span><span><i class="sw bd"></i>겹침</span>
+      </div>
+      <div class="board" id="board"></div>
+    </section>
+    <section id="tab-courses" class="tabpanel" role="tabpanel" hidden>
+      <div class="filters">
+        <label for="fGroup">반 <select id="fGroup"></select></label>
+        <label for="fProf">교수 <select id="fProf"></select></label>
+        <label for="fStatus">상태 <select id="fStatus">
+          <option value="">전체</option><option value="bad">겹침 있음</option><option value="warn">확인 필요</option><option value="moved">날짜·시간 변경</option><option value="undecided">방식 미정</option><option value="open">미확정</option><option value="done">확정</option>
+        </select></label>
+        <label for="fQ">검색 <input type="text" id="fQ" placeholder="과목·교수·강의실"></label>
+        <button type="button" class="btn small" id="btnCopyTsv">표 복사 (엑셀 붙여넣기용)</button>
+      </div>
+      <div class="tablebox"><table class="listtable" id="listTable"></table></div>
+    </section>
+    <section id="tab-professors" class="tabpanel" role="tabpanel" hidden>
+      <p class="hint" style="margin-bottom:12px">교수님별로 담당 과목 시험 일정을 모았어요. 문구를 복사해서 메일이나 메신저로 확인 요청을 보내세요.</p>
+      <div class="profgrid" id="profGrid"></div>
+    </section>
+    <section id="tab-setup" class="tabpanel" role="tabpanel" hidden>
+      <div class="setgrid" id="setupGrid"></div>
+    </section>
+  </main>
+</div>
+<aside id="drawer" class="drawer" hidden aria-label="과목 시험 설정"></aside>
+<div id="dragTip" class="dragtip" hidden></div>
+<div id="toast" class="toast" role="status" aria-live="polite"></div>
+<script id="seed" type="application/json">/*SEED*/</script>
+<script>
+'use strict';
+const SEED = JSON.parse(document.getElementById('seed').textContent);
+const PERIODS = [['09:00','09:50'],['09:55','10:45'],['10:50','11:40'],['11:45','12:35'],['12:40','13:30'],['13:35','14:25'],['14:30','15:20'],['15:25','16:15'],['16:20','17:10'],['17:15','18:05']];
+const NP = 10, LUNCH = 5;
+const DOW = ['일','월','화','수','목','금','토'];
+const DAY_ORDER = ['월','화','수','목','금','토'];
+const METHODS = ['미정','필기','실기','필기+실기','발표','과제 대체','시험 없음'];
+const NO_SLOT = new Set(['과제 대체','시험 없음']);
+const LS_KEY = 'exam-planner:v1';
+const TAB_ID = Math.random().toString(36).slice(2, 10);
+const EXCELJS_URL = 'https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js';
+const $ = (s, r = document) => r.querySelector(s);
+const $$ = (s, r = document) => [...r.querySelectorAll(s)];
+const esc = s => String(s ?? '').replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
+const clone = o => JSON.parse(JSON.stringify(o));
+const range = (a, b) => { const r = []; for (let i = a; i <= b; i++) r.push(i); return r; };
+
+let S = null;
+const D = {};
+const ui = { tab: 'board', filter: { group: '', prof: '', status: '', q: '' }, drawerId: null, pending: {} };
+
+/* ---------- state & derived data ---------- */
+function freshState() {
+  return { v: 1, title: SEED.title, dept: SEED.dept, year: SEED.year, examWeek: SEED.examWeek,
+    calendar: clone(SEED.calendar), classes: clone(SEED.classes), exams: {}, extraDates: [], rev: 0, updatedAt: 0 };
+}
+function validState(s) {
+  return !!(s && s.v === 1 && Array.isArray(s.classes) && s.calendar && Array.isArray(s.calendar.weeks) && Array.isArray(s.calendar.cols) && s.exams && typeof s.exams === 'object');
+}
+function tokToIso(tok) {
+  const m = String(tok || '').match(/(\d{1,2})\s*\/\s*(\d{1,2})/);
+  if (!m) return null;
+  const mo = +m[1], da = +m[2];
+  let y = +S.year;
+  if (D.firstMonth >= 7 && mo <= 2) y += 1;
+  return `${y}-${String(mo).padStart(2, '0')}-${String(da).padStart(2, '0')}`;
+}
+const dowOf = iso => new Date(iso + 'T00:00:00Z').getUTCDay();
+function fmt(iso) { if (!iso) return '-'; const [, m, d] = iso.split('-'); return `${+m}/${+d}(${DOW[dowOf(iso)]})`; }
+const groupOf = c => `${c.year}${c.ban}`;
+const lenOf = c => c.end - c.start + 1;
+const roomLabel = r => !r ? '-' : (/^\d+$/.test(r) ? r + '호' : r);
+const normRoom = r => String(r || '').replace(/호/g, '').replace(/\s+/g, '').toUpperCase();
+const pRange = (s, len) => len <= 1 ? `${s}교시` : `${s}~${s + len - 1}교시`;
+const tRange = (s, len) => { const e = Math.min(NP, s + len - 1); return `${PERIODS[s - 1]?.[0] ?? '?'}~${PERIODS[e - 1]?.[1] ?? '?'}`; };
+
+function derive() {
+  const first = S.calendar.weeks.find(Boolean)?.find(Boolean);
+  D.firstMonth = first ? +String(first).split('/')[0] : 9;
+  const dm = {}, colDates = {};
+  S.calendar.weeks.forEach((row, wi) => {
+    (row || []).forEach((tok, ci) => {
+      const col = S.calendar.cols[ci];
+      const iso = tokToIso(tok);
+      if (!col || !iso) return;
+      dm[iso] = { col, week: wi + 1 };
+      (colDates[col] = colDates[col] || [])[wi] = iso;
+    });
+  });
+  D.dateMap = dm; D.colDates = colDates;
+  D.allDates = Object.keys(dm).sort();
+  D.lastDate = D.allDates[D.allDates.length - 1];
+  D.byId = Object.fromEntries(S.classes.map(c => [c.id, c]));
+  D.groups = [...new Set(S.classes.map(groupOf))].sort();
+  D.profs = [...new Set(S.classes.map(c => c.prof).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'ko'));
+  D.rooms = [...new Set(S.classes.map(c => c.room).filter(Boolean))].sort();
+  D.candDates = D.allDates.filter(d => dm[d].week >= S.examWeek - 2 && dowOf(d) !== 0);
+  for (const c of S.classes) if (!S.exams[c.id]) S.exams[c.id] = defaultExam(c);
+  for (const id of Object.keys(S.exams)) if (!D.byId[id]) delete S.exams[id];
+}
+const defaultDate = c => D.colDates[c.day]?.[S.examWeek - 1] || '';
+const prevDate = c => D.colDates[c.day]?.[S.examWeek - 2] || '';
+function defaultExam(c) {
+  return { method: '미정', date: defaultDate(c), start: c.start, len: lenOf(c), room: c.room, note: '', done: false };
+}
+const hasSlot = ex => !NO_SLOT.has(ex.method);
+const isMoved = c => { const ex = S.exams[c.id]; return hasSlot(ex) && (ex.date !== defaultDate(c) || ex.start !== c.start); };
+
+/* Everything that occupies time on a date.
+   - fixed: a regular class session held that day (any week except the exam week; also exam-week
+     sessions of courses that have no exam slot, which we treat as held normally).
+   - exam: any exam placed on that date. */
+function itemsOn(iso, excludeId) {
+  const out = [];
+  const info = D.dateMap[iso];
+  if (info) {
+    const examWeekDay = info.week === S.examWeek;
+    for (const c of S.classes) {
+      if (c.day !== info.col) continue;
+      if (examWeekDay && hasSlot(S.exams[c.id])) continue;
+      out.push({ kind: 'fixed', c, s: c.start, e: c.end, room: c.room, week: info.week });
+    }
+  }
+  for (const c of S.classes) {
+    if (c.id === excludeId) continue;
+    const ex = S.exams[c.id];
+    if (!hasSlot(ex) || ex.date !== iso) continue;
+    out.push({ kind: 'exam', c, s: ex.start, e: ex.start + ex.len - 1, room: ex.room });
+  }
+  return out;
+}
+function conflictsOf(c, p) {
+  if (!p.date) return [];
+  const s = p.start, e = p.start + p.len - 1, g = groupOf(c), rn = normRoom(p.room);
+  const res = [];
+  for (const it of itemsOn(p.date, c.id)) {
+    if (it.s > e || it.e < s) continue;
+    const kinds = [];
+    if (groupOf(it.c) === g) kinds.push('반');
+    if (it.c.prof && it.c.prof === c.prof) kinds.push('교수');
+    if (rn && normRoom(it.room) === rn) kinds.push('강의실');
+    if (kinds.length) res.push({ kinds, it });
+  }
+  return res;
+}
+function warningsOf(c, p) {
+  const w = [];
+  if (!p.date) { w.push('날짜를 정해 주세요'); return w; }
+  const dw = dowOf(p.date);
+  if (dw === 0 || dw === 6) w.push(`${DOW[dw]}요일이에요`);
+  if (!D.dateMap[p.date]) w.push('수업일 현황에 없는 날짜예요');
+  if (D.lastDate && p.date > D.lastDate) w.push(`학기 마지막 수업일(${fmt(D.lastDate)}) 이후예요`);
+  const pv = prevDate(c);
+  if (pv && p.date <= pv) w.push(`${S.examWeek - 1}주차 수업(${fmt(pv)})보다 이르거나 같은 날이에요`);
+  if (p.start <= LUNCH && p.start + p.len - 1 >= LUNCH) w.push('점심시간(5교시)이 끼어 있어요');
+  if (p.start + p.len - 1 > NP) w.push('10교시를 넘어가요');
+  return w;
+}
+function describeConflict(x) {
+  const it = x.it, o = it.c;
+  const what = it.kind === 'exam' ? '시험' : `${it.week}주차 수업`;
+  const room = x.kinds.includes('강의실') ? ` · ${roomLabel(it.room)}` : '';
+  return `${x.kinds.join('·')} 겹침: ${o.course}(${o.prof}, ${groupOf(o)}) ${what} ${pRange(it.s, it.e - it.s + 1)}${room}`;
+}
+function statusOf(c) {
+  const ex = S.exams[c.id];
+  if (!hasSlot(ex)) return { bad: [], warn: [], moved: false, undecided: false, done: !!ex.done, noslot: true };
+  const p = { date: ex.date, start: ex.start, len: ex.len, room: ex.room };
+  return { bad: conflictsOf(c, p), warn: warningsOf(c, p), moved: isMoved(c), undecided: ex.method === '미정', done: !!ex.done, noslot: false };
+}
+function freeSlots(c, len, room) {
+  const pv = prevDate(c);
+  const dates = D.candDates.filter(d => (!pv || d > pv) && dowOf(d) !== 6);
+  const out = [];
+  for (const d of dates) {
+    const starts = range(1, NP - len + 1).filter(s => !(s <= LUNCH && s + len - 1 >= LUNCH) && conflictsOf(c, { date: d, start: s, len, room }).length === 0);
+    if (starts.length) out.push({ d, starts });
+  }
+  return out;
+}
+function dayInfoLabel(iso) {
+  const info = D.dateMap[iso];
+  if (!info) return { text: '수업일 현황에 없는 날', cls: 'alt' };
+  const real = DOW[dowOf(iso)];
+  const hasClasses = S.classes.some(c => c.day === info.col);
+  let text = `${info.col}요일 시간표 · ${info.week}주차`;
+  let cls = info.week === S.examWeek ? '' : 'alt';
+  if (info.col !== real) text += ` (${real}요일에 ${info.col}요일 수업)`;
+  if (!hasClasses) { text += ' · 우리 과 수업 없음'; cls = 'free'; }
+  return { text, cls };
+}
+
+/* ---------- persistence ---------- */
+const cloud = { ref: null, writing: false, dirty: false, timer: null, loaded: false, retried: false, mode: 'local' };
+function persistLocal() { try { localStorage.setItem(LS_KEY, JSON.stringify(S)); return true; } catch { return false; } }
+function loadLocal() { try { const t = localStorage.getItem(LS_KEY); if (!t) return null; const s = JSON.parse(t); return validState(s) ? s : null; } catch { return null; } }
+function setSave(mode, detail) {
+  if (mode) cloud.mode = mode;
+  const el = $('#saveState');
+  const map = { local: '이 브라우저에 저장돼요', loading: '저장된 내용 불러오는 중', saving: '저장 중', cloud: '저장됨', offline: '저장소 연결 대기 중 · 이 브라우저에 보관', error: '저장소에 저장하지 못했어요 · 이 브라우저에 보관' };
+  el.textContent = map[cloud.mode] || '';
+  el.className = 'savepill ' + cloud.mode;
+  if (detail) el.title = String(detail);
+}
+function changed(opts = {}) {
+  S.rev = (S.rev || 0) + 1; S.updatedAt = Date.now(); S.writer = TAB_ID;
+  persistLocal();
+  if (cloud.ref) { cloud.dirty = true; setSave('saving'); clearTimeout(cloud.timer); cloud.timer = setTimeout(flushCloud, 700); }
+  if (!opts.noRender) render();
+}
+async function flushCloud() {
+  if (!cloud.ref || cloud.writing || !cloud.dirty) return;
+  cloud.writing = true; cloud.dirty = false;
+  try {
+    await cloud.ref.set({ payload: JSON.stringify(S), rev: S.rev, updatedAt: S.updatedAt, writer: TAB_ID });
+    cloud.retried = false;
+    setSave(cloud.dirty ? 'saving' : 'cloud');
+  } catch (err) {
+    if (err && err.code === 'unavailable' && !cloud.retried) { cloud.retried = true; cloud.dirty = true; setTimeout(flushCloud, 1200 + Math.random() * 1200); }
+    else { setSave('error', err && (err.message || err.code)); }
+  } finally {
+    cloud.writing = false;
+    if (cloud.dirty && cloud.mode !== 'error') { clearTimeout(cloud.timer); cloud.timer = setTimeout(flushCloud, 400); }
+  }
+}
+async function initCloud() {
+  if (!(window.claude && typeof window.claude.use === 'function')) { setSave('local'); return; }
+  let db = null;
+  try { db = await window.claude.use('db'); } catch { db = null; }
+  if (!db) { setSave('local'); return; }
+  let ref;
+  try { ref = db.doc('planner/state'); } catch { setSave('local'); return; }
+  cloud.ref = ref;
+  setSave('loading');
+  const timer = setTimeout(() => { if (!cloud.loaded) setSave('offline'); }, 10000);
+  ref.onSnapshot(snap => {
+    const definitive = !snap.metadata.fromCache;
+    if (snap.exists) {
+      const d = snap.data() || {};
+      if (d.writer !== TAB_ID && (d.updatedAt || 0) > (S.updatedAt || 0)) {
+        try { const s = JSON.parse(d.payload); if (validState(s)) { S = s; derive(); persistLocal(); render(); if (ui.drawerId) openDrawer(ui.drawerId); } } catch {}
+      } else if (definitive && !cloud.loaded && (S.updatedAt || 0) > (d.updatedAt || 0)) { cloud.dirty = true; flushCloud(); }
+    } else if (definitive && !cloud.loaded && (S.rev || 0) > 0) { cloud.dirty = true; flushCloud(); }
+    if (definitive) { clearTimeout(timer); cloud.loaded = true; if (!cloud.writing && !cloud.dirty && cloud.mode !== 'error') setSave('cloud'); }
+  }, err => { clearTimeout(timer); cloud.ref = null; setSave('error', err && (err.message || err.code)); });
+}
+
+/* ---------- rendering ---------- */
+function render() {
+  $('#deptLabel').textContent = S.dept;
+  $('#titleLabel').textContent = `${S.title} 시간표`;
+  renderSummary();
+  if (ui.tab === 'board') renderBoard();
+  if (ui.tab === 'courses') renderList();
+  if (ui.tab === 'professors') renderProfs();
+  if (ui.tab === 'setup') renderSetup();
+  if (ui.drawerId) refreshDrawerChecks();
+  if (ui.reg) refreshRegister();
+}
+function counts() {
+  let total = 0, bad = 0, warn = 0, moved = 0, und = 0, done = 0, noslot = 0;
+  for (const c of S.classes) {
+    const st = statusOf(c);
+    if (st.noslot) { noslot++; if (st.done) done++; continue; }
+    total++;
+    if (st.bad.length) bad++;
+    if (st.warn.length) warn++;
+    if (st.moved) moved++;
+    if (st.undecided) und++;
+    if (st.done) done++;
+  }
+  return { total, bad, warn, moved, und, done, noslot, all: S.classes.length };
+}
+function renderSummary() {
+  const k = counts();
+  $('#summary').innerHTML = `
+    <span class="chip">시험 과목 <b>${k.total}</b>${k.noslot ? ` · 시험 없음 ${k.noslot}` : ''}</span>
+    <button type="button" class="chip ${k.bad ? 'bad' : 'ok'}" data-jump="bad">겹침 <b>${k.bad}</b></button>
+    <button type="button" class="chip ${k.warn ? 'warn' : ''}" data-jump="warn">확인 필요 <b>${k.warn}</b></button>
+    <button type="button" class="chip" data-jump="moved">날짜·시간 변경 <b>${k.moved}</b></button>
+    <button type="button" class="chip ${k.und ? 'warn' : ''}" data-jump="undecided">방식 미정 <b>${k.und}</b></button>
+    <button type="button" class="chip ${k.done === k.all ? 'ok' : ''}" data-jump="done">확정 <b>${k.done}</b> / ${k.all}</button>`;
+}
+function boardDates() {
+  const set = new Set();
+  for (const col of S.calendar.cols) { const d = D.colDates[col]?.[S.examWeek - 1]; if (d) set.add(d); }
+  for (const c of S.classes) { const ex = S.exams[c.id]; if (hasSlot(ex) && ex.date) set.add(ex.date); }
+  for (const d of S.extraDates || []) set.add(d);
+  return [...set].sort();
+}
+function lanesFor(items) {
+  const sorted = items.slice().sort((a, b) => a.s - b.s || (a.kind === 'fixed' ? -1 : 1));
+  const ends = [];
+  for (const it of sorted) {
+    let lane = ends.findIndex(e => e < it.s);
+    if (lane < 0) { lane = ends.length; ends.push(it.e); } else ends[lane] = it.e;
+    it.lane = lane;
+  }
+  return Math.max(1, ends.length);
+}
+function renderBoard() {
+  const dates = boardDates();
+  const html = [];
+  const statusCache = {};
+  for (const c of S.classes) statusCache[c.id] = statusOf(c);
+  const head = `<div class="ghead"><div></div><div class="periods">${PERIODS.map((p, i) => `<div><b>${i + 1}</b>${i + 1 === LUNCH ? '점심' : p[0]}</div>`).join('')}</div></div>`;
+  for (const d of dates) {
+    const items = itemsOn(d, null);
+    const nExam = items.filter(i => i.kind === 'exam').length;
+    const lab = dayInfoLabel(d);
+    const removable = (S.extraDates || []).includes(d) && !nExam;
+    const [, m, dd] = d.split('-');
+    let rows = '', prevYear = null;
+    for (const g of D.groups) {
+      const gi = items.filter(i => groupOf(i.c) === g);
+      const lanes = lanesFor(gi);
+      const year = g.slice(0, -1);
+      const cells = range(1, NP).map(p => `<div class="cell${p === LUNCH ? ' lunch' : ''}" style="grid-column:${p}" data-date="${d}" data-group="${g}" data-p="${p}"></div>`).join('');
+      const blocks = gi.map(it => {
+        const pos = `grid-column:${it.s} / span ${Math.min(NP, it.e) - it.s + 1};grid-row:${it.lane + 1}`;
+        if (it.kind === 'fixed') {
+          return `<div class="blk fixed" style="${pos}" title="${esc(`${it.week}주차 정상 수업: ${it.c.course}(${it.c.prof}) ${roomLabel(it.c.room)}`)}"><span class="t">${esc(it.c.course)}</span><span class="s">${it.week}주차 수업 · ${esc(it.c.prof)}</span></div>`;
+        }
+        const ex = S.exams[it.c.id], st = statusCache[it.c.id];
+        const badge = st.bad.length ? `<span class="badge b-bad">겹침</span>` : st.done ? `<span class="badge b-ok">확정</span>` : st.moved ? `<span class="badge b-mv">이동</span>` : '';
+        const tip = [`${it.c.course} (${it.c.prof}) ${g}`, `${fmt(ex.date)} ${pRange(ex.start, ex.len)} ${tRange(ex.start, ex.len)} · ${roomLabel(ex.room)} · ${ex.method}`, ...st.bad.map(describeConflict), ...st.warn].join('\n');
+        return `<button type="button" class="blk exam y${esc(year)}${st.bad.length ? ' bad' : ''}${badge ? ' has-badge' : ''}" style="${pos}" data-id="${esc(it.c.id)}" title="${esc(tip)}"><span class="t">${esc(it.c.course)}</span><span class="s">${esc(it.c.prof)} · ${esc(roomLabel(ex.room))} · ${esc(ex.method)}</span>${badge}</button>`;
+      }).join('');
+      rows += `<div class="grow${prevYear !== null && prevYear !== year ? ' yb' : ''}"><div class="glabel y${esc(year)}">${esc(g)}</div><div class="track" style="grid-template-rows:repeat(${lanes},minmax(42px,auto))">${cells}${blocks}</div></div>`;
+      prevYear = year;
+    }
+    html.push(`<section class="day" data-day="${d}">
+      <div class="dayhead"><h3>${+m}/${+dd}<span class="dow">(${DOW[dowOf(d)]})</span></h3><span class="tag ${lab.cls}">${esc(lab.text)}</span>
+      <span class="cnt">시험 ${nExam}과목</span>${removable ? `<button type="button" class="btn small" data-rmdate="${d}">목록에서 빼기</button>` : ''}</div>
+      <div class="scroller"><div class="grid">${head}${rows}</div></div></section>`);
+  }
+  $('#board').innerHTML = html.join('');
+  const shown = new Set(dates);
+  $('#addDate').innerHTML = `<option value="">날짜 선택</option>` + D.candDates.filter(d => !shown.has(d)).map(d => `<option value="${d}">${fmt(d)} · ${D.dateMap[d].col}${D.dateMap[d].week}주차</option>`).join('');
+}
+function dateOptions(cur) {
+  const list = D.candDates.slice();
+  if (cur && !list.includes(cur)) { list.push(cur); list.sort(); }
+  return list.map(d => `<option value="${d}"${d === cur ? ' selected' : ''}>${fmt(d)} ${D.dateMap[d] ? `· ${D.dateMap[d].col}${D.dateMap[d].week}` : ''}</option>`).join('');
+}
+const opts = (arr, cur, lab = x => x) => arr.map(v => `<option value="${esc(v)}"${String(v) === String(cur) ? ' selected' : ''}>${esc(lab(v))}</option>`).join('');
+function filteredClasses() {
+  const f = ui.filter, q = f.q.trim().toLowerCase();
+  const dayIdx = d => DAY_ORDER.indexOf(d);
+  return S.classes.filter(c => {
+    if (f.group && groupOf(c) !== f.group) return false;
+    if (f.prof && c.prof !== f.prof) return false;
+    if (q && !`${c.course} ${c.prof} ${c.room} ${S.exams[c.id].room} ${groupOf(c)}`.toLowerCase().includes(q)) return false;
+    if (f.status) {
+      const st = statusOf(c);
+      if (f.status === 'bad' && !st.bad.length) return false;
+      if (f.status === 'warn' && !st.warn.length) return false;
+      if (f.status === 'moved' && !st.moved) return false;
+      if (f.status === 'undecided' && !st.undecided) return false;
+      if (f.status === 'open' && st.done) return false;
+      if (f.status === 'done' && !st.done) return false;
+    }
+    return true;
+  }).sort((a, b) => groupOf(a).localeCompare(groupOf(b)) || dayIdx(a.day) - dayIdx(b.day) || a.start - b.start);
+}
+function statusPills(st) {
+  const out = [];
+  if (st.noslot) out.push('<span class="pill na">시험 없음</span>');
+  if (st.bad.length) out.push(`<span class="pill bad" title="${esc(st.bad.map(describeConflict).join('\n'))}">겹침 ${st.bad.length}</span>`);
+  if (st.warn.length) out.push(`<span class="pill warn" title="${esc(st.warn.join('\n'))}">확인 ${st.warn.length}</span>`);
+  if (st.moved) out.push('<span class="pill mv">변경</span>');
+  if (st.done) out.push('<span class="pill ok">확정</span>');
+  if (!out.length) out.push('<span class="pill na">기본</span>');
+  return `<div class="st">${out.join('')}</div>`;
+}
+function renderList() {
+  const f = ui.filter;
+  $('#fGroup').innerHTML = `<option value="">전체</option>` + opts(D.groups, f.group);
+  $('#fProf').innerHTML = `<option value="">전체</option>` + opts(D.profs, f.prof);
+  $('#fStatus').value = f.status;
+  if (document.activeElement !== $('#fQ')) $('#fQ').value = f.q;
+  const rows = filteredClasses().map(c => {
+    const ex = S.exams[c.id], st = statusOf(c), dis = st.noslot ? ' disabled' : '';
+    const id = esc(c.id);
+    return `<tr data-id="${id}" class="${st.bad.length ? 'rbad' : ''}">
+      <td>${statusPills(st)}</td>
+      <td class="gtag">${esc(groupOf(c))}</td>
+      <td><button type="button" class="linkbtn" data-open="${id}">${esc(c.course)}</button><span class="sub">${esc(c.prof)}</span></td>
+      <td>${esc(c.day)} ${pRange(c.start, lenOf(c))}<span class="sub">${S.examWeek}주차 ${fmt(defaultDate(c))}</span></td>
+      <td><select aria-label="방식" data-f="method">${opts(METHODS, ex.method)}</select></td>
+      <td><select aria-label="날짜" data-f="date"${dis}>${dateOptions(ex.date)}</select></td>
+      <td><select aria-label="시작 교시" data-f="start"${dis}>${opts(range(1, NP), ex.start, v => `${v}교시`)}</select></td>
+      <td><select aria-label="교시 수" data-f="len"${dis}>${opts(range(1, 6), ex.len, v => `${v}교시`)}</select><span class="sub">${st.noslot ? '' : tRange(ex.start, ex.len)}</span></td>
+      <td><input type="text" aria-label="강의실" data-f="room" value="${esc(ex.room)}" size="7" list="roomList"${dis}></td>
+      <td><input type="text" class="note" aria-label="요청사항" data-f="note" value="${esc(ex.note)}" placeholder="교수님 요청사항"></td>
+      <td><input type="checkbox" aria-label="확정" data-f="done"${ex.done ? ' checked' : ''}></td>
+    </tr>`;
+  }).join('');
+  $('#listTable').innerHTML = `<thead><tr><th>상태</th><th>반</th><th>과목 · 교수</th><th>원래 수업</th><th>방식</th><th>시험 날짜</th><th>시작</th><th>길이</th><th>강의실</th><th>요청사항·메모</th><th>확정</th></tr></thead>
+    <tbody>${rows || `<tr><td colspan="11" class="hint">조건에 맞는 과목이 없어요.</td></tr>`}</tbody>`;
+}
+function profMessage(prof) {
+  const list = S.classes.filter(c => c.prof === prof).sort((a, b) => (S.exams[a.id].date || '').localeCompare(S.exams[b.id].date || '') || S.exams[a.id].start - S.exams[b.id].start);
+  const lines = [`[${S.title} 일정 확인]`, `${prof} 교수님, 안녕하세요. ${S.dept} 사무실입니다.`, '담당 과목 시험 일정을 아래와 같이 정리했습니다.', ''];
+  list.forEach((c, i) => {
+    const ex = S.exams[c.id];
+    if (!hasSlot(ex)) lines.push(`${i + 1}) ${c.course} (${groupOf(c)}): ${ex.method}`);
+    else lines.push(`${i + 1}) ${c.course} (${groupOf(c)}): ${fmt(ex.date)} ${pRange(ex.start, ex.len)} ${tRange(ex.start, ex.len)}, ${roomLabel(ex.room)}, ${ex.method === '미정' ? '시험 방식 미정' : ex.method}`);
+    if (ex.note) lines.push(`   메모: ${ex.note}`);
+  });
+  lines.push('', '시험 방식이나 시간을 바꾸셔야 하면 회신 부탁드립니다. 감사합니다.');
+  return lines.join('\n');
+}
+function renderProfs() {
+  $('#profGrid').innerHTML = D.profs.map(p => {
+    const list = S.classes.filter(c => c.prof === p);
+    const done = list.filter(c => S.exams[c.id].done).length;
+    const bad = list.filter(c => statusOf(c).bad.length).length;
+    return `<article class="card"><h3>${esc(p)} <small>${list.length}과목 · 확정 ${done}${bad ? ` · <span style="color:var(--bad)">겹침 ${bad}</span>` : ''}</small></h3>
+      <pre class="msg" id="msg-${esc(p)}">${esc(profMessage(p))}</pre>
+      <div class="row"><button type="button" class="btn small" data-copy="${esc(p)}">문구 복사</button>
+      <button type="button" class="btn small" data-markdone="${esc(p)}">이 교수님 과목 모두 확정</button></div></article>`;
+  }).join('');
+}
+function calendarText() {
+  const lines = ['주\t' + S.calendar.cols.join('\t')];
+  S.calendar.weeks.forEach((row, i) => { if (row) lines.push(`${i + 1}\t${row.join('\t')}`); });
+  return lines.join('\n');
+}
+function renderSetup() {
+  const p = ui.pending;
+  const maxWeek = S.calendar.weeks.length;
+  $('#setupGrid').innerHTML = `
+  <article class="card"><h2>기본 정보</h2>
+    <label class="field" for="sTitle"><span>시험 이름 (공지·엑셀 제목에 쓰여요)</span><input type="text" id="sTitle" value="${esc(S.title)}"></label>
+    <label class="field" for="sDept"><span>학과</span><input type="text" id="sDept" value="${esc(S.dept)}"></label>
+    <div class="row"><label class="field" for="sWeek"><span>시험 주차</span><select id="sWeek">${opts(range(1, maxWeek), S.examWeek, v => `${v}주차`)}</select></label>
+      <button type="button" class="btn small" id="btnWeek" style="align-self:flex-end">주차 적용</button></div>
+    ${p.week ? `<div class="result">시험 주차를 ${p.week}주차로 바꾸면 모든 과목의 방식·날짜·메모가 새로 시작돼요. <button type="button" class="btn small danger" id="btnWeekYes">바꾸기</button> <button type="button" class="btn small" data-cancel="week">취소</button></div>` : ''}
+    <p class="hint">중간고사는 보통 8주차예요. 주차를 바꾸면 각 과목의 그 주차 수업 시간이 기본 시험 시간이 돼요.</p>
+  </article>
+  <article class="card"><h2>요일별 수업일 현황</h2>
+    <p class="hint">학사 일정표의 '주 / 월~토' 표를 그대로 붙여 넣으세요. 12/15(화)처럼 다른 요일에 대체 수업하는 날도 읽어요.</p>
+    <label class="field" for="sYear"><span>연도</span><input type="number" id="sYear" value="${esc(S.year)}" min="2020" max="2100" style="width:110px"></label>
+    <label class="field" for="sCal"><span>수업일 표</span><textarea id="sCal" rows="9">${esc(calendarText())}</textarea></label>
+    <div class="row"><button type="button" class="btn small" id="btnCal">수업일 적용</button></div>
+    ${p.cal ? `<div class="result ${p.cal.error ? 'bad' : ''}">${esc(p.cal.msg)} ${p.cal.data ? `<button type="button" class="btn small danger" id="btnCalYes">적용하기</button> <button type="button" class="btn small" data-cancel="cal">취소</button>` : ''}</div>` : ''}
+  </article>
+  <article class="card"><h2>강의시간표 불러오기</h2>
+    <p class="hint">다음 학기에는 새 강의시간표 엑셀(.xlsx)을 불러오면 같은 방식으로 다시 쓸 수 있어요. '요일·학년·반·1~10교시' 머리글이 있는 시트를 찾아 읽어요.</p>
+    <input type="file" id="sXlsx" accept=".xlsx">
+    ${p.xlsx ? `<div class="result ${p.xlsx.error ? 'bad' : ''}">${esc(p.xlsx.msg)} ${p.xlsx.data ? `<button type="button" class="btn small danger" id="btnXlsxYes">이 시간표로 바꾸기</button> <button type="button" class="btn small" data-cancel="xlsx">취소</button>` : ''}</div>` : ''}
+  </article>
+  <article class="card"><h2>백업 · 초기화</h2>
+    <p class="hint">입력한 내용은 자동 저장돼요. 따로 보관하고 싶으면 백업 파일을 저장하세요.</p>
+    <div class="row"><button type="button" class="btn small" id="btnBackup">백업 파일 저장 (.json)</button>
+      <label class="btn small" for="sRestore" style="display:inline-block">백업 불러오기</label><input type="file" id="sRestore" accept=".json" hidden></div>
+    ${p.restore ? `<div class="result ${p.restore.error ? 'bad' : ''}">${esc(p.restore.msg)} ${p.restore.data ? `<button type="button" class="btn small danger" id="btnRestoreYes">불러오기</button> <button type="button" class="btn small" data-cancel="restore">취소</button>` : ''}</div>` : ''}
+    <div class="row"><button type="button" class="btn small danger" id="btnReset">처음 상태로 되돌리기</button></div>
+    ${p.reset ? `<div class="result">입력한 방식·날짜·메모가 모두 지워지고 처음 받은 시간표로 돌아가요. <button type="button" class="btn small danger" id="btnResetYes">되돌리기</button> <button type="button" class="btn small" data-cancel="reset">취소</button></div>` : ''}
+  </article>
+  <article class="card"><h2>겹침 검사 기준</h2>
+    <ul class="plain">
+      <li>그날 실제로 열리는 수업으로 검사해요. 예: 12/15(화)는 금요일 14주차 수업일이라 금요일 시간표로 봐요.</li>
+      <li>시험 주차 수업은 시험으로 바뀌므로 자리를 옮길 수 있어요. 다른 주차 수업은 고정이에요.</li>
+      <li>'과제 대체'나 '시험 없음'으로 정한 과목은 시험 주차에도 원래 시간에 수업하는 것으로 봐요.</li>
+      <li>같은 반, 같은 교수님, 같은 강의실이 같은 시간에 겹치면 겹침으로 표시해요. 다른 학과의 강의실 사용은 알 수 없어서 검사하지 않아요.</li>
+    </ul>
+  </article>`;
+}
+
+/* ---------- drawer ---------- */
+function openDrawer(id) {
+  const c = D.byId[id]; if (!c) return;
+  ui.drawerId = id; ui.reg = null;
+  const ex = S.exams[id];
+  const dis = hasSlot(ex) ? '' : ' disabled';
+  const dr = $('#drawer');
+  dr.innerHTML = `
+    <div class="dhead"><div><h2>${esc(c.course)}</h2><p>${esc(groupOf(c))} · ${esc(c.prof)} · 원래 ${esc(c.day)} ${pRange(c.start, lenOf(c))} ${tRange(c.start, lenOf(c))}, ${esc(roomLabel(c.room))}</p>
+      <p>${S.examWeek}주차 기본: ${fmt(defaultDate(c))} · ${S.examWeek - 1}주차 수업 ${fmt(prevDate(c))}</p></div>
+      <button type="button" class="btn small" id="dClose" aria-label="닫기">닫기</button></div>
+    <div class="dbody">
+      <div class="fgrid">
+        <label class="field full" for="dMethod"><span>시험 방식</span><select id="dMethod" data-f="method">${opts(METHODS, ex.method)}</select></label>
+        <label class="field full" for="dDate"><span>날짜</span><select id="dDate" data-f="date"${dis}>${dateOptions(ex.date)}</select></label>
+        <label class="field" for="dStart"><span>시작 교시</span><select id="dStart" data-f="start"${dis}>${opts(range(1, NP), ex.start, v => `${v}교시 (${PERIODS[v - 1][0]})`)}</select></label>
+        <label class="field" for="dLen"><span>시험 길이</span><select id="dLen" data-f="len"${dis}>${opts(range(1, 6), ex.len, v => `${v}교시 (${v * 50}분)`)}</select></label>
+        <label class="field" for="dRoom"><span>강의실</span><input type="text" id="dRoom" data-f="room" value="${esc(ex.room)}" list="roomList"${dis}></label>
+        <label class="field" for="dDone" style="justify-content:flex-end"><span>교수님 확인</span><span class="chk"><input type="checkbox" id="dDone" data-f="done"${ex.done ? ' checked' : ''}>확정</span></label>
+        <label class="field full" for="dNote"><span>요청사항 · 메모</span><textarea id="dNote" data-f="note" rows="3" placeholder="예: 실기 2시간, 노트북 지참, 412호 희망">${esc(ex.note)}</textarea></label>
+      </div>
+      <div class="dsec"><h3>검사 결과</h3><div class="checks" id="dChecks"></div></div>
+      <div class="dsec"><h3>겹치지 않는 시간 <span id="dSlotLen"></span></h3><div class="slots" id="dSlots"></div></div>
+      <div class="row"><button type="button" class="btn small" id="dToReg">시험 일정 등록 창으로</button> <button type="button" class="btn small" id="dReset">${S.examWeek}주차 원래 시간으로 되돌리기</button></div>
+    </div>`;
+  dr.hidden = false;
+  refreshDrawerChecks();
+}
+function closeDrawer() { ui.drawerId = null; ui.reg = null; $('#drawer').hidden = true; $('#drawer').innerHTML = ''; }
+function refreshDrawerChecks() {
+  const id = ui.drawerId, c = D.byId[id]; if (!c || $('#drawer').hidden) return;
+  const ex = S.exams[id], st = statusOf(c);
+  const box = $('#dChecks'); if (!box) return;
+  if (st.noslot) box.innerHTML = `<div class="it ok">${esc(ex.method)}: 시험 시간을 잡지 않아요. 이 과목의 ${S.examWeek}주차 수업은 원래 시간에 하는 것으로 봐요.</div>`;
+  else box.innerHTML = [
+    `<div class="it ${st.bad.length ? 'bad' : 'ok'}">${fmt(ex.date)} ${pRange(ex.start, ex.len)} ${tRange(ex.start, ex.len)} · ${esc(roomLabel(ex.room))}${st.bad.length ? '' : ' · 겹치는 일정 없음'}</div>`,
+    ...st.bad.map(x => `<div class="it bad">${esc(describeConflict(x))}</div>`),
+    ...st.warn.map(w => `<div class="it warn">${esc(w)}</div>`)].join('');
+  const slotsEl = $('#dSlots');
+  $('#dSlotLen').textContent = st.noslot ? '' : `(${ex.len}교시 기준)`;
+  if (st.noslot) { slotsEl.innerHTML = ''; return; }
+  const def = defaultDate(c);
+  const fs = freeSlots(c, ex.len, ex.room);
+  slotsEl.innerHTML = fs.length ? fs.map(x => `<div class="slotday"><div class="lbl"><b>${fmt(x.d)}</b>${x.d === def ? ' 기본' : ''}<br>${esc(D.dateMap[x.d] ? `${D.dateMap[x.d].col}${D.dateMap[x.d].week}주차` : '')}</div>
+      <div class="opts">${x.starts.map(s => `<button type="button" class="slotbtn${x.d === ex.date && s === ex.start ? ' cur' : ''}" data-slot="${x.d}|${s}" title="${tRange(s, ex.len)}">${pRange(s, ex.len)}</button>`).join('')}</div></div>`).join('')
+    : '<p class="hint">이 길이로는 겹치지 않는 시간이 없어요. 시험 길이를 줄이거나 강의실을 바꿔 보세요.</p>';
+}
+function setExamField(id, f, raw) {
+  const ex = S.exams[id]; if (!ex) return;
+  if (f === 'start' || f === 'len') ex[f] = Math.max(1, Math.min(NP, parseInt(raw, 10) || 1));
+  else if (f === 'done') ex.done = !!raw;
+  else if (f === 'room') ex.room = String(raw).replace(/호/g, '').trim();
+  else ex[f] = String(raw);
+}
+
+/* ---------- register form ---------- */
+function openRegister(preId) {
+  const id = preId || ui.reg?.id || '';
+  ui.drawerId = null;
+  ui.reg = { id };
+  if (id) { const ex = S.exams[id]; Object.assign(ui.reg, { method: ex.method, date: ex.date, start: ex.start, len: ex.len, room: ex.room, note: ex.note }); }
+  const r = ui.reg;
+  const courseOpts = D.groups.map(g => `<optgroup label="${esc(g)}">${S.classes.filter(c => groupOf(c) === g).sort((a, b) => DAY_ORDER.indexOf(a.day) - DAY_ORDER.indexOf(b.day) || a.start - b.start)
+    .map(c => `<option value="${esc(c.id)}"${c.id === id ? ' selected' : ''}>${esc(g)} ${esc(c.course)} (${esc(c.prof)}) · ${esc(c.day)} ${c.start}교시</option>`).join('')}</optgroup>`).join('');
+  const dis = id && hasSlot(r) ? '' : ' disabled';
+  $('#drawer').innerHTML = `
+    <div class="dhead"><div><h2>시험 일정 등록</h2><p>과목을 고르고 날짜·시간을 정한 뒤 등록을 누르세요. 등록 전에 겹침을 미리 보여 드려요.</p></div>
+      <button type="button" class="btn small" id="dClose">닫기</button></div>
+    <div class="dbody">
+      <div class="fgrid">
+        <label class="field full" for="rCourse"><span>과목</span><select id="rCourse" data-r="id"><option value="">과목 선택</option>${courseOpts}</select></label>
+        ${id ? `<p class="hint full">현재: ${hasSlot(S.exams[id]) ? `${fmt(S.exams[id].date)} ${pRange(S.exams[id].start, S.exams[id].len)} ${tRange(S.exams[id].start, S.exams[id].len)} · ${esc(roomLabel(S.exams[id].room))}` : esc(S.exams[id].method)} · ${S.examWeek}주차 기본 ${fmt(defaultDate(D.byId[id]))} ${pRange(D.byId[id].start, lenOf(D.byId[id]))}</p>` : ''}
+        <label class="field full" for="rMethod"><span>시험 방식</span><select id="rMethod" data-r="method"${id ? '' : ' disabled'}>${opts(METHODS, r.method || '미정')}</select></label>
+        <label class="field full" for="rDate"><span>날짜</span><select id="rDate" data-r="date"${dis}>${dateOptions(r.date)}</select></label>
+        <label class="field" for="rStart"><span>시작 교시</span><select id="rStart" data-r="start"${dis}>${opts(range(1, NP), r.start || 1, v => `${v}교시 (${PERIODS[v - 1][0]})`)}</select></label>
+        <label class="field" for="rLen"><span>시험 길이</span><select id="rLen" data-r="len"${dis}>${opts(range(1, 6), r.len || 2, v => `${v}교시 (${v * 50}분)`)}</select></label>
+        <label class="field full" for="rRoom"><span>강의실</span><input type="text" id="rRoom" data-r="room" value="${esc(r.room || '')}" list="roomList"${dis}></label>
+        <label class="field full" for="rNote"><span>요청사항 · 메모</span><textarea id="rNote" data-r="note" rows="2"${id ? '' : ' disabled'}>${esc(r.note || '')}</textarea></label>
+      </div>
+      <div class="dsec"><h3>등록하면 이렇게 돼요</h3><div class="checks" id="rChecks"></div></div>
+      <div class="row"><button type="button" class="btn primary" id="rSave"${id ? '' : ' disabled'}>등록</button>
+        ${id ? `<button type="button" class="btn small" id="rDefault">${S.examWeek}주차 원래 시간 넣기</button>` : ''}</div>
+      <div class="dsec"><h3>겹치지 않는 시간 <span class="hint">(누르면 위 칸에 채워져요)</span></h3><div class="slots" id="rSlots"></div></div>
+    </div>`;
+  $('#drawer').hidden = false;
+  refreshRegister();
+}
+function openRegisterValues() {
+  const keep = { ...ui.reg };
+  openRegister(keep.id);
+  Object.assign(ui.reg, keep);
+  const set = (sel, v) => { const el = $(sel); if (el && v !== undefined) el.value = String(v); };
+  set('#rMethod', keep.method); set('#rDate', keep.date); set('#rStart', keep.start); set('#rLen', keep.len); set('#rRoom', keep.room); set('#rNote', keep.note);
+  const dis = NO_SLOT.has(keep.method);
+  ['#rDate', '#rStart', '#rLen', '#rRoom'].forEach(s => { const el = $(s); if (el) el.disabled = dis; });
+  refreshRegister();
+}
+function refreshRegister() {
+  const r = ui.reg; if (!r) return;
+  const box = $('#rChecks'), sl = $('#rSlots'); if (!box) return;
+  if (!r.id) { box.innerHTML = '<div class="it warn">과목을 먼저 골라 주세요.</div>'; sl.innerHTML = ''; return; }
+  const c = D.byId[r.id];
+  if (NO_SLOT.has(r.method)) { box.innerHTML = `<div class="it ok">${esc(r.method)}: 시험 시간을 잡지 않아요.</div>`; sl.innerHTML = ''; return; }
+  const p = { date: r.date, start: +r.start, len: +r.len, room: String(r.room || '').replace(/호/g, '').trim() };
+  const cf = conflictsOf(c, p), wn = warningsOf(c, p);
+  box.innerHTML = [`<div class="it ${cf.length ? 'bad' : 'ok'}">${fmt(p.date)} ${pRange(p.start, p.len)} ${tRange(p.start, p.len)} · ${esc(roomLabel(p.room))}${cf.length ? '' : ' · 겹치는 일정 없음'}</div>`,
+    ...cf.map(x => `<div class="it bad">${esc(describeConflict(x))}</div>`), ...wn.map(w => `<div class="it warn">${esc(w)}</div>`)].join('');
+  const fs = freeSlots(c, p.len, p.room), def = defaultDate(c);
+  sl.innerHTML = fs.length ? fs.map(x => `<div class="slotday"><div class="lbl"><b>${fmt(x.d)}</b>${x.d === def ? ' 기본' : ''}<br>${esc(D.dateMap[x.d] ? `${D.dateMap[x.d].col}${D.dateMap[x.d].week}주차` : '')}</div>
+    <div class="opts">${x.starts.map(s => `<button type="button" class="slotbtn${x.d === p.date && s === p.start ? ' cur' : ''}" data-rslot="${x.d}|${s}">${pRange(s, p.len)}</button>`).join('')}</div></div>`).join('')
+    : '<p class="hint">이 길이로는 겹치지 않는 시간이 없어요.</p>';
+}
+function saveRegister() {
+  const r = ui.reg; if (!r || !r.id) return;
+  const c = D.byId[r.id], ex = S.exams[r.id];
+  ex.method = r.method; ex.note = r.note || '';
+  if (!NO_SLOT.has(r.method)) { ex.date = r.date; ex.start = +r.start; ex.len = +r.len; ex.room = String(r.room || '').replace(/호/g, '').trim(); }
+  changed();
+  const n = hasSlot(ex) ? conflictsOf(c, { date: ex.date, start: ex.start, len: ex.len, room: ex.room }).length : 0;
+  toast(`${c.course}(${groupOf(c)}) 등록: ${hasSlot(ex) ? `${fmt(ex.date)} ${pRange(ex.start, ex.len)}` : ex.method}${n ? ` · 겹침 ${n}건` : ''}`);
+  openRegister(r.id);
+}
+
+/* ---------- drag & drop on the board ---------- */
+let drag = null;
+function clearHighlight() { $$('.cell.ok,.cell.bad').forEach(el => el.classList.remove('ok', 'bad')); }
+function dragTarget(x, y) {
+  const el = document.elementFromPoint(x, y);
+  const cell = el && el.closest ? el.closest('.cell') : null;
+  if (!cell) return null;
+  return { date: cell.dataset.date, group: cell.dataset.group, p: +cell.dataset.p, track: cell.parentElement };
+}
+function onDragMove(e) {
+  if (!drag) return;
+  if (!drag.started) {
+    if (Math.hypot(e.clientX - drag.x0, e.clientY - drag.y0) < 6) return;
+    drag.started = true;
+    document.body.classList.add('dragging');
+    drag.el.classList.add('src');
+    const r = drag.el.getBoundingClientRect();
+    const g = drag.el.cloneNode(true);
+    g.classList.add('ghost'); g.classList.remove('src');
+    g.style.width = r.width + 'px'; g.style.height = r.height + 'px'; g.style.gridColumn = ''; g.style.gridRow = '';
+    document.body.appendChild(g);
+    drag.ghost = g; drag.dx = drag.x0 - r.left; drag.dy = drag.y0 - r.top;
+  }
+  drag.lastX = e.clientX; drag.lastY = e.clientY;
+  drag.ghost.style.left = (e.clientX - drag.dx) + 'px';
+  drag.ghost.style.top = (e.clientY - drag.dy) + 'px';
+  if (!drag.raf) drag.raf = requestAnimationFrame(autoScroll);
+  updateTarget(e.clientX, e.clientY);
+}
+function autoScroll() {
+  if (!drag || !drag.started) return;
+  const y = drag.lastY, edge = 80;
+  let dy = 0;
+  if (y < edge) dy = -Math.ceil((edge - y) / 3); else if (y > window.innerHeight - edge) dy = Math.ceil((y - (window.innerHeight - edge)) / 3);
+  if (dy) { const before = window.scrollY; window.scrollBy(0, dy); if (window.scrollY !== before) updateTarget(drag.lastX, drag.lastY); }
+  drag.raf = requestAnimationFrame(autoScroll);
+}
+function updateTarget(x, y) {
+  clearHighlight();
+  const e = { clientX: x, clientY: y };
+  const t = dragTarget(e.clientX, e.clientY);
+  const tip = $('#dragTip');
+  const c = D.byId[drag.id], ex = S.exams[drag.id];
+  drag.target = null;
+  if (!t) { tip.hidden = true; return; }
+  if (t.group !== groupOf(c)) {
+    tip.hidden = false; tip.textContent = `${groupOf(c)} 줄 안에서만 옮길 수 있어요`;
+  } else {
+    const start = Math.max(1, Math.min(NP - ex.len + 1, t.p - drag.grabP));
+    const place = { date: t.date, start, len: ex.len, room: ex.room };
+    const cf = conflictsOf(c, place), wn = warningsOf(c, place);
+    const cls = cf.length ? 'bad' : 'ok';
+    $$('.cell', t.track).forEach(el => { const p = +el.dataset.p; if (p >= start && p < start + ex.len) el.classList.add(cls); });
+    drag.target = place;
+    tip.hidden = false;
+    tip.textContent = `${fmt(t.date)} ${pRange(start, ex.len)} ${tRange(start, ex.len)}` + (cf.length ? '\n' + cf.map(describeConflict).join('\n') : ' · 겹침 없음') + (wn.length ? '\n' + wn.join('\n') : '');
+  }
+  tip.style.whiteSpace = 'pre-line';
+  tip.style.left = Math.min(window.innerWidth - 330, e.clientX + 14) + 'px';
+  tip.style.top = (e.clientY + 18) + 'px';
+}
+function endDrag(e, cancelled) {
+  if (!drag) return;
+  const d = drag; drag = null;
+  if (d.raf) cancelAnimationFrame(d.raf);
+  window.removeEventListener('pointermove', onDragMove);
+  window.removeEventListener('pointerup', onUp);
+  window.removeEventListener('pointercancel', onCancel);
+  clearHighlight();
+  $('#dragTip').hidden = true;
+  document.body.classList.remove('dragging');
+  if (d.ghost) d.ghost.remove();
+  if (d.el) d.el.classList.remove('src');
+  if (cancelled) return;
+  if (!d.started) { openDrawer(d.id); return; }
+  if (d.target) {
+    const ex = S.exams[d.id];
+    if (ex.date !== d.target.date || ex.start !== d.target.start) {
+      const before = `${fmt(ex.date)} ${pRange(ex.start, ex.len)}`;
+      ex.date = d.target.date; ex.start = d.target.start;
+      changed();
+      const c = D.byId[d.id];
+      const n = conflictsOf(c, { date: ex.date, start: ex.start, len: ex.len, room: ex.room }).length;
+      toast(`${c.course}(${groupOf(c)}) ${before} → ${fmt(ex.date)} ${pRange(ex.start, ex.len)}${n ? ` · 겹침 ${n}건` : ''}`);
+    }
+  }
+}
+const onUp = e => endDrag(e, false);
+const onCancel = e => endDrag(e, true);
+
+/* ---------- excel ---------- */
+let excelP = null;
+function loadExcelJS() {
+  if (window.ExcelJS) return Promise.resolve(window.ExcelJS);
+  if (!excelP) excelP = new Promise((res, rej) => {
+    const s = document.createElement('script');
+    s.src = EXCELJS_URL;
+    s.onload = () => window.ExcelJS ? res(window.ExcelJS) : rej(new Error('엑셀 기능을 불러오지 못했어요.'));
+    s.onerror = () => { excelP = null; rej(new Error('엑셀 기능을 불러오지 못했어요. 인터넷 연결을 확인해 주세요.')); };
+    document.head.appendChild(s);
+  });
+  return excelP;
+}
+function sortedExams() {
+  return S.classes.slice().sort((a, b) => {
+    const ea = S.exams[a.id], eb = S.exams[b.id];
+    const na = hasSlot(ea) ? 0 : 1, nb = hasSlot(eb) ? 0 : 1;
+    return na - nb || (ea.date || '').localeCompare(eb.date || '') || ea.start - eb.start || groupOf(a).localeCompare(groupOf(b));
+  });
+}
+async function buildWorkbook() {
+  const ExcelJS = await loadExcelJS();
+  const wb = new ExcelJS.Workbook();
+  wb.creator = S.dept; wb.created = new Date();
+  const thin = { style: 'thin', color: { argb: 'FF9AA3AF' } };
+  const border = { top: thin, left: thin, bottom: thin, right: thin };
+  const fill = argb => ({ type: 'pattern', pattern: 'solid', fgColor: { argb } });
+  const YF = { '1': ['FFFFF8E1', 'FFFFE08A'], '2': ['FFEAF2FC', 'FFBCD5F5'], '3': ['FFEBF6E6', 'FFC3E3B5'] };
+  const yf = y => YF[String(y)] || ['FFF5F5F5', 'FFDDDDDD'];
+  const F = (o = {}) => ({ name: '맑은 고딕', size: 10, ...o });
+  const center = { vertical: 'middle', horizontal: 'center', wrapText: true };
+  const lastCol = 4 + NP;
+
+  // 1) 학생 공지용 시간표
+  const ws = wb.addWorksheet('시험시간표(공지)', { views: [{ state: 'frozen', ySplit: 5 }],
+    pageSetup: { paperSize: 9, orientation: 'landscape', fitToPage: true, fitToWidth: 1, fitToHeight: 0, horizontalCentered: true, margins: { left: 0.3, right: 0.3, top: 0.4, bottom: 0.4, header: 0.2, footer: 0.2 } } });
+  ws.getColumn(1).width = 2; ws.getColumn(2).width = 10; ws.getColumn(3).width = 5; ws.getColumn(4).width = 5;
+  for (let p = 1; p <= NP; p++) ws.getColumn(4 + p).width = p === LUNCH ? 7 : 16;
+  ws.mergeCells(2, 2, 2, lastCol);
+  const tc = ws.getCell(2, 2); const tm = String(S.title).match(/^(.*학기)\s*(.*)$/);
+  tc.value = tm ? `${tm[1]} ${S.dept} ${tm[2]} 시간표`.replace(/\s+/g, ' ') : `${S.dept} ${S.title} 시간표`; tc.font = F({ size: 16, bold: true }); tc.alignment = center;
+  ws.getRow(2).height = 30;
+  ws.mergeCells(4, 2, 5, 2); ws.mergeCells(4, 3, 5, 3); ws.mergeCells(4, 4, 5, 4);
+  ws.getCell(4, 2).value = '날짜'; ws.getCell(4, 3).value = '학년'; ws.getCell(4, 4).value = '반';
+  for (let p = 1; p <= NP; p++) { ws.getCell(4, 4 + p).value = p; ws.getCell(5, 4 + p).value = p === LUNCH ? '점심' : `${PERIODS[p - 1][0]}-${PERIODS[p - 1][1]}`; }
+  for (let r = 4; r <= 5; r++) for (let c = 2; c <= lastCol; c++) { const cell = ws.getCell(r, c); cell.border = border; cell.alignment = center; cell.fill = fill('FFE5E8EE'); cell.font = F({ bold: r === 4, size: r === 4 ? 10 : 8.5 }); }
+  const exDates = [...new Set(S.classes.map(c => S.exams[c.id]).filter(ex => hasSlot(ex) && ex.date).map(ex => ex.date))].sort();
+  let r = 6;
+  for (const d of exDates) {
+    const top = r; let yStart = r, curY = null;
+    for (const g of D.groups) {
+      const y = g.slice(0, -1), ban = g.slice(-1);
+      if (curY !== y) { if (curY !== null && r - 1 > yStart) ws.mergeCells(yStart, 3, r - 1, 3); yStart = r; curY = y; ws.getCell(r, 3).value = +y; }
+      ws.getCell(r, 4).value = ban;
+      ws.getRow(r).height = 34;
+      for (let c = 2; c <= lastCol; c++) { const cell = ws.getCell(r, c); cell.border = border; cell.alignment = center; cell.font = F(); if (c >= 3) cell.fill = fill(c === 4 + LUNCH ? 'FFF2F2F2' : yf(y)[0]); }
+      const blocks = S.classes.filter(c => groupOf(c) === g && hasSlot(S.exams[c.id]) && S.exams[c.id].date === d).sort((a, b) => S.exams[a.id].start - S.exams[b.id].start);
+      const used = new Array(NP + 2).fill(0);
+      for (const c of blocks) {
+        const ex = S.exams[c.id];
+        const s = Math.max(1, ex.start), e = Math.min(NP, ex.start + ex.len - 1);
+        const text = `${c.course}(${c.prof})\n${roomLabel(ex.room)}${ex.method !== '미정' ? ' · ' + ex.method : ''}`;
+        const clashAt = range(s, e).find(p => used[p]);
+        if (clashAt) {
+          const mc = ws.getCell(r, 4 + used[clashAt]);
+          mc.value = `${mc.value}\n+ ${text.replace('\n', ' ')}`; mc.fill = fill('FFF8C9C9');
+          ws.getRow(r).height = 60;
+          continue;
+        }
+        if (e > s) ws.mergeCells(r, 4 + s, r, 4 + e);
+        const cell = ws.getCell(r, 4 + s);
+        cell.value = text; cell.fill = fill(yf(y)[1]); cell.font = F({ size: 9.5, bold: false }); cell.alignment = center;
+        for (let p = s; p <= e; p++) used[p] = s;
+      }
+      r++;
+    }
+    if (r - 1 > yStart) ws.mergeCells(yStart, 3, r - 1, 3);
+    ws.mergeCells(top, 2, r - 1, 2);
+    const dc = ws.getCell(top, 2);
+    const [, mm, dd] = d.split('-');
+    dc.value = `${+mm}/${+dd}\n(${DOW[dowOf(d)]})`; dc.font = F({ bold: true, size: 12 }); dc.alignment = center;
+    r++;
+  }
+  const none = S.classes.filter(c => !hasSlot(S.exams[c.id]));
+  if (none.length) {
+    ws.getCell(r, 2).value = `※ 시험 시간 없음: ` + none.map(c => `${c.course}(${c.prof}, ${groupOf(c)}) ${S.exams[c.id].method}`).join(' / ');
+    ws.getCell(r, 2).font = F({ size: 9 });
+    r++;
+  }
+
+  // 2) 과목별 목록
+  const ls = wb.addWorksheet('과목별 목록', { views: [{ state: 'frozen', ySplit: 1 }] });
+  ls.columns = [
+    { header: '날짜', key: 'date', width: 11 }, { header: '요일', key: 'dow', width: 6 }, { header: '교시', key: 'per', width: 10 },
+    { header: '시간', key: 'time', width: 13 }, { header: '학년', key: 'year', width: 6 }, { header: '반', key: 'ban', width: 5 },
+    { header: '과목', key: 'course', width: 24 }, { header: '교수', key: 'prof', width: 10 }, { header: '강의실', key: 'room', width: 11 },
+    { header: '방식', key: 'method', width: 11 }, { header: `원래 ${S.examWeek}주차`, key: 'orig', width: 22 }, { header: '변경', key: 'moved', width: 6 },
+    { header: '확정', key: 'done', width: 6 }, { header: '겹침·확인 필요', key: 'issues', width: 44 }, { header: '요청사항·메모', key: 'note', width: 36 }];
+  for (const c of sortedExams()) {
+    const ex = S.exams[c.id], st = statusOf(c), ok = hasSlot(ex);
+    const row = ls.addRow({
+      date: ok && ex.date ? `${+ex.date.split('-')[1]}/${+ex.date.split('-')[2]}` : '', dow: ok && ex.date ? DOW[dowOf(ex.date)] : '',
+      per: ok ? pRange(ex.start, ex.len) : '', time: ok ? tRange(ex.start, ex.len) : '', year: c.year, ban: c.ban, course: c.course, prof: c.prof,
+      room: ok ? roomLabel(ex.room) : '', method: ex.method, orig: `${fmt(defaultDate(c))} ${pRange(c.start, lenOf(c))}`,
+      moved: st.moved ? 'O' : '', done: ex.done ? 'O' : '', issues: [...st.bad.map(describeConflict), ...st.warn].join('\n'), note: ex.note });
+    row.alignment = { vertical: 'middle', wrapText: true };
+    if (st.bad.length) row.getCell('issues').font = F({ color: { argb: 'FFC42B2B' } });
+  }
+  ls.getRow(1).font = F({ bold: true }); ls.getRow(1).fill = fill('FFE5E8EE');
+  ls.autoFilter = { from: { row: 1, column: 1 }, to: { row: 1, column: 15 } };
+  ls.eachRow(row => row.eachCell(cell => { cell.border = border; if (!cell.font || !cell.font.name) cell.font = F(cell.font || {}); }));
+
+  // 3) 교수님별
+  const ps = wb.addWorksheet('교수님별', { views: [{ state: 'frozen', ySplit: 1 }] });
+  ps.columns = [{ header: '교수', key: 'prof', width: 10 }, { header: '과목', key: 'course', width: 24 }, { header: '반', key: 'grp', width: 6 },
+    { header: '날짜', key: 'date', width: 11 }, { header: '교시', key: 'per', width: 10 }, { header: '시간', key: 'time', width: 13 },
+    { header: '강의실', key: 'room', width: 11 }, { header: '방식', key: 'method', width: 11 }, { header: '확정', key: 'done', width: 6 }, { header: '메모', key: 'note', width: 36 }];
+  const byProf = S.classes.slice().sort((a, b) => a.prof.localeCompare(b.prof, 'ko') || (S.exams[a.id].date || '').localeCompare(S.exams[b.id].date || '') || S.exams[a.id].start - S.exams[b.id].start);
+  for (const c of byProf) {
+    const ex = S.exams[c.id], ok = hasSlot(ex);
+    ps.addRow({ prof: c.prof, course: c.course, grp: groupOf(c), date: ok ? fmt(ex.date) : '', per: ok ? pRange(ex.start, ex.len) : '', time: ok ? tRange(ex.start, ex.len) : '',
+      room: ok ? roomLabel(ex.room) : '', method: ex.method, done: ex.done ? 'O' : '', note: ex.note }).alignment = { vertical: 'middle', wrapText: true };
+  }
+  ps.getRow(1).font = F({ bold: true }); ps.getRow(1).fill = fill('FFE5E8EE');
+  ps.eachRow(row => row.eachCell(cell => { cell.border = border; if (!cell.font || !cell.font.name) cell.font = F(cell.font || {}); }));
+
+  return wb.xlsx.writeBuffer();
+}
+let dlP = null;
+function getDownloads() {
+  if (!dlP) dlP = (window.claude && typeof window.claude.use === 'function') ? Promise.resolve(window.claude.use('downloads')).catch(() => null) : Promise.resolve(null);
+  return dlP;
+}
+async function saveFile(filename, data) {
+  const inClaude = !!(window.claude && typeof window.claude.use === 'function');
+  if (!inClaude) {
+    try {
+      const blob = data instanceof Blob ? data : new Blob([data]);
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a'); a.href = url; a.download = filename;
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 4000);
+      toast('파일을 저장했어요.'); return true;
+    } catch { toast('파일을 저장하지 못했어요.'); return false; }
+  }
+  const dl = await getDownloads();
+  if (!dl) { toast('이 화면에서는 파일 저장을 쓸 수 없어요. claude.ai에서 이 페이지를 열어 다시 눌러 주세요.'); return false; }
+  try { await dl.save({ filename, data }); toast('파일을 저장했어요.'); return true; }
+  catch (err) {
+    const code = err && err.code;
+    if (code === 'declined') toast('저장을 취소했어요.');
+    else if (code === 'rate_limited') toast('저장 창이 이미 열려 있어요. 잠시 후 다시 눌러 주세요.');
+    else toast('파일을 저장하지 못했어요. ' + (err && err.message ? err.message : ''));
+    return false;
+  }
+}
+const safeName = s => String(s).replace(/[\\/:*?"<>|]/g, '').replace(/\s+/g, '_');
+async function exportExcel() {
+  const btn = $('#btnExport');
+  btn.disabled = true; const old = btn.textContent; btn.textContent = '만드는 중…';
+  try {
+    const buf = await buildWorkbook();
+    await saveFile(`${safeName(S.title)}_시간표.xlsx`, new Blob([buf]));
+  } catch (err) { toast(err && err.message ? err.message : '엑셀 파일을 만들지 못했어요.'); }
+  finally { btn.disabled = false; btn.textContent = old; }
+}
+
+/* ---------- imports ---------- */
+function parseCalendarText(text) {
+  const lines = String(text || '').split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+  let cols = DAY_ORDER.slice();
+  const weeks = [];
+  for (const l of lines) {
+    if (!/\d{1,2}\s*\/\s*\d{1,2}/.test(l)) {
+      const hdr = l.match(/[월화수목금토일]/g);
+      if (hdr && hdr.length >= 5 && /주/.test(l)) cols = hdr.filter(h => DAY_ORDER.includes(h));
+      continue;
+    }
+    const m = l.match(/^(\d{1,2})(?:\s*주(?:차)?)?[\s\t]+(.*)$/);
+    if (!m) continue;
+    const toks = m[2].match(/\d{1,2}\s*\/\s*\d{1,2}(?:\s*\([월화수목금토일]\))?/g);
+    if (!toks || toks.length < Math.min(5, cols.length)) continue;
+    weeks[+m[1] - 1] = toks.slice(0, cols.length).map(t => t.replace(/\s+/g, ''));
+  }
+  const n = weeks.filter(Boolean).length;
+  if (!n) return { error: true, msg: '표에서 주차별 날짜를 찾지 못했어요. 각 줄이 "주차 번호 + 날짜들" 순서인지 확인해 주세요.' };
+  for (let i = 0; i < weeks.length; i++) if (!weeks[i]) weeks[i] = null;
+  return { data: { cols, weeks }, msg: `${n}주 × ${cols.length}요일(${cols.join('·')})을 읽었어요.` };
+}
+function assignIds(list) {
+  const seen = {};
+  return list.map(o => { let id = `${o.day}-${o.year}${o.ban}-${o.start}`; if (seen[id]) id += '-' + (++seen[id]); else seen[id] = 1; return { ...o, id }; });
+}
+async function parseTimetableXlsx(buf) {
+  const ExcelJS = await loadExcelJS();
+  const wb = new ExcelJS.Workbook();
+  await wb.xlsx.load(buf);
+  const txt = cell => { try { return String(cell.text ?? '').trim(); } catch { return ''; } };
+  for (const ws of wb.worksheets) {
+    let hdr = null;
+    ws.eachRow({ includeEmpty: false }, (row, r) => { if (hdr) return; row.eachCell((cell, c) => { if (!hdr && /^요\s*일$/.test(txt(cell))) hdr = { r, c }; }); });
+    if (!hdr) continue;
+    let np = 0;
+    for (let k = 0; k < 14; k++) { if (txt(ws.getCell(hdr.r, hdr.c + 3 + k)) === String(k + 1)) np = k + 1; else break; }
+    if (!np) np = NP;
+    const out = []; let day = null, year = null;
+    for (let r = hdr.r + 1; r <= ws.rowCount; r++) {
+      const dcell = ws.getCell(r, hdr.c);
+      const dt = txt(dcell);
+      if (/^요\s*일$/.test(dt) && !(dcell.isMerged && dcell.master && dcell.master.address !== dcell.address)) break;
+      if (DAY_ORDER.includes(dt)) day = dt;
+      const yt = txt(ws.getCell(r, hdr.c + 1)); if (/^\d$/.test(yt)) year = +yt;
+      const ban = txt(ws.getCell(r, hdr.c + 2));
+      if (!day || !year || !/^[A-Za-z]$/.test(ban)) continue;
+      for (let k = 0; k < np; k++) {
+        const cell = ws.getCell(r, hdr.c + 3 + k);
+        if (cell.isMerged && cell.master && cell.master.address !== cell.address) continue;
+        const t = txt(cell); if (!t) continue;
+        let span = 1;
+        while (k + span < np) { const nx = ws.getCell(r, hdr.c + 3 + k + span); if (nx.isMerged && nx.master && nx.master.address === cell.address) span++; else break; }
+        const m = t.match(/^(.+?)\s*\(([^)]+)\)\s*-?\s*(.*)$/);
+        out.push({ day, year, ban: ban.toUpperCase(), start: k + 1, end: k + span, course: (m ? m[1] : t).trim(), prof: m ? m[2].trim() : '', room: (m ? m[3] : '').replace(/호/g, '').replace(/\s+/g, '') });
+        k += span - 1;
+      }
+    }
+    if (out.length) return { sheet: ws.name, classes: assignIds(out) };
+  }
+  throw new Error('강의시간표 형식을 찾지 못했어요. "요일·학년·반·교시" 머리글이 있는 시트인지 확인해 주세요.');
+}
+
+/* ---------- misc ---------- */
+let toastT = null;
+function toast(msg) { const t = $('#toast'); t.textContent = msg; t.classList.add('on'); clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove('on'), 3600); }
+async function copyText(text, fallbackEl) {
+  try { await navigator.clipboard.writeText(text); toast('복사했어요.'); }
+  catch {
+    if (fallbackEl) { const rg = document.createRange(); rg.selectNodeContents(fallbackEl); const sel = getSelection(); sel.removeAllRanges(); sel.addRange(rg); }
+    toast('자동 복사가 막혀 있어요. 선택된 글을 Ctrl+C로 복사해 주세요.');
+  }
+}
+function listTsv() {
+  const head = ['날짜', '요일', '교시', '시간', '반', '과목', '교수', '강의실', '방식', '확정', '메모'];
+  const rows = sortedExams().map(c => { const ex = S.exams[c.id], ok = hasSlot(ex);
+    return [ok ? fmt(ex.date).replace(/\(.\)/, '') : '', ok ? DOW[dowOf(ex.date)] : '', ok ? pRange(ex.start, ex.len) : '', ok ? tRange(ex.start, ex.len) : '', groupOf(c), c.course, c.prof, ok ? roomLabel(ex.room) : '', ex.method, ex.done ? 'O' : '', ex.note.replace(/\s+/g, ' ')]; });
+  return [head, ...rows].map(r => r.join('\t')).join('\n');
+}
+function setTab(tab, push = true) {
+  ui.tab = tab;
+  for (const b of $$('.tabs button')) b.setAttribute('aria-selected', String(b.dataset.tab === tab));
+  for (const p of $$('.tabpanel')) p.hidden = p.id !== 'tab-' + tab;
+  if (push && location.hash !== '#' + tab) { try { history.replaceState(null, '', '#' + tab); } catch { location.hash = tab; } }
+  render();
+}
+
+/* ---------- events ---------- */
+function bind() {
+  $('.tabs').addEventListener('click', e => { const b = e.target.closest('button[data-tab]'); if (b) setTab(b.dataset.tab); });
+  window.addEventListener('hashchange', () => { const h = location.hash.slice(1); if (['board', 'courses', 'professors', 'setup'].includes(h) && h !== ui.tab) setTab(h, false); });
+  $('#summary').addEventListener('click', e => { const b = e.target.closest('[data-jump]'); if (!b) return; ui.filter = { group: '', prof: '', status: b.dataset.jump, q: '' }; setTab('courses'); });
+  $('#btnExport').addEventListener('click', exportExcel);
+  $('#btnRegister').addEventListener('click', () => openRegister());
+
+  const board = $('#board');
+  board.addEventListener('pointerdown', e => {
+    const b = e.target.closest('.blk.exam'); if (!b || e.button !== 0) return;
+    const id = b.dataset.id, ex = S.exams[id];
+    const r = b.getBoundingClientRect();
+    const grabP = Math.max(0, Math.min(ex.len - 1, Math.floor((e.clientX - r.left) / (r.width / ex.len))));
+    drag = { id, el: b, x0: e.clientX, y0: e.clientY, started: false, grabP };
+    e.preventDefault();
+    window.addEventListener('pointermove', onDragMove);
+    window.addEventListener('pointerup', onUp);
+    window.addEventListener('pointercancel', onCancel);
+  });
+  board.addEventListener('click', e => {
+    const rm = e.target.closest('[data-rmdate]');
+    if (rm) { S.extraDates = (S.extraDates || []).filter(d => d !== rm.dataset.rmdate); changed(); return; }
+    const b = e.target.closest('.blk.exam');
+    if (b && e.detail === 0) openDrawer(b.dataset.id);
+  });
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') { if (drag) endDrag(e, true); else if (ui.drawerId || ui.reg) closeDrawer(); } });
+  $('#addDate').addEventListener('change', e => { const d = e.target.value; if (!d) return; S.extraDates = [...new Set([...(S.extraDates || []), d])]; changed(); toast(`${fmt(d)}을 추가했어요. 시험 블록을 이 날짜로 끌어 놓을 수 있어요.`); });
+
+  const lt = $('#listTable');
+  lt.addEventListener('change', e => {
+    const el = e.target, f = el.dataset.f, tr = el.closest('tr[data-id]'); if (!f || !tr) return;
+    setExamField(tr.dataset.id, f, el.type === 'checkbox' ? el.checked : el.value);
+    changed();
+  });
+  lt.addEventListener('click', e => { const b = e.target.closest('[data-open]'); if (b) openDrawer(b.dataset.open); });
+  $('#fGroup').addEventListener('change', e => { ui.filter.group = e.target.value; renderList(); });
+  $('#fProf').addEventListener('change', e => { ui.filter.prof = e.target.value; renderList(); });
+  $('#fStatus').addEventListener('change', e => { ui.filter.status = e.target.value; renderList(); });
+  $('#fQ').addEventListener('input', e => { ui.filter.q = e.target.value; renderList(); });
+  $('#btnCopyTsv').addEventListener('click', () => copyText(listTsv()));
+
+  $('#profGrid').addEventListener('click', e => {
+    const cp = e.target.closest('[data-copy]');
+    if (cp) { copyText(profMessage(cp.dataset.copy), document.getElementById('msg-' + cp.dataset.copy)); return; }
+    const md = e.target.closest('[data-markdone]');
+    if (md) { for (const c of S.classes) if (c.prof === md.dataset.markdone) S.exams[c.id].done = true; changed(); toast(`${md.dataset.markdone} 교수님 과목을 확정으로 표시했어요.`); }
+  });
+
+  const dr = $('#drawer');
+  dr.addEventListener('change', e => {
+    if (ui.reg && e.target.dataset.r) {
+      const k = e.target.dataset.r, v = e.target.value;
+      if (k === 'id') { openRegister(v); return; }
+      ui.reg[k] = v;
+      if (k === 'method') { const keep = { ...ui.reg }; openRegister(keep.id); Object.assign(ui.reg, keep); openRegisterValues(); return; }
+      refreshRegister(); return;
+    }
+    const el = e.target, f = el.dataset.f; if (!f || !ui.drawerId) return;
+    if (f === 'note') return;
+    setExamField(ui.drawerId, f, el.type === 'checkbox' ? el.checked : el.value);
+    changed();
+    if (f === 'method') openDrawer(ui.drawerId);
+  });
+  let noteT = null;
+  dr.addEventListener('input', e => {
+    if (ui.reg && e.target.dataset.r === 'note') { ui.reg.note = e.target.value; return; }
+    if (ui.reg && e.target.dataset.r === 'room') { ui.reg.room = e.target.value; refreshRegister(); return; }
+    if (e.target.dataset.f !== 'note' || !ui.drawerId) return;
+    S.exams[ui.drawerId].note = e.target.value;
+    clearTimeout(noteT); noteT = setTimeout(() => changed({ noRender: true }), 500);
+  });
+  dr.addEventListener('focusout', e => { if (e.target.dataset && e.target.dataset.f === 'note') { clearTimeout(noteT); changed(); } });
+  dr.addEventListener('click', e => {
+    if (e.target.closest('#dClose')) { closeDrawer(); return; }
+    if (e.target.closest('#dToReg')) { openRegister(ui.drawerId); return; }
+    if (e.target.closest('#rSave')) { saveRegister(); return; }
+    if (e.target.closest('#rDefault')) { const c = D.byId[ui.reg.id]; Object.assign(ui.reg, { date: defaultDate(c), start: c.start, len: lenOf(c), room: c.room }); openRegisterValues(); return; }
+    const rs = e.target.closest('[data-rslot]');
+    if (rs) { const [d, st] = rs.dataset.rslot.split('|'); ui.reg.date = d; ui.reg.start = +st; openRegisterValues(); return; }
+    if (e.target.closest('#dReset')) { const c = D.byId[ui.drawerId], ex = S.exams[ui.drawerId]; ex.date = defaultDate(c); ex.start = c.start; ex.len = lenOf(c); ex.room = c.room; changed(); openDrawer(ui.drawerId); return; }
+    const sb = e.target.closest('[data-slot]');
+    if (sb) { const [d, s] = sb.dataset.slot.split('|'); const ex = S.exams[ui.drawerId]; ex.date = d; ex.start = +s; changed(); openDrawer(ui.drawerId); }
+  });
+
+  const sg = $('#setupGrid');
+  sg.addEventListener('change', async e => {
+    const el = e.target;
+    if (el.id === 'sTitle') { S.title = el.value.trim() || S.title; changed(); }
+    else if (el.id === 'sDept') { S.dept = el.value.trim() || S.dept; changed(); }
+    else if (el.id === 'sXlsx' && el.files[0]) {
+      ui.pending.xlsx = { msg: '읽는 중…' }; renderSetup();
+      try { const res = await parseTimetableXlsx(await el.files[0].arrayBuffer());
+        const g = new Set(res.classes.map(groupOf)).size, pr = new Set(res.classes.map(c => c.prof)).size;
+        ui.pending.xlsx = { data: res.classes, msg: `'${res.sheet}' 시트에서 수업 ${res.classes.length}개(${g}개 반, 교수님 ${pr}분)를 읽었어요. 바꾸면 지금 입력한 시험 정보는 지워져요.` };
+      } catch (err) { ui.pending.xlsx = { error: true, msg: err.message || '파일을 읽지 못했어요.' }; }
+      renderSetup();
+    } else if (el.id === 'sRestore' && el.files[0]) {
+      try { const s = JSON.parse(await el.files[0].text()); if (!validState(s)) throw new Error();
+        ui.pending.restore = { data: s, msg: `백업(${s.title}, 수업 ${s.classes.length}개)을 읽었어요. 불러오면 지금 내용이 이 백업으로 바뀌어요.` };
+      } catch { ui.pending.restore = { error: true, msg: '이 도구의 백업 파일이 아니에요.' }; }
+      renderSetup();
+    }
+  });
+  sg.addEventListener('click', async e => {
+    const id = e.target.id;
+    const cancel = e.target.dataset && e.target.dataset.cancel;
+    if (cancel) { delete ui.pending[cancel]; renderSetup(); return; }
+    if (id === 'btnWeek') { const w = +$('#sWeek').value; if (w !== S.examWeek) { ui.pending.week = w; renderSetup(); } return; }
+    if (id === 'btnWeekYes') { S.examWeek = ui.pending.week; S.exams = {}; S.extraDates = []; delete ui.pending.week; derive(); changed(); toast(`${S.examWeek}주차 기준으로 다시 배치했어요.`); return; }
+    if (id === 'btnCal') { ui.pending.cal = parseCalendarText($('#sCal').value); ui.pending.calYear = +$('#sYear').value || S.year; renderSetup(); return; }
+    if (id === 'btnCalYes') {
+      S.calendar = ui.pending.cal.data; S.year = ui.pending.calYear; delete ui.pending.cal;
+      D.colDates = {}; derive();
+      for (const c of S.classes) { const ex = S.exams[c.id]; if (!D.dateMap[ex.date]) ex.date = defaultDate(c); }
+      changed(); toast('수업일 현황을 바꿨어요.'); return;
+    }
+    if (id === 'btnXlsxYes') { S.classes = ui.pending.xlsx.data; S.exams = {}; S.extraDates = []; delete ui.pending.xlsx; derive(); changed(); toast('새 강의시간표로 바꿨어요.'); return; }
+    if (id === 'btnBackup') { await saveFile(`${safeName(S.title)}_백업.json`, JSON.stringify(S, null, 1)); return; }
+    if (id === 'btnRestoreYes') { S = ui.pending.restore.data; delete ui.pending.restore; derive(); changed(); toast('백업을 불러왔어요.'); return; }
+    if (id === 'btnReset') { ui.pending.reset = true; renderSetup(); return; }
+    if (id === 'btnResetYes') { delete ui.pending.reset; const rev = S.rev; S = freshState(); S.rev = rev; derive(); changed(); toast('처음 상태로 되돌렸어요.'); return; }
+  });
+}
+
+/* ---------- boot ---------- */
+(function boot() {
+  S = loadLocal() || freshState();
+  derive();
+  const dl = document.createElement('datalist'); dl.id = 'roomList';
+  dl.innerHTML = D.rooms.map(r => `<option value="${esc(r)}"></option>`).join('');
+  document.body.appendChild(dl);
+  bind();
+  const h = location.hash.slice(1);
+  setTab(['board', 'courses', 'professors', 'setup'].includes(h) ? h : 'board', false);
+  setSave('local');
+  initCloud();
+  getDownloads();
+})();
+window.__planner = { openRegister, saveRegister, get reg() { return ui.reg; }, get state() { return S; }, derive, render, conflictsOf, warningsOf, statusOf, counts, freeSlots, itemsOn, buildWorkbook, parseCalendarText, parseTimetableXlsx, profMessage, openDrawer, changed };
+</script>
+</body>
+</html>
