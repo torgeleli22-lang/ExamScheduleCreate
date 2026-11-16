@@ -5,7 +5,7 @@
   "scripts": {
     "build": "node scripts/build.mjs",
     "test:unit": "node --test tests/unit.test.mjs",
-    "test:e2e": "node scripts/build.mjs && node --test tests/e2e.test.mjs",
+    "test:e2e": "node scripts/build.mjs && node --test tests/e2e.test.mjs tests/github.test.mjs",
     "test": "npm run test:unit && npm run test:e2e"
   },
   "devDependencies": {

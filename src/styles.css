@@ -232,3 +232,10 @@ body.locked .blk.exam{cursor:pointer}
 .miniscroll table{font-size:12px}
 .miniscroll td,.miniscroll th{padding:3px 7px}
 @media (max-width:640px){ .plancards{grid-template-columns:1fr} .planpick select{min-width:0;width:100%} }
+.savepill.gh-saved::before{background:var(--ok)}
+.savepill.gh-loading::before,.savepill.gh-saving::before,.savepill.gh-pending::before{background:var(--warn)}
+.savepill.gh-error::before{background:var(--bad)}
+.savepill.gh-error{color:var(--bad)}
+#ghCard code{font-size:12.5px;background:var(--bg);padding:1px 5px;border-radius:4px}
+#ghCard details ol{margin-top:6px}
+a.btn{text-decoration:none;color:inherit;display:inline-block}

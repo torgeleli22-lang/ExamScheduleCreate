@@ -109,3 +109,33 @@ test('계획 id는 겹치지 않게, 정렬은 최신 학기 먼저 · 학기 �
   const order = core.sortedPlans({ plans: { [a.id]: a, [m.id]: m, [n.id]: n } }).map(p => p.id);
   assert.deepEqual(Array.from(order), ['2027-1-mid', '2026-2-mid', '2026-2-final']);
 });
+
+test('GitHub 합치기: 시험마다 더 최근에 고친 쪽, 지운 시험은 되살리지 않음', () => {
+  const core = loadCore();
+  const mk = (id, updatedAt) => ({ id, updatedAt, v: 2 });
+  const local = { plans: { a: mk('a', 10), b: mk('b', 5), c: mk('c', 7) }, deleted: { x: 50 } };
+  const remote = { plans: { a: mk('a', 8), b: mk('b', 9), d: mk('d', 3), x: mk('x', 40) }, deleted: { c: 20 } };
+  const m = core.mergeStores(local, remote);
+  assert.deepEqual(Object.keys(m.plans).sort(), ['a', 'b', 'd']);
+  assert.equal(m.plans.a, local.plans.a);    // 이 브라우저가 더 최신
+  assert.equal(m.plans.b, remote.plans.b);   // GitHub가 더 최신
+  assert.deepEqual({ ...m.deleted }, { c: 20, x: 50 });
+  assert.ok(m.localChanged && m.remoteChanged);
+  // 지운 뒤에 다시 고친 시험은 남는다
+  const m2 = core.mergeStores({ plans: { c: mk('c', 30) }, deleted: {} }, { plans: {}, deleted: { c: 20 } });
+  assert.ok(m2.plans.c);
+  // 같으면 아무 쪽도 바뀌지 않음
+  const same = { plans: { a: mk('a', 1) }, deleted: {} };
+  const m3 = core.mergeStores(same, { plans: { a: same.plans.a }, deleted: {} });
+  assert.ok(!m3.localChanged && !m3.remoteChanged);
+});
+
+test('GitHub에 올리는 내용에서 브라우저별 값(보던 시험, writer)은 뺀다', () => {
+  const core = loadCore();
+  const st = core.toStore({ v: 1, ...SEED, exams: {}, extraDates: [] });
+  st.plans['2026-2-final'].writer = 'tab123';
+  const out = core.storePayload(st);
+  assert.equal(out.currentId, undefined);
+  assert.equal(out.plans['2026-2-final'].writer, undefined);
+  assert.deepEqual(core.toStore(JSON.parse(JSON.stringify(out))).plans['2026-2-final'].classes.length, 50);
+});

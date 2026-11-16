@@ -13,6 +13,7 @@ export const JS_ORDER = [
   'rules.js',       // 겹침·경고 규칙
   'importers.js',   // PDF·xlsx·붙여넣기 읽기
   'store.js',       // localStorage · claude.ai db 저장
+  'github.js',      // GitHub 저장소(data 브랜치)에 저장·불러오기
   'excel.js',       // 엑셀 내보내기 · 파일 저장
   'views.js',       // 요약·배치·목록·교수님 화면
   'view-setup.js',  // 설정 탭

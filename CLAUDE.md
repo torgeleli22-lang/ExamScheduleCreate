@@ -35,6 +35,7 @@ src/js/*.js           앱 코드. 번들러 없이 scripts/build.mjs 의 JS_ORDE
   rules.js            겹침·경고·빈 시간·요약 수치                      │
   importers.js        수업일 표 붙여넣기/PDF(pdf.js), 시간표 xlsx 읽기 ┘ (라이브러리 로드만 DOM 사용)
   store.js            localStorage · claude.ai db 저장
+  github.js           GitHub 저장소(data 브랜치) 저장·불러오기·합치기, 기록 탭의 GitHub 카드
   excel.js            엑셀 내보내기 · 파일 저장
   views.js            render(), 요약·날짜별 배치·과목 목록·교수님 확인, 잠금 처리
   view-setup.js       설정 탭(지금 시험 하나)
@@ -47,6 +48,7 @@ data/seed.json        첫 실행용 기본 자료(2026-2 기말)
 index.html            빌드 결과물 (GitHub Pages가 서빙). 직접 고치지 말고 src 수정 후 빌드, 결과물도 커밋
 scripts/build.mjs     src + seed → index.html
 tests/unit.test.mjs   핵심 규칙 단위 테스트 (node:test, 브라우저 없음)
+tests/github.test.mjs GitHub 저장 종단 테스트 (가짜 API, 여러 컴퓨터·충돌·삭제·토큰 오류·비공개)
 tests/e2e.test.mjs    playwright 종단 테스트 (등록 폼, 드래그, 엑셀 내용, 새 학기 xlsx+PDF 업로드, 잠금, 새로고침, 백업/복원, v1 이전)
 tests/helpers.mjs     vm 로더, 테스트용 xlsx/PDF 생성, http 서버, 다운로드 확인
 ```
@@ -79,7 +81,13 @@ tests/helpers.mjs     vm 로더, 테스트용 xlsx/PDF 생성, http 서버, 다�
 
 ## 저장·내보내기
 
-- 단독 파일/GitHub Pages: localStorage(`exam-planner:v2`) + JSON 백업(전체 또는 시험 하나, 형식은 Store). 복원은 합치기: 없는 시험 추가, 같은 id는 백업이 더 최신일 때만 덮어씀.
+- **GitHub 저장 (기본 사용 방식, github.js)**: 정적 페이지가 GitHub REST API(contents)로 저장소의 `data` 브랜치 `data/plans.json`을 직접 읽고 쓴다(`storePayload()`: currentId·writer 제외, 들여쓰기 1).
+  - 저장소는 Pages 주소(`<owner>.github.io/<repo>/`)에서 짐작하고 기록 탭에서 바꿀 수 있다. 설정·토큰은 localStorage `exam-planner:github`.
+  - 토큰(fine-grained, Contents read/write) 있으면 `persistLocal()` → `ghQueue()` → 4초 모아서 커밋. 없으면 읽기 전용. 브랜치가 없으면 기본 브랜치에서 만든다.
+  - 동시 저장: PUT이 409/422면 다시 읽어 `mergeStores()`(시험별 updatedAt 최신 승, `Store.deleted` 기록으로 삭제 전파) 후 재시도. 창으로 돌아오면 30초에 한 번 새로 읽는다.
+  - main이 아니라 data 브랜치인 이유: 저장마다 Pages 재빌드·코드 기록 오염 방지.
+  - 테스트는 `tests/helpers.mjs`의 `fakeGitHub()`(가짜 API)로 여러 브라우저가 한 저장소를 쓰는 상황을 재현한다.
+- 이 브라우저: localStorage(`exam-planner:v2`)에도 항상 저장. JSON 백업(전체 또는 시험 하나, 형식은 Store). 복원은 합치기: 없는 시험 추가, 같은 id는 백업이 더 최신일 때만 덮어씀.
 - claude.ai 아티팩트로 열면 `window.claude.use('db')`의 `plans/{planId}` 문서(계획당 1문서, 256KiB 한도 안)와 `use('downloads')`를 쓴다. 삭제는 `{deleted:true}` 표시. 예전 `planner/state` 문서가 있으면 처음 한 번 가져온다. claude.ai 밖에서는 자동으로 건너뛴다.
 - 엑셀은 ExcelJS 4.4.0을 jsDelivr에서 필요할 때 로드. 시트: 시험시간표(공지) / 과목별 목록 / 교수님별.
 
@@ -102,7 +110,7 @@ tests/helpers.mjs     vm 로더, 테스트용 xlsx/PDF 생성, http 서버, 다�
 
 ## 다음에 해볼 만한 것 (아직 안 함)
 
-- 여러 사람이 함께 쓰는 서버 저장(지금은 브라우저별 저장 + 백업 파일)
+- 저장소 공개 범위 결정(지금 public → 저장한 일정·메모도 공개). private 전환 시 Pages는 GitHub Pro 필요
 - 반별 하루 시험 개수 경고, 교수님 회신 상태 관리
 - TypeScript로 옮기기: 지금 파일 경계(util/model/calendar/rules = 순수 로직)를 그대로 ES 모듈 + esbuild로 바꾸면 된다
 - 중간·기말 외 시험 종류(보강 주 등)가 필요하면 `KINDS`에 추가

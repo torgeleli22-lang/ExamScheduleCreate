@@ -6,7 +6,13 @@ const LS_KEY = 'exam-planner:v2';
 const LS_KEY_V1 = 'exam-planner:v1';
 const TAB_ID = Math.random().toString(36).slice(2, 10);
 
-function persistLocal() { try { localStorage.setItem(LS_KEY, JSON.stringify(Store)); return true; } catch { return false; } }
+/** 이 브라우저에 저장. silent가 아니면 GitHub 저장도 예약(github.js) */
+function persistLocal({ silent = false } = {}) {
+  let ok = true;
+  try { localStorage.setItem(LS_KEY, JSON.stringify(Store)); } catch { ok = false; }
+  if (!silent && typeof ghQueue === 'function') ghQueue();
+  return ok;
+}
 function loadLocal() {
   try { const t = localStorage.getItem(LS_KEY); if (t) { const st = toStore(JSON.parse(t)); if (st && Object.keys(st.plans).length) return st; } } catch {}
   try { const t = localStorage.getItem(LS_KEY_V1); if (t) return toStore(JSON.parse(t)); } catch {}
@@ -17,10 +23,12 @@ const cloud = { col: null, loaded: false, mode: 'local', queue: {}, writing: {},
 function setSave(mode, detail) {
   if (mode) cloud.mode = mode;
   const el = $('#saveState');
-  const map = { local: '이 브라우저에 저장돼요', loading: '저장된 내용 불러오는 중', saving: '저장 중', cloud: '저장됨', offline: '저장소 연결 대기 중 · 이 브라우저에 보관', error: '저장소에 저장하지 못했어요 · 이 브라우저에 보관' };
+  const map = { local: '이 브라우저에만 저장돼요', loading: '저장된 내용 불러오는 중', saving: '저장 중', cloud: '저장됨', offline: '저장소 연결 대기 중 · 이 브라우저에 보관', error: '저장소에 저장하지 못했어요 · 이 브라우저에 보관',
+    'gh-loading': 'GitHub에서 불러오는 중', 'gh-pending': 'GitHub에 저장 대기', 'gh-saving': 'GitHub에 저장 중', 'gh-saved': 'GitHub에 저장됨',
+    'gh-readonly': 'GitHub에서 불러옴 · 보기 전용', 'gh-error': 'GitHub 저장 실패 · 이 브라우저에 보관' };
   el.textContent = map[cloud.mode] || '';
   el.className = 'savepill ' + cloud.mode;
-  if (detail) el.title = String(detail);
+  el.title = detail ? String(detail) : '';
 }
 /** 계획 p가 바뀌었다고 알림 → 로컬 저장 + (있으면) 클라우드 예약 */
 function touchPlan(p) {

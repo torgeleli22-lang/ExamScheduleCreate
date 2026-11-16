@@ -1,5 +1,6 @@
 /* ---------- 데이터 모델: 시험 계획(plan)과 저장소(Store) ----------
-   Store = { v:2, plans: { [planId]: Plan }, currentId }
+   Store = { v:2, plans: { [planId]: Plan }, deleted: { [planId]: 지운 시각 }, currentId }
+   - deleted: 지운 시험 기록. 다른 컴퓨터(GitHub 저장)와 합칠 때 지운 시험이 되살아나지 않게 한다.
    Plan  = { v:2, id, termYear, term(1|2), kind('mid'|'final'), title, dept, year, examWeek,
              calendar:{cols, weeks}, classes:[...], exams:{[classId]: Exam}, extraDates:[],
              locked, createdAt, updatedAt, rev, sources:{timetable, calendar} }
@@ -47,13 +48,14 @@ function upgradePlan(s, taken = {}) {
   if (!p.title) p.title = planTitle(p);
   return p;
 }
-function newStore() { return { v: 2, plans: {}, currentId: null }; }
+function newStore() { return { v: 2, plans: {}, deleted: {}, currentId: null }; }
 /** 저장된 무언가(v2 저장소, v2 계획, v1 상태)를 저장소로. 모르는 형식이면 null. */
 function toStore(raw) {
   if (!raw || typeof raw !== 'object') return null;
   if (raw.v === 2 && raw.plans && typeof raw.plans === 'object') {
     const st = newStore();
     for (const p of Object.values(raw.plans)) if (validPlan(p)) { const q = upgradePlan(p, st.plans); st.plans[q.id] = q; }
+    if (raw.deleted && typeof raw.deleted === 'object') for (const [id, t] of Object.entries(raw.deleted)) if (+t > 0) st.deleted[id] = +t;
     st.currentId = st.plans[raw.currentId] ? raw.currentId : latestPlanId(st);
     return st;
   }
@@ -67,3 +69,35 @@ function planOrder(a, b) {
 }
 const sortedPlans = (st = Store) => Object.values(st.plans).sort(planOrder);
 const latestPlanId = st => sortedPlans(st)[0]?.id || null;
+
+/**
+ * 두 저장소 합치기 (이 브라우저 ↔ GitHub). 시험(계획)마다 updatedAt이 더 최신인 쪽이 이긴다.
+ * 지운 기록(deleted)이 그 계획의 마지막 수정보다 늦으면 지운 것으로 본다.
+ * → { plans, deleted, localChanged: 이 브라우저 쪽이 바뀌는지, remoteChanged: GitHub 쪽에 올려야 하는지 }
+ */
+function mergeStores(local, remote) {
+  const lp = local.plans || {}, rp = remote.plans || {}, ld = local.deleted || {}, rd = remote.deleted || {};
+  const deleted = { ...rd };
+  for (const [id, t] of Object.entries(ld)) deleted[id] = Math.max(deleted[id] || 0, t);
+  const plans = {};
+  let localChanged = false, remoteChanged = false;
+  for (const id of new Set([...Object.keys(lp), ...Object.keys(rp)])) {
+    const a = lp[id], b = rp[id];
+    let win = !a ? b : !b ? a : ((b.updatedAt || 0) > (a.updatedAt || 0) ? b : a);
+    if (deleted[id] && deleted[id] >= (win.updatedAt || 0)) win = undefined;
+    if (win) plans[id] = win;
+    if (win !== a) localChanged = true;
+    if (win !== b) remoteChanged = true;
+  }
+  for (const id of Object.keys(deleted)) {
+    if (deleted[id] !== ld[id]) localChanged = true;
+    if (deleted[id] !== rd[id]) remoteChanged = true;
+  }
+  return { plans, deleted, localChanged, remoteChanged };
+}
+/** GitHub에 올리는 모양: 보던 시험(currentId)·탭 표시(writer)처럼 브라우저마다 다른 값은 뺀다 */
+function storePayload(st) {
+  const plans = {};
+  for (const id of Object.keys(st.plans).sort()) { const { writer, ...rest } = st.plans[id]; plans[id] = rest; }
+  return { v: 2, plans, deleted: st.deleted || {} };
+}

@@ -62,6 +62,64 @@ export async function makeCalendarPdf(browser, calendar, title = '요일별 수�
   return pdf;
 }
 
+/**
+ * 가짜 GitHub API (저장소 하나). 브라우저 여러 개가 같은 객체를 공유하면 '여러 컴퓨터'가 된다.
+ * 지원: GET 저장소, GET/POST git ref, GET/PUT contents. 쓰기는 토큰 필요, sha가 다르면 409.
+ */
+export function fakeGitHub({ repo = 'dept/exams', token = 'tok', isPrivate = false } = {}) {
+  const refs = { main: 'c0' };
+  const files = {};   // `${branch}:${path}` → { text, sha }
+  let n = 0;
+  const commits = [];
+  async function handle(route) {
+    const req = route.request();
+    const url = new URL(req.url());
+    const auth = req.headers()['authorization'];
+    const ok = auth === `Bearer ${token}`;
+    const json = (status, body) => route.fulfill({ status, contentType: 'application/json', headers: { 'access-control-allow-origin': '*' }, body: JSON.stringify(body) });
+    if (req.method() === 'OPTIONS') return route.fulfill({ status: 204, headers: { 'access-control-allow-origin': '*', 'access-control-allow-headers': '*', 'access-control-allow-methods': '*' } });
+    const base = `/repos/${repo}`;
+    if (!url.pathname.startsWith(base)) return json(404, { message: 'Not Found' });
+    if (isPrivate && !ok) return json(404, { message: 'Not Found' });
+    if (auth && !ok) return json(401, { message: 'Bad credentials' });
+    const p = decodeURIComponent(url.pathname.slice(base.length));
+    if (p === '' && req.method() === 'GET') return json(200, { private: isPrivate, default_branch: 'main', permissions: { push: ok }, html_url: `https://github.com/${repo}` });
+    let m;
+    if ((m = p.match(/^\/git\/ref\/heads\/(.+)$/))) return refs[m[1]] ? json(200, { object: { sha: refs[m[1]] } }) : json(404, { message: 'Not Found' });
+    if (p === '/git/refs' && req.method() === 'POST') {
+      if (!ok) return json(403, { message: 'Resource not accessible' });
+      const b = JSON.parse(req.postData()); const name = b.ref.replace('refs/heads/', '');
+      if (refs[name]) return json(422, { message: 'Reference already exists' });
+      refs[name] = b.sha; return json(201, {});
+    }
+    if ((m = p.match(/^\/contents\/(.+)$/))) {
+      const path = m[1];
+      if (req.method() === 'GET') {
+        const br = url.searchParams.get('ref') || 'main';
+        const f = refs[br] && files[`${br}:${path}`];
+        if (!f) return json(404, { message: 'Not Found' });
+        return json(200, { sha: f.sha, encoding: 'base64', content: Buffer.from(f.text, 'utf8').toString('base64').replace(/(.{60})/g, '$1\n') });
+      }
+      if (req.method() === 'PUT') {
+        if (!ok) return json(403, { message: 'Resource not accessible by personal access token' });
+        const b = JSON.parse(req.postData());
+        if (!refs[b.branch]) return json(404, { message: 'Branch not found' });
+        const key = `${b.branch}:${path}`, cur = files[key];
+        if (cur && b.sha !== cur.sha) return json(cur && !b.sha ? 422 : 409, { message: 'sha mismatch' });
+        const sha = 's' + (++n);
+        files[key] = { text: Buffer.from(b.content, 'base64').toString('utf8'), sha };
+        commits.push(b.message);
+        return json(cur ? 200 : 201, { content: { sha } });
+      }
+    }
+    return json(404, { message: 'Not Found' });
+  }
+  return {
+    repo, token, refs, files, commits, handle,
+    data: (branch = 'data') => { const f = files[`${branch}:data/plans.json`]; return f && JSON.parse(f.text); },
+  };
+}
+
 /** 다운로드 하나를 받아 { name: 앱이 붙인 파일명, buf } 로 */
 export async function download(page, trigger) {
   const ev = page.waitForEvent('download');
@@ -93,7 +151,7 @@ export function serve() {
   return server;
 }
 /** index.html 열기: CDN 라이브러리(ExcelJS, pdf.js)는 node_modules에서 대신 응답 */
-export async function openApp(browser, { viewport = { width: 1440, height: 2400 }, init } = {}) {
+export async function openApp(browser, { viewport = { width: 1440, height: 2400 }, init, github } = {}) {
   const ctx = await browser.newContext({ viewport, acceptDownloads: true, locale: 'ko-KR' });
   const page = await ctx.newPage();
   const errors = [];
@@ -107,6 +165,7 @@ export async function openApp(browser, { viewport = { width: 1440, height: 2400 
     return body ? r.fulfill({ body, contentType: 'application/javascript', headers: { 'access-control-allow-origin': '*' } }) : r.abort();
   });
   await page.route('https://fonts.**', r => r.abort());
+  await page.route('https://api.github.com/**', r => github ? github.handle(r) : r.abort());
   // 앱이 요청한 다운로드 파일명 기록 (headless Chromium은 한글 파일명을 'download'로 바꿔 보고함)
   await page.addInitScript(() => {
     window.__downloads = [];

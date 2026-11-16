@@ -33,10 +33,12 @@ function renderHistory() {
         <label class="btn small" for="hRestore">백업 불러오기</label><input type="file" id="hRestore" accept=".json,application/json" hidden>
       </div>
     </div>
+    <article class="card" id="ghCard" style="margin-bottom:16px"></article>
     ${h.restore ? `<div class="result ${h.restore.error ? 'bad' : ''}" style="margin-bottom:14px">${esc(h.restore.msg)}
       ${h.restore.store ? `<button type="button" class="btn small danger" data-act="restoreYes">불러오기</button> <button type="button" class="btn small" data-act="restoreNo">취소</button>` : ''}</div>` : ''}
     ${[...byTerm].map(([k, list]) => `<section class="term"><h2>${esc(k)}</h2><div class="plancards">${list.map(card).join('')}</div></section>`).join('')
       || '<div class="empty">아직 만든 시험이 없어요.</div>'}`;
+  renderGitHubCard();
 }
 
 /** 백업 파일을 지금 저장소와 합칠 계획을 세운다: 없는 시험은 추가, 같은 시험은 백업이 더 최신일 때만 덮어씀 */
@@ -67,6 +69,7 @@ function switchPlan(id) {
 }
 
 function bindHistory() {
+  bindGitHubCard();
   const box = $('#historyBox');
   box.addEventListener('click', async e => {
     const b = e.target.closest('[data-act]'); if (!b) return;
@@ -84,6 +87,7 @@ function bindHistory() {
     if (act === 'delYes') {
       ui.hist.del = null;
       delete Store.plans[id];
+      (Store.deleted = Store.deleted || {})[id] = Date.now();
       if (Store.currentId === id) Store.currentId = latestPlanId(Store);
       persistLocal(); queueCloud(id);
       switchPlan(Store.currentId);

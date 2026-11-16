@@ -111,10 +111,11 @@ function bind() {
   setTab(TABS.includes(h) ? h : 'board', false);
   setSave('local');
   initCloud();
+  initGitHub();
   getDownloads();
 })();
 window.__planner = {
   openRegister, saveRegister, get reg() { return ui.reg; }, get state() { return S; }, get store() { return Store; },
   derive, render, conflictsOf, warningsOf, statusOf, counts, freeSlots, itemsOn, buildWorkbook, parseCalendarText, parseTimetableXlsx,
-  parseCalendarPdf, profMessage, openDrawer, changed, switchPlan, openWizard,
+  parseCalendarPdf, profMessage, openDrawer, changed, switchPlan, openWizard, gh, ghSync,
 };
