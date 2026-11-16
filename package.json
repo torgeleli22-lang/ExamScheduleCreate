@@ -1,7 +1,19 @@
 {
   "name": "exam-schedule-create",
   "private": true,
-  "description": "학과 시험 시간표 편성 도구 (단일 HTML)",
-  "scripts": { "build": "python3 scripts/build.py", "test": "python3 tests/smoke_test.py" },
-  "devDependencies": { "exceljs": "4.4.0" }
+  "description": "학과 시험 시간표 편성 도구 (단일 HTML · 학기별 중간/기말 기록)",
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "test:unit": "node --test tests/unit.test.mjs",
+    "test:e2e": "node scripts/build.mjs && node --test tests/e2e.test.mjs tests/github.test.mjs",
+    "test": "npm run test:unit && npm run test:e2e"
+  },
+  "devDependencies": {
+    "exceljs": "4.4.0",
+    "pdfjs-dist": "3.11.174",
+    "playwright": "1.63.0"
+  },
+  "engines": {
+    "node": ">=20"
+  }
 }

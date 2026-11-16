@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>시험 시간표 편성</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+/*STYLES*/
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <div>
+      <p class="eyebrow" id="deptLabel"></p>
+      <h1 id="titleLabel"></h1>
+      <div class="planpick">
+        <label for="planSel">시험 선택</label>
+        <select id="planSel"></select>
+        <button type="button" class="btn small" id="btnNewPlan">+ 새 시험 만들기</button>
+      </div>
+    </div>
+    <div class="actions">
+      <span id="saveState" class="savepill" role="status"></span>
+      <button type="button" class="btn" id="btnRegister">시험 일정 등록</button>
+      <button type="button" class="btn primary" id="btnExport">엑셀로 내보내기</button>
+    </div>
+  </header>
+  <div id="lockBanner" class="lockbanner" hidden></div>
+  <section class="summary" id="summary" aria-label="요약"></section>
+  <nav class="tabs" role="tablist" aria-label="보기">
+    <button type="button" role="tab" id="tab-btn-board" data-tab="board" aria-selected="true">날짜별 배치</button>
+    <button type="button" role="tab" id="tab-btn-courses" data-tab="courses" aria-selected="false">과목 목록</button>
+    <button type="button" role="tab" id="tab-btn-professors" data-tab="professors" aria-selected="false">교수님 확인</button>
+    <button type="button" role="tab" id="tab-btn-history" data-tab="history" aria-selected="false">학기별 기록</button>
+    <button type="button" role="tab" id="tab-btn-setup" data-tab="setup" aria-selected="false">설정</button>
+  </nav>
+  <main>
+    <section id="tab-board" class="tabpanel" role="tabpanel">
+      <div class="boardbar">
+        <p class="hint">시험 블록을 끌어서 다른 시간·날짜로 옮기면 같은 반 수업, 교수님 일정, 강의실 겹침을 바로 확인해요. 블록을 누르면 방식·시간을 입력할 수 있어요.</p>
+        <div class="adddate"><label for="addDate">날짜 추가</label><select id="addDate"></select></div>
+      </div>
+      <div class="legend" style="margin-bottom:10px">
+        <span><i class="sw y1"></i>1학년 시험</span><span><i class="sw y2"></i>2학년 시험</span><span><i class="sw y3"></i>3학년 시험</span>
+        <span><i class="sw fx"></i>그날 정상 수업(옮길 수 없음)</span><span><i class="sw bd"></i>겹침</span>
+      </div>
+      <div class="board" id="board"></div>
+    </section>
+    <section id="tab-courses" class="tabpanel" role="tabpanel" hidden>
+      <div class="filters">
+        <label for="fGroup">반 <select id="fGroup"></select></label>
+        <label for="fProf">교수 <select id="fProf"></select></label>
+        <label for="fStatus">상태 <select id="fStatus">
+          <option value="">전체</option><option value="bad">겹침 있음</option><option value="warn">확인 필요</option><option value="moved">날짜·시간 변경</option><option value="undecided">방식 미정</option><option value="open">미확정</option><option value="done">확정</option>
+        </select></label>
+        <label for="fQ">검색 <input type="text" id="fQ" placeholder="과목·교수·강의실"></label>
+        <button type="button" class="btn small" id="btnCopyTsv">표 복사 (엑셀 붙여넣기용)</button>
+      </div>
+      <div class="tablebox"><table class="listtable" id="listTable"></table></div>
+    </section>
+    <section id="tab-professors" class="tabpanel" role="tabpanel" hidden>
+      <p class="hint" style="margin-bottom:12px">교수님별로 담당 과목 시험 일정을 모았어요. 문구를 복사해서 메일이나 메신저로 확인 요청을 보내세요.</p>
+      <div class="profgrid" id="profGrid"></div>
+    </section>
+    <section id="tab-history" class="tabpanel" role="tabpanel" hidden>
+      <div id="historyBox"></div>
+    </section>
+    <section id="tab-setup" class="tabpanel" role="tabpanel" hidden>
+      <div class="setgrid" id="setupGrid"></div>
+    </section>
+  </main>
+</div>
+<aside id="drawer" class="drawer" hidden aria-label="과목 시험 설정"></aside>
+<div id="modal" class="modal" hidden role="dialog" aria-modal="true" aria-labelledby="modalTitle"></div>
+<div id="dragTip" class="dragtip" hidden></div>
+<div id="toast" class="toast" role="status" aria-live="polite"></div>
+<datalist id="roomList"></datalist>
+<script id="seed" type="application/json">/*SEED*/</script>
+<script>
+'use strict';
+/*APP*/
+</script>
+</body>
+</html>
