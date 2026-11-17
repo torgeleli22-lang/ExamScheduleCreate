@@ -17,10 +17,10 @@
     <div>
       <p class="eyebrow" id="deptLabel"></p>
       <h1 id="titleLabel"></h1>
-      <div class="planpick">
-        <label for="planSel">시험 선택</label>
-        <select id="planSel"></select>
-        <button type="button" class="btn small" id="btnNewPlan">+ 새 시험 만들기</button>
+      <div class="planpick" role="group" aria-label="시험 선택">
+        <label>학년도 <select id="selYear"></select></label>
+        <label>학기 <select id="selTerm"><option value="1">1학기</option><option value="2">2학기</option></select></label>
+        <label>시험 <select id="selKind"><option value="mid">중간고사</option><option value="final">기말고사</option></select></label>
       </div>
     </div>
     <div class="actions">
@@ -29,6 +29,7 @@
       <button type="button" class="btn primary" id="btnExport">엑셀로 내보내기</button>
     </div>
   </header>
+  <section id="createPanel" class="createpanel" hidden></section>
   <div id="lockBanner" class="lockbanner" hidden></div>
   <section class="summary" id="summary" aria-label="요약"></section>
   <nav class="tabs" role="tablist" aria-label="보기">
@@ -41,13 +42,23 @@
   <main>
     <section id="tab-board" class="tabpanel" role="tabpanel">
       <div class="boardbar">
-        <p class="hint">시험 블록을 끌어서 다른 시간·날짜로 옮기면 같은 반 수업, 교수님 일정, 강의실 겹침을 바로 확인해요. 블록을 누르면 방식·시간을 입력할 수 있어요.</p>
-        <div class="adddate"><label for="addDate">날짜 추가</label><select id="addDate"></select></div>
+        <div class="rangebar">
+          <label for="rangeFrom">기간</label>
+          <input type="date" id="rangeFrom"> <span>~</span> <input type="date" id="rangeTo">
+          <button type="button" class="btn small" id="rangeReset">시험 주차에 맞추기</button>
+          <label class="chkline"><input type="checkbox" id="showFixed" checked> 다른 주차 수업·보강도 보기</label>
+        </div>
+        <button type="button" class="btn small" id="btnKeepAll"></button>
       </div>
+      <p class="hint" style="margin-bottom:8px">시험 주차 수업 카드를 다른 날짜 칸으로 끌어서 옮기세요 (같은 교시로 옮겨져요). 카드를 누르면 교시·방식을 바꾸거나 '기존 시간표 수업 진행'으로 확정할 수 있고, 날짜를 누르면 반×교시 시간표가 아래에 펼쳐져요.</p>
       <div class="legend" style="margin-bottom:10px">
-        <span><i class="sw y1"></i>1학년 시험</span><span><i class="sw y2"></i>2학년 시험</span><span><i class="sw y3"></i>3학년 시험</span>
-        <span><i class="sw fx"></i>그날 정상 수업(옮길 수 없음)</span><span><i class="sw bd"></i>겹침</span>
+        <span><i class="sw y1"></i>1학년</span><span><i class="sw y2"></i>2학년</span><span><i class="sw y3"></i>3학년</span>
+        <span><span class="wk wk-exam">15주차</span> 시험 주차 수업(옮길 수 있음)</span>
+        <span><span class="wk">14주차</span> 다른 주차 수업(고정)</span>
+        <span><span class="wk wk-mk">보강</span> 보강 수업(고정)</span>
+        <span><i class="sw bd"></i>겹침</span>
       </div>
+      <div class="weekgrid-wrap"><div id="weekGrid" class="weekgrid"></div></div>
       <div class="board" id="board"></div>
     </section>
     <section id="tab-courses" class="tabpanel" role="tabpanel" hidden>
@@ -55,7 +66,7 @@
         <label for="fGroup">반 <select id="fGroup"></select></label>
         <label for="fProf">교수 <select id="fProf"></select></label>
         <label for="fStatus">상태 <select id="fStatus">
-          <option value="">전체</option><option value="bad">겹침 있음</option><option value="warn">확인 필요</option><option value="moved">날짜·시간 변경</option><option value="undecided">방식 미정</option><option value="open">미확정</option><option value="done">확정</option>
+          <option value="">전체</option><option value="bad">겹침 있음</option><option value="warn">확인 필요</option><option value="moved">날짜·시간 변경</option><option value="keep">기존 시간표 수업 진행</option><option value="undecided">방식 미정</option><option value="open">미확정</option><option value="done">확정</option>
         </select></label>
         <label for="fQ">검색 <input type="text" id="fQ" placeholder="과목·교수·강의실"></label>
         <button type="button" class="btn small" id="btnCopyTsv">표 복사 (엑셀 붙여넣기용)</button>
@@ -75,7 +86,6 @@
   </main>
 </div>
 <aside id="drawer" class="drawer" hidden aria-label="과목 시험 설정"></aside>
-<div id="modal" class="modal" hidden role="dialog" aria-modal="true" aria-labelledby="modalTitle"></div>
 <div id="dragTip" class="dragtip" hidden></div>
 <div id="toast" class="toast" role="status" aria-live="polite"></div>
 <datalist id="roomList"></datalist>

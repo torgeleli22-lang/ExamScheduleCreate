@@ -12,6 +12,8 @@ export const JS_ORDER = [
   'calendar.js',    // 수업일 현황 → 날짜 지도, derive()
   'rules.js',       // 겹침·경고 규칙
   'importers.js',   // PDF·xlsx·붙여넣기 읽기
+  'hwp.js',         // 한글(.hwp) 문서 읽기
+  'makeups.js',     // 보강 짝짓기 · 자료 종류 알아보기
   'store.js',       // localStorage · claude.ai db 저장
   'github.js',      // GitHub 저장소(data 브랜치)에 저장·불러오기
   'excel.js',       // 엑셀 내보내기 · 파일 저장

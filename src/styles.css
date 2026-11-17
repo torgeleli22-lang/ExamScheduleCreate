@@ -239,3 +239,60 @@ body.locked .blk.exam{cursor:pointer}
 #ghCard code{font-size:12.5px;background:var(--bg);padding:1px 5px;border-radius:4px}
 #ghCard details ol{margin-top:6px}
 a.btn{text-decoration:none;color:inherit;display:inline-block}
+
+/* 시험 선택 · 자료 넣기 */
+.planpick label{display:flex;gap:6px;align-items:center}
+.planpick select{min-width:0}
+body.missing .summary,body.missing .tabs,body.missing main,body.missing #btnRegister,body.missing #btnExport,body.missing #lockBanner{display:none !important}
+.createpanel{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:18px;margin:6px 0 40px;display:flex;flex-direction:column;gap:14px}
+.createpanel[hidden]{display:none}
+.createpanel h2{font-size:19px}
+.dropzone{border:2px dashed var(--line);border-radius:10px;padding:18px;text-align:center;color:var(--muted);display:flex;flex-direction:column;gap:8px;align-items:center}
+.dropzone.over{border-color:var(--accent);background:var(--y2)}
+.filelist{display:flex;flex-direction:column;gap:6px;font-size:13px}
+.filelist .it{display:flex;gap:8px;align-items:baseline;flex-wrap:wrap;border-radius:7px;padding:7px 9px;background:var(--bg)}
+.filelist .it.ok{background:var(--ok-bg)} .filelist .it.bad{background:var(--bad-bg)}
+.filelist .ty{font-weight:700}
+.mklist{font-size:12.5px}
+.mklist td,.mklist th{padding:4px 7px}
+
+/* 주차 × 요일 판 */
+.rangebar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;font-size:13px}
+.rangebar input[type="date"]{border:1px solid var(--line);background:var(--surface);border-radius:7px;padding:4px 7px}
+.chkline{display:flex;gap:5px;align-items:center;color:var(--muted)}
+.weekgrid-wrap{overflow-x:auto;margin-bottom:16px}
+.weekgrid{display:grid;gap:6px;min-width:min-content}
+.wh{font-size:12.5px;color:var(--muted);padding:2px 4px}
+.wh b{color:var(--ink);font-size:14px;display:block}
+.wday{display:flex;align-items:flex-start;justify-content:center;font-weight:700;padding-top:8px}
+.wcell{background:var(--surface);border:1px solid var(--line);border-radius:9px;padding:6px;display:flex;flex-direction:column;gap:4px;min-height:70px;min-width:250px}
+.wcell.out{opacity:.45}
+.wcell.examday{border-color:var(--accent)}
+.wcell.ok{background:var(--ok-bg);box-shadow:inset 0 0 0 2px var(--ok)}
+.wcell.bad{background:var(--bad-bg);box-shadow:inset 0 0 0 2px var(--bad)}
+.wcell.sel{box-shadow:inset 0 0 0 2px var(--accent)}
+.wdate{display:flex;gap:6px;align-items:baseline;flex-wrap:wrap;font-size:12.5px}
+.wdate .linkbtn{font-size:14px}
+.wcard{display:grid;grid-template-columns:auto auto 1fr;gap:1px 6px;align-items:baseline;text-align:left;font-size:12px;line-height:1.35;border-radius:6px;padding:4px 6px;border:1px solid var(--line);background:var(--surface)}
+.wcard .g{font-weight:700}
+.wcard .p{color:var(--muted);white-space:nowrap}
+.wcard .t{font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.wcard .x{grid-column:1/-1;display:flex;flex-wrap:wrap;gap:3px 6px;align-items:center;color:var(--muted);font-size:11.5px}
+.wcard.exam{cursor:grab;touch-action:none;user-select:none;-webkit-user-select:none}
+.wcard.exam.y1{background:var(--y1);border-color:var(--y1s)} .wcard.exam.y2{background:var(--y2);border-color:var(--y2s)} .wcard.exam.y3{background:var(--y3);border-color:var(--y3s)}
+.wcard.exam.bad{border:2px solid var(--bad)}
+.wcard.fixed{background:repeating-linear-gradient(135deg,var(--fixed) 0 6px,transparent 6px 10px);color:var(--fixed-ink)}
+.wcard.fixed .t{font-weight:500}
+.wk{display:inline-block;font-size:11px;font-weight:700;border-radius:4px;padding:0 5px;background:var(--fixed);color:var(--muted);white-space:nowrap}
+.wk.wk-exam{background:var(--accent);color:var(--accent-ink)}
+.wk.wk-mk{background:var(--warn-bg);color:var(--warn);border:1px solid var(--warn)}
+.mvnote{color:var(--warn);font-weight:600}
+.keepnote{color:var(--ok);font-weight:600}
+.badnote{color:var(--bad);font-weight:700}
+body.dragging .wcard{pointer-events:none}
+.wcard.src{opacity:.35}
+.wcard.ghost{position:fixed}
+.daydetail-head{display:flex;gap:10px;align-items:center;justify-content:space-between;margin:4px 0 8px}
+.wcard.fixed{grid-template-columns:auto auto auto 1fr;padding:2px 6px;font-size:11.5px;align-items:center}
+.wcard.fixed .wk{font-size:10.5px}
+.wcard.fixed.mk{background:var(--warn-bg);border-color:var(--warn);color:var(--warn)}

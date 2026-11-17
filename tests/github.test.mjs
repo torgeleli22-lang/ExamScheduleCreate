@@ -55,9 +55,8 @@ test('여러 컴퓨터에서 GitHub에 저장하고 불러오기 (자동 저장,
   const C = await openApp(browser, { github: hub });
   await connect(C.page, hub.repo, hub.token);
   await waitFor(async () => (await pill(C.page)) === 'GitHub에 저장됨', 'C 연결');
-  await C.page.click('#btnNewPlan');
-  await C.page.check('input[name="wSrc"][value="copy"]');
-  await C.page.selectOption('#wFrom', '2026-2-final');
+  await C.page.selectOption('#selKind', 'mid');                 // 2026-2 중간고사: 아직 없음 → 자료 넣기
+  assert.equal(await C.page.inputValue('#wBase'), '2026-2-final');  // 같은 학기 기말 자료를 기본으로 가져옴
   await C.page.click('#wCreate');
   await C.page.click('[data-tab="history"]');
   await C.page.click('#ghSave');

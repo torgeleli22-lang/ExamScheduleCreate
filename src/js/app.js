@@ -39,33 +39,60 @@ function bind() {
   $('#summary').addEventListener('click', e => { const b = e.target.closest('[data-jump]'); if (!b) return; ui.filter = { group: '', prof: '', status: b.dataset.jump, q: '' }; setTab('courses'); });
   $('#btnExport').addEventListener('click', exportExcel);
   $('#btnRegister').addEventListener('click', () => { if (!isLocked()) openRegister(); });
-  $('#planSel').addEventListener('change', e => { switchPlan(e.target.value); toast(`${S.title}을(를) 열었어요.`); });
-  $('#btnNewPlan').addEventListener('click', openWizard);
+  // 학년도·학기·시험 선택
+  for (const id of ['#selYear', '#selTerm', '#selKind']) $(id).addEventListener('change', () => {
+    selectExam(+$('#selYear').value, +$('#selTerm').value, $('#selKind').value);
+    if (!ui.missing) toast(`${S.title}을(를) 열었어요.`);
+  });
   $('#lockBanner').addEventListener('click', e => { if (e.target.closest('#btnUnlock')) { S.locked = false; touchPlan(S); render(); toast('보관을 풀었어요. 이제 수정할 수 있어요.'); } });
 
-  const board = $('#board');
-  board.addEventListener('pointerdown', e => {
-    const b = e.target.closest('.blk.exam'); if (!b || e.button !== 0 || isLocked()) return;
+  // 날짜별 배치: 주차×요일 판(카드는 날짜 칸으로) + 펼친 날짜의 반×교시 시간표(블록은 교시까지)
+  const tb = $('#tab-board');
+  tb.addEventListener('pointerdown', e => {
+    const b = e.target.closest('.blk.exam, .wcard.exam'); if (!b || e.button !== 0 || isLocked()) return;
     const id = b.dataset.id, ex = S.exams[id];
-    const r = b.getBoundingClientRect();
-    const grabP = Math.max(0, Math.min(ex.len - 1, Math.floor((e.clientX - r.left) / (r.width / ex.len))));
+    let grabP = 0;
+    if (b.classList.contains('blk')) { const r = b.getBoundingClientRect(); grabP = Math.max(0, Math.min(ex.len - 1, Math.floor((e.clientX - r.left) / (r.width / ex.len)))); }
     drag = { id, el: b, x0: e.clientX, y0: e.clientY, started: false, grabP };
     e.preventDefault();
     window.addEventListener('pointermove', onDragMove);
     window.addEventListener('pointerup', onUp);
     window.addEventListener('pointercancel', onCancel);
   });
-  board.addEventListener('click', e => {
-    const rm = e.target.closest('[data-rmdate]');
-    if (rm) { if (isLocked()) return; S.extraDates = (S.extraDates || []).filter(d => d !== rm.dataset.rmdate); changed(); return; }
-    const b = e.target.closest('.blk.exam');
+  tb.addEventListener('click', e => {
+    const dd = e.target.closest('[data-daydetail]');
+    if (dd) {
+      const d = dd.dataset.daydetail, days = ui.days || [];
+      ui.days = days.includes(d) ? days.filter(x => x !== d) : [...days, d];
+      renderBoard(); if (isLocked()) lockControls();
+      if (ui.days.includes(d)) document.querySelector(`.day[data-day="${d}"]`)?.scrollIntoView({ block: 'nearest' });
+      return;
+    }
+    const cd = e.target.closest('[data-closeday]');
+    if (cd) { ui.days = (ui.days || []).filter(x => x !== cd.dataset.closeday); renderBoard(); return; }
+    if (e.target.closest('#btnKeepAll')) {
+      if (isLocked()) return;
+      const n = keepAllUnmoved(); changed();
+      toast(`${n}과목을 '기존 시간표 수업 진행'으로 확정했어요.`); return;
+    }
+    if (e.target.closest('#rangeReset')) { if (isLocked()) return; delete S.range; changed(); return; }
+    const b = e.target.closest('.blk.exam, .wcard.exam');
     if (b && (e.detail === 0 || isLocked())) openDrawer(b.dataset.id);
+  });
+  tb.addEventListener('change', e => {
+    if (e.target.id === 'showFixed') { ui.showFixed = e.target.checked; renderBoard(); return; }
+    if (e.target.id === 'rangeFrom' || e.target.id === 'rangeTo') {
+      const from = $('#rangeFrom').value, to = $('#rangeTo').value;
+      if (!from || !to) return;
+      if (from > to) { toast('기간의 시작이 끝보다 늦어요.'); renderBoard(); return; }
+      if (isLocked()) { renderBoard(); return; }
+      S.range = { from, to }; changed();
+    }
   });
   document.addEventListener('keydown', e => {
     if (e.key !== 'Escape') return;
-    if (drag) endDrag(e, true); else if (ui.wiz) closeWizard(); else if (ui.drawerId || ui.reg) closeDrawer();
+    if (drag) endDrag(e, true); else if (ui.drawerId || ui.reg) closeDrawer();
   });
-  $('#addDate').addEventListener('change', e => { const d = e.target.value; if (!d || isLocked()) return; S.extraDates = [...new Set([...(S.extraDates || []), d])]; changed(); toast(`${fmt(d)}을 추가했어요. 시험 블록을 이 날짜로 끌어 놓을 수 있어요.`); });
 
   const lt = $('#listTable');
   lt.addEventListener('change', e => {

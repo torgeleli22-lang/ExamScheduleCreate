@@ -249,6 +249,63 @@ body.locked .blk.exam{cursor:pointer}
 #ghCard code{font-size:12.5px;background:var(--bg);padding:1px 5px;border-radius:4px}
 #ghCard details ol{margin-top:6px}
 a.btn{text-decoration:none;color:inherit;display:inline-block}
+
+/* 시험 선택 · 자료 넣기 */
+.planpick label{display:flex;gap:6px;align-items:center}
+.planpick select{min-width:0}
+body.missing .summary,body.missing .tabs,body.missing main,body.missing #btnRegister,body.missing #btnExport,body.missing #lockBanner{display:none !important}
+.createpanel{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:18px;margin:6px 0 40px;display:flex;flex-direction:column;gap:14px}
+.createpanel[hidden]{display:none}
+.createpanel h2{font-size:19px}
+.dropzone{border:2px dashed var(--line);border-radius:10px;padding:18px;text-align:center;color:var(--muted);display:flex;flex-direction:column;gap:8px;align-items:center}
+.dropzone.over{border-color:var(--accent);background:var(--y2)}
+.filelist{display:flex;flex-direction:column;gap:6px;font-size:13px}
+.filelist .it{display:flex;gap:8px;align-items:baseline;flex-wrap:wrap;border-radius:7px;padding:7px 9px;background:var(--bg)}
+.filelist .it.ok{background:var(--ok-bg)} .filelist .it.bad{background:var(--bad-bg)}
+.filelist .ty{font-weight:700}
+.mklist{font-size:12.5px}
+.mklist td,.mklist th{padding:4px 7px}
+
+/* 주차 × 요일 판 */
+.rangebar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;font-size:13px}
+.rangebar input[type="date"]{border:1px solid var(--line);background:var(--surface);border-radius:7px;padding:4px 7px}
+.chkline{display:flex;gap:5px;align-items:center;color:var(--muted)}
+.weekgrid-wrap{overflow-x:auto;margin-bottom:16px}
+.weekgrid{display:grid;gap:6px;min-width:min-content}
+.wh{font-size:12.5px;color:var(--muted);padding:2px 4px}
+.wh b{color:var(--ink);font-size:14px;display:block}
+.wday{display:flex;align-items:flex-start;justify-content:center;font-weight:700;padding-top:8px}
+.wcell{background:var(--surface);border:1px solid var(--line);border-radius:9px;padding:6px;display:flex;flex-direction:column;gap:4px;min-height:70px;min-width:250px}
+.wcell.out{opacity:.45}
+.wcell.examday{border-color:var(--accent)}
+.wcell.ok{background:var(--ok-bg);box-shadow:inset 0 0 0 2px var(--ok)}
+.wcell.bad{background:var(--bad-bg);box-shadow:inset 0 0 0 2px var(--bad)}
+.wcell.sel{box-shadow:inset 0 0 0 2px var(--accent)}
+.wdate{display:flex;gap:6px;align-items:baseline;flex-wrap:wrap;font-size:12.5px}
+.wdate .linkbtn{font-size:14px}
+.wcard{display:grid;grid-template-columns:auto auto 1fr;gap:1px 6px;align-items:baseline;text-align:left;font-size:12px;line-height:1.35;border-radius:6px;padding:4px 6px;border:1px solid var(--line);background:var(--surface)}
+.wcard .g{font-weight:700}
+.wcard .p{color:var(--muted);white-space:nowrap}
+.wcard .t{font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.wcard .x{grid-column:1/-1;display:flex;flex-wrap:wrap;gap:3px 6px;align-items:center;color:var(--muted);font-size:11.5px}
+.wcard.exam{cursor:grab;touch-action:none;user-select:none;-webkit-user-select:none}
+.wcard.exam.y1{background:var(--y1);border-color:var(--y1s)} .wcard.exam.y2{background:var(--y2);border-color:var(--y2s)} .wcard.exam.y3{background:var(--y3);border-color:var(--y3s)}
+.wcard.exam.bad{border:2px solid var(--bad)}
+.wcard.fixed{background:repeating-linear-gradient(135deg,var(--fixed) 0 6px,transparent 6px 10px);color:var(--fixed-ink)}
+.wcard.fixed .t{font-weight:500}
+.wk{display:inline-block;font-size:11px;font-weight:700;border-radius:4px;padding:0 5px;background:var(--fixed);color:var(--muted);white-space:nowrap}
+.wk.wk-exam{background:var(--accent);color:var(--accent-ink)}
+.wk.wk-mk{background:var(--warn-bg);color:var(--warn);border:1px solid var(--warn)}
+.mvnote{color:var(--warn);font-weight:600}
+.keepnote{color:var(--ok);font-weight:600}
+.badnote{color:var(--bad);font-weight:700}
+body.dragging .wcard{pointer-events:none}
+.wcard.src{opacity:.35}
+.wcard.ghost{position:fixed}
+.daydetail-head{display:flex;gap:10px;align-items:center;justify-content:space-between;margin:4px 0 8px}
+.wcard.fixed{grid-template-columns:auto auto auto 1fr;padding:2px 6px;font-size:11.5px;align-items:center}
+.wcard.fixed .wk{font-size:10.5px}
+.wcard.fixed.mk{background:var(--warn-bg);border-color:var(--warn);color:var(--warn)}
 </style>
 </head>
 <body>
@@ -257,10 +314,10 @@ a.btn{text-decoration:none;color:inherit;display:inline-block}
     <div>
       <p class="eyebrow" id="deptLabel"></p>
       <h1 id="titleLabel"></h1>
-      <div class="planpick">
-        <label for="planSel">시험 선택</label>
-        <select id="planSel"></select>
-        <button type="button" class="btn small" id="btnNewPlan">+ 새 시험 만들기</button>
+      <div class="planpick" role="group" aria-label="시험 선택">
+        <label>학년도 <select id="selYear"></select></label>
+        <label>학기 <select id="selTerm"><option value="1">1학기</option><option value="2">2학기</option></select></label>
+        <label>시험 <select id="selKind"><option value="mid">중간고사</option><option value="final">기말고사</option></select></label>
       </div>
     </div>
     <div class="actions">
@@ -269,6 +326,7 @@ a.btn{text-decoration:none;color:inherit;display:inline-block}
       <button type="button" class="btn primary" id="btnExport">엑셀로 내보내기</button>
     </div>
   </header>
+  <section id="createPanel" class="createpanel" hidden></section>
   <div id="lockBanner" class="lockbanner" hidden></div>
   <section class="summary" id="summary" aria-label="요약"></section>
   <nav class="tabs" role="tablist" aria-label="보기">
@@ -281,13 +339,23 @@ a.btn{text-decoration:none;color:inherit;display:inline-block}
   <main>
     <section id="tab-board" class="tabpanel" role="tabpanel">
       <div class="boardbar">
-        <p class="hint">시험 블록을 끌어서 다른 시간·날짜로 옮기면 같은 반 수업, 교수님 일정, 강의실 겹침을 바로 확인해요. 블록을 누르면 방식·시간을 입력할 수 있어요.</p>
-        <div class="adddate"><label for="addDate">날짜 추가</label><select id="addDate"></select></div>
+        <div class="rangebar">
+          <label for="rangeFrom">기간</label>
+          <input type="date" id="rangeFrom"> <span>~</span> <input type="date" id="rangeTo">
+          <button type="button" class="btn small" id="rangeReset">시험 주차에 맞추기</button>
+          <label class="chkline"><input type="checkbox" id="showFixed" checked> 다른 주차 수업·보강도 보기</label>
+        </div>
+        <button type="button" class="btn small" id="btnKeepAll"></button>
       </div>
+      <p class="hint" style="margin-bottom:8px">시험 주차 수업 카드를 다른 날짜 칸으로 끌어서 옮기세요 (같은 교시로 옮겨져요). 카드를 누르면 교시·방식을 바꾸거나 '기존 시간표 수업 진행'으로 확정할 수 있고, 날짜를 누르면 반×교시 시간표가 아래에 펼쳐져요.</p>
       <div class="legend" style="margin-bottom:10px">
-        <span><i class="sw y1"></i>1학년 시험</span><span><i class="sw y2"></i>2학년 시험</span><span><i class="sw y3"></i>3학년 시험</span>
-        <span><i class="sw fx"></i>그날 정상 수업(옮길 수 없음)</span><span><i class="sw bd"></i>겹침</span>
+        <span><i class="sw y1"></i>1학년</span><span><i class="sw y2"></i>2학년</span><span><i class="sw y3"></i>3학년</span>
+        <span><span class="wk wk-exam">15주차</span> 시험 주차 수업(옮길 수 있음)</span>
+        <span><span class="wk">14주차</span> 다른 주차 수업(고정)</span>
+        <span><span class="wk wk-mk">보강</span> 보강 수업(고정)</span>
+        <span><i class="sw bd"></i>겹침</span>
       </div>
+      <div class="weekgrid-wrap"><div id="weekGrid" class="weekgrid"></div></div>
       <div class="board" id="board"></div>
     </section>
     <section id="tab-courses" class="tabpanel" role="tabpanel" hidden>
@@ -295,7 +363,7 @@ a.btn{text-decoration:none;color:inherit;display:inline-block}
         <label for="fGroup">반 <select id="fGroup"></select></label>
         <label for="fProf">교수 <select id="fProf"></select></label>
         <label for="fStatus">상태 <select id="fStatus">
-          <option value="">전체</option><option value="bad">겹침 있음</option><option value="warn">확인 필요</option><option value="moved">날짜·시간 변경</option><option value="undecided">방식 미정</option><option value="open">미확정</option><option value="done">확정</option>
+          <option value="">전체</option><option value="bad">겹침 있음</option><option value="warn">확인 필요</option><option value="moved">날짜·시간 변경</option><option value="keep">기존 시간표 수업 진행</option><option value="undecided">방식 미정</option><option value="open">미확정</option><option value="done">확정</option>
         </select></label>
         <label for="fQ">검색 <input type="text" id="fQ" placeholder="과목·교수·강의실"></label>
         <button type="button" class="btn small" id="btnCopyTsv">표 복사 (엑셀 붙여넣기용)</button>
@@ -315,7 +383,6 @@ a.btn{text-decoration:none;color:inherit;display:inline-block}
   </main>
 </div>
 <aside id="drawer" class="drawer" hidden aria-label="과목 시험 설정"></aside>
-<div id="modal" class="modal" hidden role="dialog" aria-modal="true" aria-labelledby="modalTitle"></div>
 <div id="dragTip" class="dragtip" hidden></div>
 <div id="toast" class="toast" role="status" aria-live="polite"></div>
 <datalist id="roomList"></datalist>
@@ -499,16 +566,39 @@ function derive() {
   D.profs = [...new Set(S.classes.map(c => c.prof).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'ko'));
   D.rooms = [...new Set(S.classes.map(c => c.room).filter(Boolean))].sort();
   D.candDates = D.allDates.filter(d => D.dateMap[d].week >= S.examWeek - 2 && dowOf(d) !== 0);
+  deriveMakeups();
   for (const c of S.classes) if (!S.exams[c.id]) S.exams[c.id] = defaultExam(c);
   for (const id of Object.keys(S.exams)) if (!D.byId[id]) delete S.exams[id];
 }
 /** 지금 볼 계획을 정하고 파생값을 다시 계산 */
 function usePlan(p) { S = p; derive(); return S; }
 
-const defaultDate = c => D.colDates[c.day]?.[S.examWeek - 1] || '';
+/* 보강: 결강일의 원래 수업은 없어지고, 보강일·교시에 그 수업이 생긴다.
+   시험 주차 수업이 결강되고 보강됐다면 그 보강 시간이 기본 시험 시간이 된다. */
+function deriveMakeups() {
+  D.makeups = (S.makeups || []).filter(m => D.byId[m.classId] && m.to);
+  D.cancelled = new Set(D.makeups.filter(m => m.from).map(m => `${m.classId}|${m.from}`));
+  D.examMakeup = {};
+  for (const m of D.makeups) {
+    const c = D.byId[m.classId];
+    if (m.from && m.from === D.colDates[c.day]?.[S.examWeek - 1]) D.examMakeup[c.id] = m;
+  }
+}
+/** 이 수업의 시험 주차 수업 날짜 (보강됐으면 보강일) */
+const defaultDate = c => D.examMakeup?.[c.id]?.to || D.colDates[c.day]?.[S.examWeek - 1] || '';
+const defaultStart = c => D.examMakeup?.[c.id]?.start ?? c.start;
+const defaultLen = c => { const m = D.examMakeup?.[c.id]; return m ? m.end - m.start + 1 : lenOf(c); };
+const defaultRoom = c => D.examMakeup?.[c.id]?.room || c.room;
 const prevDate = c => D.colDates[c.day]?.[S.examWeek - 2] || '';
 function defaultExam(c) {
-  return { method: '미정', date: defaultDate(c), start: c.start, len: lenOf(c), room: c.room, note: '', done: false };
+  return { method: '미정', date: defaultDate(c), start: defaultStart(c), len: defaultLen(c), room: defaultRoom(c), note: '', done: false };
+}
+/** 수업일·보강이 바뀐 뒤: 옮기지 않았던 시험은 새 기본 시간으로 따라가게 한다 */
+function rebaseUnmoved(change) {
+  const unmoved = new Set(S.classes.filter(c => S.exams[c.id] && !isMoved(c)).map(c => c.id));
+  change();
+  derive();
+  for (const c of S.classes) if (unmoved.has(c.id)) Object.assign(S.exams[c.id], { date: defaultDate(c), start: defaultStart(c), len: defaultLen(c), room: defaultRoom(c) });
 }
 function dayInfoLabel(iso) {
   const info = D.dateMap[iso];
@@ -530,10 +620,15 @@ function shiftedDays(calendar, year) {
 /* ===== src/js/rules.js ===== */
 /* ---------- 겹침 · 경고 규칙 ---------- */
 const hasSlot = ex => !NO_SLOT.has(ex.method);
-const isMoved = c => { const ex = S.exams[c.id]; return hasSlot(ex) && (ex.date !== defaultDate(c) || ex.start !== c.start); };
+const isMoved = c => { const ex = S.exams[c.id]; return hasSlot(ex) && (ex.date !== defaultDate(c) || ex.start !== defaultStart(c)); };
+/** 공지·엑셀에 쓰는 방식 글자: '기존 시간표 수업 진행'으로 확정했으면 그것을 앞에 */
+const methodLabel = c => { const ex = S.exams[c.id]; return isKept(c) ? `기존 시간표 수업 진행${ex.method !== '미정' ? ` (${ex.method})` : ''}` : ex.method; };
+/** '기존 시간표 수업 진행'으로 확정했고 그 뒤로 옮기지 않았는지 */
+const isKept = c => !!(S.exams[c.id]?.keep && !isMoved(c));
 
 /* 어떤 날짜에 시간을 차지하는 것 전부.
    - fixed: 그날 열리는 정규 수업 (시험 주차가 아닌 주, 또는 시험 주차여도 시험 시간이 없는 과목은 정상 수업으로 본다)
+   - makeup: 그 날짜로 잡힌 보강 (결강일의 원래 수업은 fixed에서 빠진다)
    - exam:  그 날짜에 배치된 모든 시험 */
 function itemsOn(iso, excludeId) {
   const out = [];
@@ -543,8 +638,15 @@ function itemsOn(iso, excludeId) {
     for (const c of S.classes) {
       if (c.day !== info.col) continue;
       if (examWeekDay && hasSlot(S.exams[c.id])) continue;
+      if (D.cancelled?.has(`${c.id}|${iso}`)) continue;
       out.push({ kind: 'fixed', c, s: c.start, e: c.end, room: c.room, week: info.week });
     }
+  }
+  for (const m of D.makeups || []) {
+    if (m.to !== iso) continue;
+    const c = D.byId[m.classId];
+    if (D.examMakeup[c.id] === m && hasSlot(S.exams[c.id])) continue;   // 시험 주차 보강 = 시험 자리
+    out.push({ kind: 'makeup', c, s: m.start, e: m.end, room: m.room || c.room, week: m.from ? D.dateMap[m.from]?.week : null, from: m.from, m });
   }
   for (const c of S.classes) {
     if (c.id === excludeId) continue;
@@ -584,15 +686,15 @@ function warningsOf(c, p) {
 }
 function describeConflict(x) {
   const it = x.it, o = it.c;
-  const what = it.kind === 'exam' ? '시험' : `${it.week}주차 수업`;
+  const what = it.kind === 'exam' ? '시험' : it.kind === 'makeup' ? `보강(${it.from ? `${fmt(it.from)} 결강분` : '추가'})` : `${it.week}주차 수업`;
   const room = x.kinds.includes('강의실') ? ` · ${roomLabel(it.room)}` : '';
   return `${x.kinds.join('·')} 겹침: ${o.course}(${o.prof}, ${groupOf(o)}) ${what} ${pRange(it.s, it.e - it.s + 1)}${room}`;
 }
 function statusOf(c) {
   const ex = S.exams[c.id];
-  if (!hasSlot(ex)) return { bad: [], warn: [], moved: false, undecided: false, done: !!ex.done, noslot: true };
+  if (!hasSlot(ex)) return { bad: [], warn: [], moved: false, undecided: false, done: !!ex.done, noslot: true, keep: false };
   const p = { date: ex.date, start: ex.start, len: ex.len, room: ex.room };
-  return { bad: conflictsOf(c, p), warn: warningsOf(c, p), moved: isMoved(c), undecided: ex.method === '미정', done: !!ex.done, noslot: false };
+  return { bad: conflictsOf(c, p), warn: warningsOf(c, p), moved: isMoved(c), undecided: ex.method === '미정', done: !!ex.done, noslot: false, keep: isKept(c) };
 }
 /** 시험주차-2 이후 후보 날짜 중 (시험주차-1) 수업일 이후, 토요일 제외, 점심을 걸치지 않고 겹침 0인 시작 교시 */
 function freeSlots(c, len, room) {
@@ -606,7 +708,7 @@ function freeSlots(c, len, room) {
   return out;
 }
 function counts() {
-  let total = 0, bad = 0, warn = 0, moved = 0, und = 0, done = 0, noslot = 0;
+  let total = 0, bad = 0, warn = 0, moved = 0, und = 0, done = 0, noslot = 0, keep = 0;
   for (const c of S.classes) {
     const st = statusOf(c);
     if (st.noslot) { noslot++; if (st.done) done++; continue; }
@@ -616,8 +718,9 @@ function counts() {
     if (st.moved) moved++;
     if (st.undecided) und++;
     if (st.done) done++;
+    if (st.keep) keep++;
   }
-  return { total, bad, warn, moved, und, done, noslot, all: S.classes.length };
+  return { total, bad, warn, moved, und, done, noslot, keep, all: S.classes.length };
 }
 /** 다른 계획의 요약 (기록 탭). 잠깐 S를 바꿔 계산하고 되돌린다. */
 function countsOfPlan(p) {
@@ -760,6 +863,286 @@ async function parseTimetableXlsx(buf) {
     if (out.length) return { sheet: ws.name, classes: assignIds(out) };
   }
   throw new Error('강의시간표 형식을 찾지 못했어요. "요일·학년·반·교시" 머리글이 있는 시트인지 확인해 주세요.');
+}
+
+/** xlsx 모든 시트 → 글자 (행은 줄, 칸은 탭). 날짜 칸은 "월/일"로 */
+async function xlsxToText(buf) {
+  const ExcelJS = await loadExcelJS();
+  const wb = new ExcelJS.Workbook();
+  await wb.xlsx.load(buf);
+  const cellText = v => {
+    if (v == null) return '';
+    if (v instanceof Date) return `${v.getUTCFullYear()}/${v.getUTCMonth() + 1}/${v.getUTCDate()}`;
+    if (typeof v === 'object') { if (v.richText) return v.richText.map(r => r.text).join(''); if ('result' in v) return cellText(v.result); if (v.text) return String(v.text); return ''; }
+    return String(v);
+  };
+  const lines = [];
+  for (const ws of wb.worksheets) ws.eachRow({ includeEmpty: false }, row => {
+    const vals = []; row.eachCell({ includeEmpty: true }, cell => vals.push(cellText(cell.value).replace(/\s*\n\s*/g, ' ').trim()));
+    if (vals.some(Boolean)) lines.push(vals.join('\t'));
+  });
+  return lines.join('\n');
+}
+
+/**
+ * 파일 하나가 무슨 자료인지 알아낸다.
+ * → { name, type: 'timetable' | 'calendar' | 'makeups' | 'unknown', classes?, sheet?, calendar?, text?, msg }
+ *   timetable: 학과 강의시간표 (xlsx, '요일·학년·반·1~10교시' 머리글)
+ *   calendar:  요일별 수업일 현황 (pdf · hwp · xlsx · 글자)
+ *   makeups:   보강결과보고서·보강 계획 (hwp · xlsx · pdf · 글자). 수업과 짝짓기는 적용할 때 parseMakeups()로.
+ */
+async function recognizeFile(file) {
+  const name = file.name || '파일';
+  const ext = (name.match(/\.([^.]+)$/) || [])[1]?.toLowerCase() || '';
+  const buf = await file.arrayBuffer();
+  let text = '';
+  try {
+    if (ext === 'xlsx' || ext === 'xlsm') {
+      try { const tt = await parseTimetableXlsx(buf); return { name, type: 'timetable', classes: tt.classes, sheet: tt.sheet, msg: `강의시간표 · '${tt.sheet}' 시트에서 수업 ${tt.classes.length}개` }; } catch {}
+      text = await xlsxToText(buf);
+    } else if (ext === 'pdf') text = await pdfToText(buf);
+    else if (ext === 'hwp') text = await hwpToText(new Uint8Array(buf));
+    else if (['txt', 'csv', 'tsv', 'json'].includes(ext) || !ext) text = new TextDecoder().decode(buf);
+    else if (ext === 'xls' || ext === 'hwpx') return { name, type: 'unknown', msg: `.${ext}는 아직 못 읽어요. 엑셀은 .xlsx로, 한글은 .hwp로 다시 저장해 주세요.` };
+    else return { name, type: 'unknown', msg: '읽을 수 없는 파일 형식이에요 (.xlsx, .pdf, .hwp, .txt).' };
+  } catch (err) { return { name, type: 'unknown', msg: err.message || '파일을 읽지 못했어요.' }; }
+  const kind = classifyText(text);
+  if (kind === 'calendar') { const cal = parseCalendarText(text); return { name, type: 'calendar', calendar: cal.data, text: calendarText(cal.data), msg: `요일별 수업일 현황 · ${cal.msg}` }; }
+  if (kind === 'makeups') { const n = text.split(/\r?\n/).filter(l => (l.match(DATE_RE) || []).length >= 1 && (linePeriods(l).length || /\d{5}-\d{3}/.test(l))).length; return { name, type: 'makeups', text, msg: `보강 자료 · ${n}줄` }; }
+  return { name, type: 'unknown', text, msg: text.trim() ? '시간표·수업일 현황·보강 중 어느 것인지 알아보지 못했어요.' : '파일에서 글자를 찾지 못했어요 (스캔한 이미지일 수 있어요).' };
+}
+const TYPE_LABEL = { timetable: '강의시간표', calendar: '요일별 수업일 현황', makeups: '보강', unknown: '알 수 없음' };
+
+/* ===== src/js/hwp.js ===== */
+/* ---------- 한글(.hwp 5.0) 문서 → 글자 ----------
+   학교 양식(보강결과보고서, 수업일 현황 등)이 .hwp로 오기 때문에 브라우저에서 직접 읽는다. 라이브러리 없음.
+   1) .hwp는 MS 복합 문서(CFB) 안에 FileHeader, BodyText/Section0.. 스트림이 들어 있다 → cfbStreams()
+   2) Section 스트림은 (압축되어 있으면 raw deflate를 풀고) 레코드의 나열이다 → hwpRecordsToLines()
+   3) 표는 칸(LIST_HEADER)마다 행·열 번호가 있으므로, 같은 행의 칸은 탭으로 이어 한 줄로 만든다.
+      예) "35382-101\tJAVA프로그래밍응용\t2\t2026/09/22\t화\t6~8\t2026/12/15\t화\t6~8\t양숙희" */
+
+/** CFB(복합 문서) → { 경로: Uint8Array } (경로 예: 'FileHeader', 'BodyText/Section0') */
+function cfbStreams(bytes) {
+  const dv = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+  const sig = [0xD0, 0xCF, 0x11, 0xE0, 0xA1, 0xB1, 0x1A, 0xE1];
+  if (bytes.length < 512 || sig.some((b, i) => bytes[i] !== b)) throw new Error('한글(.hwp 5.0) 파일이 아니에요.');
+  const u32 = o => dv.getUint32(o, true);
+  const secSize = 1 << dv.getUint16(0x1E, true), miniSize = 1 << dv.getUint16(0x20, true);
+  const nFat = u32(0x2C), firstDir = u32(0x30), cutoff = u32(0x38), firstMiniFat = u32(0x3C), firstDifat = u32(0x44);
+  const END = 0xFFFFFFFA;
+  const secOff = sid => (sid + 1) * secSize;
+  // FAT 섹터 목록 (헤더의 109개 + DIFAT 사슬)
+  const fatSecs = [];
+  for (let i = 0; i < 109 && fatSecs.length < nFat; i++) { const s = u32(0x4C + i * 4); if (s < END) fatSecs.push(s); }
+  for (let d = firstDifat, guard = 0; d < END && fatSecs.length < nFat && guard < 10000; guard++) {
+    const per = secSize / 4 - 1;
+    for (let i = 0; i < per && fatSecs.length < nFat; i++) { const s = u32(secOff(d) + i * 4); if (s < END) fatSecs.push(s); }
+    d = u32(secOff(d) + per * 4);
+  }
+  const fat = [];
+  for (const s of fatSecs) for (let i = 0; i < secSize / 4; i++) fat.push(u32(secOff(s) + i * 4));
+  const chain = (start, table) => { const out = []; for (let s = start, g = 0; s < END && g < 1e6; g++) { out.push(s); s = table[s]; } return out; };
+  const readChain = start => {
+    const secs = chain(start, fat), out = new Uint8Array(secs.length * secSize);
+    secs.forEach((s, i) => out.set(bytes.subarray(secOff(s), secOff(s) + secSize), i * secSize));
+    return out;
+  };
+  // 디렉터리
+  const dir = readChain(firstDir), ddv = new DataView(dir.buffer);
+  const entries = [];
+  for (let o = 0; o + 128 <= dir.length; o += 128) {
+    const nameLen = ddv.getUint16(o + 0x40, true);
+    let name = '';
+    for (let i = 0; i < Math.max(0, nameLen / 2 - 1); i++) name += String.fromCharCode(ddv.getUint16(o + i * 2, true));
+    entries.push({ name, type: dir[o + 0x42], left: ddv.getUint32(o + 0x44, true), right: ddv.getUint32(o + 0x48, true),
+      child: ddv.getUint32(o + 0x4C, true), start: ddv.getUint32(o + 0x74, true), size: ddv.getUint32(o + 0x78, true) });
+  }
+  const root = entries[0];
+  const miniStream = root && root.start < END ? readChain(root.start) : new Uint8Array(0);
+  const miniFat = [];
+  if (firstMiniFat < END) { const mf = readChain(firstMiniFat), mdv = new DataView(mf.buffer); for (let i = 0; i + 4 <= mf.length; i += 4) miniFat.push(mdv.getUint32(i, true)); }
+  const readStream = e => {
+    if (e.size < cutoff) {
+      const secs = chain(e.start, miniFat), out = new Uint8Array(secs.length * miniSize);
+      secs.forEach((s, i) => out.set(miniStream.subarray(s * miniSize, (s + 1) * miniSize), i * miniSize));
+      return out.subarray(0, e.size);
+    }
+    return readChain(e.start).subarray(0, e.size);
+  };
+  // 트리(왼쪽·오른쪽 형제, 자식)를 돌며 경로를 만든다
+  const out = {};
+  const walk = (idx, prefix, seen) => {
+    if (idx >= END || idx >= entries.length || seen.has(idx)) return;
+    seen.add(idx);
+    const e = entries[idx];
+    walk(e.left, prefix, seen); walk(e.right, prefix, seen);
+    const path = prefix ? `${prefix}/${e.name}` : e.name;
+    if (e.type === 2) out[path] = readStream(e);
+    else if (e.type === 1) walk(e.child, path, seen);
+  };
+  if (root) walk(root.child, '', new Set());
+  return out;
+}
+
+async function inflateRaw(bytes) {
+  const ds = new DecompressionStream('deflate-raw');
+  const buf = await new Response(new Blob([bytes]).stream().pipeThrough(ds)).arrayBuffer();
+  return new Uint8Array(buf);
+}
+
+/** HWP 레코드 → 줄 목록. 본문 문단은 한 줄씩, 표는 한 행이 한 줄(칸은 탭) */
+function hwpRecordsToLines(data) {
+  const dv = new DataView(data.buffer, data.byteOffset, data.byteLength);
+  const lines = [];
+  let cur = null;          // 지금 쓰는 줄
+  let table = 0, row = -1; // 지금 표 번호·행
+  let inCell = false, cellLevel = -1, cellHasText = false;
+  const flush = () => { if (cur !== null && cur.replace(/\t/g, '').trim()) lines.push(cur.replace(/[  ]+/g, ' ').trim()); cur = null; };
+  for (let i = 0; i + 4 <= data.length;) {
+    const h = dv.getUint32(i, true); i += 4;
+    const tag = h & 0x3ff, level = (h >> 10) & 0x3ff;
+    let size = (h >>> 20) & 0xfff;
+    if (size === 0xfff) { size = dv.getUint32(i, true); i += 4; }
+    const rec = data.subarray(i, i + size); i += size;
+    if (tag === 77) { table++; row = -1; continue; }                       // HWPTAG_TABLE
+    if (tag === 72 && size >= 16) {                                         // HWPTAG_LIST_HEADER (표의 칸)
+      const rdv = new DataView(rec.buffer, rec.byteOffset, rec.byteLength);
+      const r = rdv.getUint16(10, true);
+      if (r !== row || cur === null) { flush(); cur = ''; row = r; } else cur += '\t';
+      inCell = true; cellLevel = level; cellHasText = false;
+      continue;
+    }
+    if (tag === 66) {                                                       // HWPTAG_PARA_HEADER
+      if (inCell && level < cellLevel) { inCell = false; flush(); row = -1; }
+      if (!inCell) { flush(); cur = ''; }
+      continue;
+    }
+    if (tag !== 67) continue;                                               // HWPTAG_PARA_TEXT
+    let t = '';
+    for (let j = 0; j + 2 <= rec.length;) {
+      const ch = rec[j] | (rec[j + 1] << 8);
+      if (ch < 32) {
+        if ([1, 2, 3, 11, 12, 14, 15, 16, 17, 18, 21, 22, 23, 4, 5, 6, 7, 8, 9, 19, 20].includes(ch)) { if (ch === 9) t += ' '; j += 16; continue; }
+        if (ch === 10) t += ' ';
+        j += 2; continue;
+      }
+      t += String.fromCharCode(ch); j += 2;
+    }
+    if (cur === null) cur = '';
+    cur += t;   // 한 칸 안의 여러 문단(줄바꿈된 과목명 등)은 붙여 쓴다
+    cellHasText = true;
+  }
+  flush();
+  return lines;
+}
+
+/** .hwp 바이트 → 글자(줄바꿈으로 구분) */
+async function hwpToText(bytes) {
+  const st = cfbStreams(bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes));
+  const fh = st['FileHeader'];
+  if (!fh || !String.fromCharCode(...fh.subarray(0, 17)).startsWith('HWP Document File')) throw new Error('한글(.hwp 5.0) 문서가 아니에요.');
+  const props = new DataView(fh.buffer, fh.byteOffset, fh.byteLength).getUint32(36, true);
+  if (props & 2) throw new Error('암호가 걸린 한글 문서는 읽을 수 없어요. 암호를 풀고 다시 저장해 주세요.');
+  const secs = Object.keys(st).filter(k => /^BodyText\/Section\d+$/.test(k)).sort((a, b) => +a.slice(16) - +b.slice(16));
+  const out = [];
+  for (const k of secs) out.push(...hwpRecordsToLines((props & 1) ? await inflateRaw(st[k]) : st[k]));
+  return out.join('\n');
+}
+
+/* ===== src/js/makeups.js ===== */
+/* ---------- 보강 · 자료 종류 알아보기 (DOM 없음, 단위 테스트에서 그대로 불러씀) ----------
+   보강결과보고서(학교 양식) 한 줄 예:
+     35382-101  JAVA프로그래밍응용  2  2026/09/22 화 6~8  2026/12/15 화 6~8  양숙희
+     과목코드     과목명            학년  결강 일자·요일·교시   보강 일자·요일·교시    담당교수
+   - 반 칸이 없다 → 과목코드 끝 3자리(101=A, 102=B, 103=C)와 결강 요일·교시로 시간표 수업을 찾는다.
+   - 날짜가 둘이면 첫째가 결강(원래 수업일), 둘째가 보강일. 하나면 보강일만.
+   - 교시는 "2~4", "2~4교시", "13:35~15:20" 모두 읽는다.
+   plan.makeups = [{ id, classId, from(결강일|''), to(보강일), start, end, room, note }] */
+
+// 2026/12/15, 2026.12.15, 2026-12-15, 12/15, 12.15, 12월 15일, 12/15(화)
+const DATE_RE = /(?<![\d.])(?:(\d{4})\s*[.\/-]\s*(\d{1,2})\s*[.\/-]\s*(\d{1,2})|(\d{1,2})\s*[.\/월]\s*(\d{1,2}))(?:\s*일)?(?!\d)(?:\s*\(\s*[월화수목금토일]\s*\))?/g;
+const normName = s => String(s || '').replace(/\s+/g, '').replace(/[()（）\[\]·.,-]/g, '').toUpperCase();
+
+/** 한 줄에서 날짜들을 ISO로 (연도 없으면 학년도·달력 첫 달로 짐작) */
+function lineDates(line, year, firstMonth) {
+  const out = [];
+  for (const m of String(line).matchAll(DATE_RE)) {
+    const mo = +(m[2] || m[4]), da = +(m[3] || m[5]);
+    if (mo < 1 || mo > 12 || da < 1 || da > 31) continue;
+    let y = m[1] ? +m[1] : +year + (firstMonth >= 7 && mo <= 2 ? 1 : 0);
+    out.push(`${y}-${String(mo).padStart(2, '0')}-${String(da).padStart(2, '0')}`);
+  }
+  return out;
+}
+/** 날짜를 지운 줄에서 교시 범위들: "2~4", "6-8교시", "3교시", "13:35~15:20" */
+function linePeriods(line) {
+  const s = String(line).replace(DATE_RE, ' ').replace(/\d{5}-\d{3}/g, ' ');
+  const out = [];
+  const re = /(\d{1,2}):(\d{2})\s*[~\-–]\s*(\d{1,2}):(\d{2})|(?<![\d:])(\d{1,2})\s*[~\-–]\s*(\d{1,2})(?![\d:])(?:\s*교시)?|(?<![\d:~\-])(\d{1,2})\s*교시/g;
+  for (const m of s.matchAll(re)) {
+    if (m[1]) {
+      const t1 = `${m[1].padStart(2, '0')}:${m[2]}`, t2 = `${m[3].padStart(2, '0')}:${m[4]}`;
+      let a = PERIODS.findIndex(p => p[1] > t1) + 1, b = PERIODS.findIndex(p => p[1] >= t2) + 1;
+      if (a > 0) out.push([a, b > 0 ? b : NP]);
+    } else if (m[5]) { const a = +m[5], b = +m[6]; if (a >= 1 && b >= a && b <= 15) out.push([a, b]); }
+    else out.push([+m[7], +m[7]]);
+  }
+  return out;
+}
+
+/**
+ * 보강 양식 글자 → { makeups, unmatched }
+ * classes: 그 학기 수업 목록, calendar/year: 날짜를 시간표 요일·주차로 바꿀 때
+ */
+function parseMakeups(text, classes, calendar, year) {
+  const { dateMap, firstMonth } = buildDateMap(calendar, year);
+  const byName = classes.map(c => ({ c, n: normName(c.course) })).filter(x => x.n);
+  const makeups = [], unmatched = [];
+  for (const raw of String(text || '').split(/\r?\n/)) {
+    const line = raw.trim();
+    const dates = lineDates(line, year, firstMonth);
+    if (!dates.length) continue;
+    const periods = linePeriods(line);
+    const code = line.match(/\d{5}-(\d{3})/);
+    if (!code && !periods.length) continue;      // 제출일 같은 날짜만 있는 줄
+    const nl = normName(line);
+    let cands = byName.filter(x => nl.includes(x.n));
+    if (!cands.length) { unmatched.push({ line, why: '시간표에서 이 과목을 찾지 못했어요' }); continue; }
+    const longest = Math.max(...cands.map(x => x.n.length));
+    cands = cands.filter(x => x.n.length === longest).map(x => x.c);
+    const banFromCode = code ? String.fromCharCode(64 + (+code[1] % 100)) : null;
+    const g = line.match(/(?<![\d])([1-4])\s*학년\s*([A-Za-z])\s*반?|(?<![\d\-])([1-4])\s*([A-Za-z])\s*반/);
+    const grp = g ? `${g[1] || g[3]}${(g[2] || g[4]).toUpperCase()}` : null;
+    const cells = line.split('\t').map(t => t.trim());
+    const yearTok = cells.find(t => /^[1-4](학년)?$/.test(t));
+    const from = dates.length >= 2 ? dates[0] : '';
+    const to = dates[dates.length - 1];
+    const fromCol = from && dateMap[from] ? dateMap[from].col : (from ? DOW[dowOf(from)] : null);
+    const fromP = dates.length >= 2 ? periods[0] : null;
+    const score = c => (grp && groupOf(c) === grp ? 8 : 0) + (banFromCode && c.ban === banFromCode ? 4 : 0)
+      + (yearTok && c.year === +yearTok[0] ? 2 : 0) + (fromCol && c.day === fromCol ? 3 : 0)
+      + (fromP && c.start === fromP[0] ? 2 : 0) + (c.prof && line.includes(c.prof) ? 2 : 0);
+    cands.sort((a, b) => score(b) - score(a));
+    const c = cands[0];
+    if (cands.length > 1 && score(cands[1]) === score(c) && cands[1].ban !== c.ban) { unmatched.push({ line, why: `어느 반인지 알 수 없어요 (${cands.map(groupOf).join('/')})` }); continue; }
+    const p = periods[periods.length - 1] || [c.start, c.end];
+    const room = (line.match(/(?<!\d)(\d{3,4})\s*호/) || [])[1] || c.room;
+    makeups.push({ id: `${c.id}|${from}|${to}|${p[0]}`, classId: c.id, from, to, start: p[0], end: p[1], room, note: line.replace(/\t+/g, ' ') });
+  }
+  return { makeups, unmatched };
+}
+
+/** 글자만 보고 어떤 자료인지: 'calendar'(요일별 수업일 현황) | 'makeups'(보강) | 'unknown' */
+function classifyText(text) {
+  const t = String(text || '');
+  const cal = parseCalendarText(t);
+  const weeks = cal.data ? cal.data.weeks.filter(Boolean).length : 0;
+  if (weeks >= 6 && !/보\s*강\s*(결\s*과|계\s*획)/.test(t)) return 'calendar';
+  const rows = t.split(/\r?\n/).filter(l => (l.match(DATE_RE) || []).length >= 2 && linePeriods(l).length);
+  // '보강'이라는 말이 있거나, 과목코드(35382-101)가 있는 결강·보강 줄이 있으면 보강 자료
+  if (rows.length && (/보\s*강/.test(t) || rows.some(l => /\d{5}-\d{3}/.test(l)))) return 'makeups';
+  if (weeks >= 6) return 'calendar';
+  return 'unknown';
 }
 
 /* ===== src/js/store.js ===== */
@@ -1172,7 +1555,7 @@ async function buildWorkbook() {
       for (const c of blocks) {
         const ex = S.exams[c.id];
         const s = Math.max(1, ex.start), e = Math.min(NP, ex.start + ex.len - 1);
-        const text = `${c.course}(${c.prof})\n${roomLabel(ex.room)}${ex.method !== '미정' ? ' · ' + ex.method : ''}`;
+        const text = `${c.course}(${c.prof})\n${roomLabel(ex.room)}${methodLabel(c) !== '미정' ? ' · ' + methodLabel(c) : ''}`;
         const clashAt = range(s, e).find(p => used[p]);
         if (clashAt) {
           const mc = ws.getCell(r, 4 + used[clashAt]);
@@ -1214,7 +1597,7 @@ async function buildWorkbook() {
     const row = ls.addRow({
       date: ok && ex.date ? `${+ex.date.split('-')[1]}/${+ex.date.split('-')[2]}` : '', dow: ok && ex.date ? DOW[dowOf(ex.date)] : '',
       per: ok ? pRange(ex.start, ex.len) : '', time: ok ? tRange(ex.start, ex.len) : '', year: c.year, ban: c.ban, course: c.course, prof: c.prof,
-      room: ok ? roomLabel(ex.room) : '', method: ex.method, orig: `${fmt(defaultDate(c))} ${pRange(c.start, lenOf(c))}`,
+      room: ok ? roomLabel(ex.room) : '', method: methodLabel(c), orig: `${fmt(defaultDate(c))} ${pRange(defaultStart(c), defaultLen(c))}`,
       moved: st.moved ? 'O' : '', done: ex.done ? 'O' : '', issues: [...st.bad.map(describeConflict), ...st.warn].join('\n'), note: ex.note });
     row.alignment = { vertical: 'middle', wrapText: true };
     if (st.bad.length) row.getCell('issues').font = F({ color: { argb: 'FFC42B2B' } });
@@ -1232,7 +1615,7 @@ async function buildWorkbook() {
   for (const c of byProf) {
     const ex = S.exams[c.id], ok = hasSlot(ex);
     ps.addRow({ prof: c.prof, course: c.course, grp: groupOf(c), date: ok ? fmt(ex.date) : '', per: ok ? pRange(ex.start, ex.len) : '', time: ok ? tRange(ex.start, ex.len) : '',
-      room: ok ? roomLabel(ex.room) : '', method: ex.method, done: ex.done ? 'O' : '', note: ex.note }).alignment = { vertical: 'middle', wrapText: true };
+      room: ok ? roomLabel(ex.room) : '', method: methodLabel(c), done: ex.done ? 'O' : '', note: ex.note }).alignment = { vertical: 'middle', wrapText: true };
   }
   ps.getRow(1).font = F({ bold: true }); ps.getRow(1).fill = fill('FFE5E8EE');
   ps.eachRow(row => row.eachCell(cell => { cell.border = border; if (!cell.font || !cell.font.name) cell.font = F(cell.font || {}); }));
@@ -1281,9 +1664,18 @@ async function exportExcel() {
 /* ---------- 화면: 요약 · 날짜별 배치 · 과목 목록 · 교수님 확인 ---------- */
 const isLocked = () => !!(S && S.locked);
 function render() {
+  renderPlanPicker();
+  // 고른 학년도·학기·시험에 자료가 없으면: 자료 넣기 화면만
+  document.body.classList.toggle('missing', !!ui.missing);
+  $('#createPanel').hidden = !ui.missing;
+  if (ui.missing) {
+    $('#deptLabel').textContent = S.dept;
+    $('#titleLabel').textContent = `${ui.missing.termYear}학년도 ${ui.missing.term}학기 ${KINDS[ui.missing.kind].label}`;
+    renderWizard();
+    return;
+  }
   $('#deptLabel').textContent = S.dept;
   $('#titleLabel').textContent = `${S.title} 시간표`;
-  renderPlanPicker();
   const locked = isLocked();
   document.body.classList.toggle('locked', locked);
   $('#lockBanner').hidden = !locked;
@@ -1301,29 +1693,18 @@ function render() {
 }
 /** 보관(잠금)된 계획: 입력 칸을 모두 막는다. 탭 이동·필터·복사·내보내기는 그대로 */
 function lockControls() {
-  $$('#listTable input, #listTable select, #drawer input, #drawer select, #drawer textarea, #drawer .slotbtn, #drawer #dReset, #drawer #dToReg, #setupGrid .editable, #profGrid [data-markdone], #addDate')
+  $$('#listTable input, #listTable select, #drawer input, #drawer select, #drawer textarea, #drawer .slotbtn, #drawer #dReset, #drawer #dToReg, #setupGrid .editable, #profGrid [data-markdone], #btnKeepAll, #createPanel button')
     .forEach(el => { el.disabled = true; });
 }
+/* 위쪽 학년도·학기·시험 선택칸. 없는 조합을 고르면 ui.missing → 자료 넣기 화면 */
 function renderPlanPicker() {
-  const plans = sortedPlans();
-  const byTerm = new Map();
-  for (const p of plans) { const k = `${p.termYear}학년도 ${p.term}학기`; if (!byTerm.has(k)) byTerm.set(k, []); byTerm.get(k).push(p); }
-  $('#planSel').innerHTML = [...byTerm].map(([k, list]) => `<optgroup label="${esc(k)}">${list.map(p =>
-    `<option value="${esc(p.id)}"${p.id === S.id ? ' selected' : ''}>${esc(p.title)}${p.locked ? ' 🔒' : ''}</option>`).join('')}</optgroup>`).join('');
-}
-function counts() {
-  let total = 0, bad = 0, warn = 0, moved = 0, und = 0, done = 0, noslot = 0;
-  for (const c of S.classes) {
-    const st = statusOf(c);
-    if (st.noslot) { noslot++; if (st.done) done++; continue; }
-    total++;
-    if (st.bad.length) bad++;
-    if (st.warn.length) warn++;
-    if (st.moved) moved++;
-    if (st.undecided) und++;
-    if (st.done) done++;
-  }
-  return { total, bad, warn, moved, und, done, noslot, all: S.classes.length };
+  const cur = ui.missing || { termYear: S.termYear, term: S.term, kind: S.kind };
+  const now = new Date().getFullYear();
+  const years = [...new Set([...Object.values(Store.plans).map(p => p.termYear), now - 1, now, now + 1, +cur.termYear])].sort((a, b) => b - a);
+  const has = (y, t, k) => sortedPlans().some(p => p.termYear === y && p.term === t && p.kind === k);
+  $('#selYear').innerHTML = years.map(y => `<option value="${y}"${y === +cur.termYear ? ' selected' : ''}>${y}학년도</option>`).join('');
+  $('#selTerm').value = String(cur.term);
+  $('#selKind').innerHTML = ['mid', 'final'].map(k => `<option value="${k}"${k === cur.kind ? ' selected' : ''}>${KINDS[k].label}${has(+cur.termYear, +cur.term, k) ? '' : ' (자료 없음)'}</option>`).join('');
 }
 function renderSummary() {
   const k = counts();
@@ -1332,15 +1713,9 @@ function renderSummary() {
     <button type="button" class="chip ${k.bad ? 'bad' : 'ok'}" data-jump="bad">겹침 <b>${k.bad}</b></button>
     <button type="button" class="chip ${k.warn ? 'warn' : ''}" data-jump="warn">확인 필요 <b>${k.warn}</b></button>
     <button type="button" class="chip" data-jump="moved">날짜·시간 변경 <b>${k.moved}</b></button>
+    <button type="button" class="chip ${k.keep ? 'ok' : ''}" data-jump="keep">기존 시간표 수업 진행 <b>${k.keep}</b></button>
     <button type="button" class="chip ${k.und ? 'warn' : ''}" data-jump="undecided">방식 미정 <b>${k.und}</b></button>
     <button type="button" class="chip ${k.done === k.all ? 'ok' : ''}" data-jump="done">확정 <b>${k.done}</b> / ${k.all}</button>`;
-}
-function boardDates() {
-  const set = new Set();
-  for (const col of S.calendar.cols) { const d = D.colDates[col]?.[S.examWeek - 1]; if (d) set.add(d); }
-  for (const c of S.classes) { const ex = S.exams[c.id]; if (hasSlot(ex) && ex.date) set.add(ex.date); }
-  for (const d of S.extraDates || []) set.add(d);
-  return [...set].sort();
 }
 function lanesFor(items) {
   const sorted = items.slice().sort((a, b) => a.s - b.s || (a.kind === 'fixed' ? -1 : 1));
@@ -1352,45 +1727,131 @@ function lanesFor(items) {
   }
   return Math.max(1, ends.length);
 }
+
+/* ---------- 날짜별 배치: 주차(가로 칸) × 요일(세로 줄) 판 ----------
+   기간은 계획마다 S.range = {from, to}. 없으면 시험 주차 날짜들이 들어가는 주(월~토)로 잡는다.
+   이 학과 15주차는 화 12/8, 수 12/16, 월 12/21처럼 여러 주에 흩어져 있어서 이 판으로 보면 한눈에 보인다. */
+const addDays = (iso, n) => { const d = new Date(iso + 'T00:00:00Z'); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); };
+const mondayOf = iso => addDays(iso, -((dowOf(iso) + 6) % 7));
+function defaultRange() {
+  const ds = [];
+  for (const c of S.classes) { const d = defaultDate(c); if (d) ds.push(d); const ex = S.exams[c.id]; if (ex && hasSlot(ex) && ex.date) ds.push(ex.date); }
+  if (!ds.length) return { from: D.allDates[0] || '', to: D.allDates[0] || '' };
+  ds.sort();
+  return { from: mondayOf(ds[0]), to: addDays(mondayOf(ds[ds.length - 1]), 5) };
+}
+function boardRange() {
+  const r = S.range;
+  if (r && r.from && r.to && r.from <= r.to) return r;
+  return defaultRange();
+}
+const WEEK_ROWS = ['월', '화', '수', '목', '금', '토'];
+function weekBadge(it) {
+  if (it.kind === 'makeup') return `<span class="wk wk-mk" title="${esc(it.from ? `${fmt(it.from)} 결강한 수업의 보강` : '보강')}">보강${it.week ? ` · ${it.week}주차분` : ''}</span>`;
+  if (it.kind === 'exam') return `<span class="wk wk-exam">${S.examWeek}주차${D.examMakeup[it.c.id] ? '(보강)' : ''}</span>`;
+  return `<span class="wk">${it.week}주차</span>`;
+}
+function weekCard(it, st) {
+  const c = it.c, g = groupOf(c), y = esc(String(c.year));
+  const head = `<span class="g">${esc(g)}</span><span class="p">${pRange(it.s, it.e - it.s + 1)}</span><span class="t">${esc(c.course)}</span>`;
+  if (it.kind !== 'exam') {   // 고정 수업·보강: 한 줄로 작게
+    const tip = it.kind === 'makeup' ? `보강: ${c.course}(${c.prof}) ${it.from ? fmt(it.from) + `(${it.week || '?'}주차) 결강분` : ''} → ${pRange(it.s, it.e - it.s + 1)} ${roomLabel(it.room)}` : `${it.week}주차 정상 수업: ${c.course}(${c.prof}) ${roomLabel(c.room)}`;
+    return `<div class="wcard fixed${it.kind === 'makeup' ? ' mk' : ''}" title="${esc(tip)}">${weekBadge(it)}${head}</div>`;
+  }
+  const ex = S.exams[c.id];
+  const notes = [];
+  if (st.moved) notes.push(`<span class="mvnote">↪ ${S.examWeek}주차 ${esc(fmt(defaultDate(c)))} ${pRange(defaultStart(c), defaultLen(c))}에서 옮김</span>`);
+  if (st.keep) notes.push('<span class="keepnote">✓ 기존 시간표 수업 진행</span>');
+  else if (st.done) notes.push('<span class="keepnote">✓ 확정</span>');
+  if (st.bad.length) notes.push(`<span class="badnote">겹침 ${st.bad.length}</span>`);
+  const tip = [`${c.course} (${c.prof}) ${g}`, `${fmt(ex.date)} ${pRange(ex.start, ex.len)} ${tRange(ex.start, ex.len)} · ${roomLabel(ex.room)} · ${ex.method}`, ...st.bad.map(describeConflict), ...st.warn].join('\n');
+  return `<button type="button" class="wcard exam y${y}${st.bad.length ? ' bad' : ''}" data-id="${esc(c.id)}" title="${esc(tip)}">${head}<span class="x">${weekBadge(it)}${notes.join('')}<span>${esc(c.prof)} · ${esc(roomLabel(ex.room))} · ${esc(ex.method)}</span></span></button>`;
+}
+function renderWeekGrid(statusCache) {
+  const r = boardRange();
+  $('#rangeFrom').value = r.from; $('#rangeTo').value = r.to;
+  const showFixed = ui.showFixed !== false;
+  $('#showFixed').checked = showFixed;
+  const weeks = [];
+  for (let m = mondayOf(r.from); m <= r.to && weeks.length < 10; m = addDays(m, 7)) weeks.push(m);
+  let html = `<div></div>` + weeks.map((m, i) => {
+    const sem = [...new Set(range(0, 5).map(k => D.dateMap[addDays(m, k)]?.week).filter(Boolean))].sort((a, b) => a - b);
+    return `<div class="wh"><b>${i + 1}주차</b>${esc(fmt(m).replace(/\(.\)/, ''))} ~ ${esc(fmt(addDays(m, 5)).replace(/\(.\)/, ''))}${sem.length ? ` · 학기 ${sem[0]}${sem.length > 1 ? `~${sem[sem.length - 1]}` : ''}주` : ''}</div>`;
+  }).join('');
+  for (const dw of WEEK_ROWS) {
+    html += `<div class="wday">${dw}</div>`;
+    for (const m of weeks) {
+      const d = addDays(m, WEEK_ROWS.indexOf(dw));
+      const info = D.dateMap[d];
+      const items = itemsOn(d, null).filter(it => showFixed || it.kind === 'exam')
+        .sort((a, b) => a.s - b.s || groupOf(a.c).localeCompare(groupOf(b.c)));
+      const real = DOW[dowOf(d)];
+      let tag = '<span class="tag">수업일 아님</span>';
+      if (info) {
+        const ex = info.week === S.examWeek;
+        const txt = info.col !== real ? `${info.col}요일 ${info.week}주차 수업일` : `${info.week}주차`;
+        tag = `<span class="tag ${ex ? '' : info.col !== real ? 'alt' : ''}">${esc(txt)}${ex ? ' · 시험 주차' : ''}</span>`;
+      }
+      const cls = ['wcell', d < r.from || d > r.to ? 'out' : '', info && info.week === S.examWeek ? 'examday' : '', (ui.days || []).includes(d) ? 'sel' : ''].filter(Boolean).join(' ');
+      html += `<div class="${cls}" data-date="${d}"><div class="wdate"><button type="button" class="linkbtn" data-daydetail="${d}" title="반×교시 자세히 보기">${esc(fmt(d))}</button>${tag}</div>${items.map(it => weekCard(it, statusCache[it.c.id])).join('')}</div>`;
+    }
+  }
+  const g = $('#weekGrid');
+  g.style.gridTemplateColumns = `34px repeat(${weeks.length}, minmax(250px, 1fr))`;
+  g.innerHTML = html;
+}
+/** 날짜 하나의 반×교시 자세한 시간표 (날짜를 누르면 아래에 펼침) */
+function renderDaySection(d, statusCache) {
+  const head = `<div class="ghead"><div></div><div class="periods">${PERIODS.map((p, i) => `<div><b>${i + 1}</b>${i + 1 === LUNCH ? '점심' : p[0]}</div>`).join('')}</div></div>`;
+  const items = itemsOn(d, null);
+  const nExam = items.filter(i => i.kind === 'exam').length;
+  const lab = dayInfoLabel(d);
+  const [, m, dd] = d.split('-');
+  let rows = '', prevYear = null;
+  for (const g of D.groups) {
+    const gi = items.filter(i => groupOf(i.c) === g);
+    const lanes = lanesFor(gi);
+    const year = g.slice(0, -1);
+    const cells = range(1, NP).map(p => `<div class="cell${p === LUNCH ? ' lunch' : ''}" style="grid-column:${p}" data-date="${d}" data-group="${g}" data-p="${p}"></div>`).join('');
+    const blocks = gi.map(it => {
+      const pos = `grid-column:${it.s} / span ${Math.min(NP, it.e) - it.s + 1};grid-row:${it.lane + 1}`;
+      if (it.kind !== 'exam') {
+        const what = it.kind === 'makeup' ? `보강${it.week ? `(${it.week}주차분)` : ''}` : `${it.week}주차 수업`;
+        return `<div class="blk fixed" style="${pos}" title="${esc(`${what}: ${it.c.course}(${it.c.prof}) ${roomLabel(it.room)}`)}"><span class="t">${esc(it.c.course)}</span><span class="s">${esc(what)} · ${esc(it.c.prof)}</span></div>`;
+      }
+      const ex = S.exams[it.c.id], st = statusCache[it.c.id];
+      const badge = st.bad.length ? `<span class="badge b-bad">겹침</span>` : st.keep ? `<span class="badge b-ok">기존</span>` : st.done ? `<span class="badge b-ok">확정</span>` : st.moved ? `<span class="badge b-mv">이동</span>` : '';
+      const tip = [`${it.c.course} (${it.c.prof}) ${g}`, `${fmt(ex.date)} ${pRange(ex.start, ex.len)} ${tRange(ex.start, ex.len)} · ${roomLabel(ex.room)} · ${ex.method}`, ...st.bad.map(describeConflict), ...st.warn].join('\n');
+      return `<button type="button" class="blk exam y${esc(year)}${st.bad.length ? ' bad' : ''}${badge ? ' has-badge' : ''}" style="${pos}" data-id="${esc(it.c.id)}" title="${esc(tip)}"><span class="t">${esc(it.c.course)}</span><span class="s">${S.examWeek}주차 · ${esc(it.c.prof)} · ${esc(roomLabel(ex.room))}</span>${badge}</button>`;
+    }).join('');
+    rows += `<div class="grow${prevYear !== null && prevYear !== year ? ' yb' : ''}"><div class="glabel y${esc(year)}">${esc(g)}</div><div class="track" style="grid-template-rows:repeat(${lanes},minmax(42px,auto))">${cells}${blocks}</div></div>`;
+    prevYear = year;
+  }
+  return `<section class="day" data-day="${d}">
+    <div class="dayhead"><h3>${+m}/${+dd}<span class="dow">(${DOW[dowOf(d)]})</span></h3><span class="tag ${lab.cls}">${esc(lab.text)}</span>
+    <span class="cnt">시험 ${nExam}과목</span><button type="button" class="btn small" data-closeday="${d}">접기</button></div>
+    <div class="scroller"><div class="grid">${head}${rows}</div></div></section>`;
+}
 function renderBoard() {
-  const dates = boardDates();
-  const html = [];
   const statusCache = {};
   for (const c of S.classes) statusCache[c.id] = statusOf(c);
-  const head = `<div class="ghead"><div></div><div class="periods">${PERIODS.map((p, i) => `<div><b>${i + 1}</b>${i + 1 === LUNCH ? '점심' : p[0]}</div>`).join('')}</div></div>`;
-  for (const d of dates) {
-    const items = itemsOn(d, null);
-    const nExam = items.filter(i => i.kind === 'exam').length;
-    const lab = dayInfoLabel(d);
-    const removable = (S.extraDates || []).includes(d) && !nExam;
-    const [, m, dd] = d.split('-');
-    let rows = '', prevYear = null;
-    for (const g of D.groups) {
-      const gi = items.filter(i => groupOf(i.c) === g);
-      const lanes = lanesFor(gi);
-      const year = g.slice(0, -1);
-      const cells = range(1, NP).map(p => `<div class="cell${p === LUNCH ? ' lunch' : ''}" style="grid-column:${p}" data-date="${d}" data-group="${g}" data-p="${p}"></div>`).join('');
-      const blocks = gi.map(it => {
-        const pos = `grid-column:${it.s} / span ${Math.min(NP, it.e) - it.s + 1};grid-row:${it.lane + 1}`;
-        if (it.kind === 'fixed') {
-          return `<div class="blk fixed" style="${pos}" title="${esc(`${it.week}주차 정상 수업: ${it.c.course}(${it.c.prof}) ${roomLabel(it.c.room)}`)}"><span class="t">${esc(it.c.course)}</span><span class="s">${it.week}주차 수업 · ${esc(it.c.prof)}</span></div>`;
-        }
-        const ex = S.exams[it.c.id], st = statusCache[it.c.id];
-        const badge = st.bad.length ? `<span class="badge b-bad">겹침</span>` : st.done ? `<span class="badge b-ok">확정</span>` : st.moved ? `<span class="badge b-mv">이동</span>` : '';
-        const tip = [`${it.c.course} (${it.c.prof}) ${g}`, `${fmt(ex.date)} ${pRange(ex.start, ex.len)} ${tRange(ex.start, ex.len)} · ${roomLabel(ex.room)} · ${ex.method}`, ...st.bad.map(describeConflict), ...st.warn].join('\n');
-        return `<button type="button" class="blk exam y${esc(year)}${st.bad.length ? ' bad' : ''}${badge ? ' has-badge' : ''}" style="${pos}" data-id="${esc(it.c.id)}" title="${esc(tip)}"><span class="t">${esc(it.c.course)}</span><span class="s">${esc(it.c.prof)} · ${esc(roomLabel(ex.room))} · ${esc(ex.method)}</span>${badge}</button>`;
-      }).join('');
-      rows += `<div class="grow${prevYear !== null && prevYear !== year ? ' yb' : ''}"><div class="glabel y${esc(year)}">${esc(g)}</div><div class="track" style="grid-template-rows:repeat(${lanes},minmax(42px,auto))">${cells}${blocks}</div></div>`;
-      prevYear = year;
-    }
-    html.push(`<section class="day" data-day="${d}">
-      <div class="dayhead"><h3>${+m}/${+dd}<span class="dow">(${DOW[dowOf(d)]})</span></h3><span class="tag ${lab.cls}">${esc(lab.text)}</span>
-      <span class="cnt">시험 ${nExam}과목</span>${removable ? `<button type="button" class="btn small" data-rmdate="${d}">목록에서 빼기</button>` : ''}</div>
-      <div class="scroller"><div class="grid">${head}${rows}</div></div></section>`);
+  renderWeekGrid(statusCache);
+  const keepable = S.classes.filter(c => { const st = statusCache[c.id]; return !st.noslot && !st.moved && !st.keep && !st.bad.length; }).length;
+  const kb = $('#btnKeepAll');
+  kb.textContent = `옮기지 않은 과목 모두 '기존 시간표 수업 진행' 확정 (${keepable})`;
+  kb.disabled = !keepable || isLocked();
+  const days = (ui.days || []).slice().sort();
+  $('#board').innerHTML = days.length ? `<div class="daydetail-head"><h3>반×교시 자세히</h3><span class="hint">블록을 끌어 교시까지 옮길 수 있어요</span></div>` + days.map(d => renderDaySection(d, statusCache)).join('') : '';
+}
+/** 옮기지 않았고 겹침 없는 과목을 모두 '기존 시간표 수업 진행'으로 확정 */
+function keepAllUnmoved() {
+  let n = 0;
+  for (const c of S.classes) {
+    const st = statusOf(c);
+    if (st.noslot || st.moved || st.keep || st.bad.length) continue;
+    Object.assign(S.exams[c.id], { keep: true, done: true }); n++;
   }
-  $('#board').innerHTML = html.join('');
-  const shown = new Set(dates);
-  $('#addDate').innerHTML = `<option value="">날짜 선택</option>` + D.candDates.filter(d => !shown.has(d)).map(d => `<option value="${d}">${fmt(d)} · ${D.dateMap[d].col}${D.dateMap[d].week}주차</option>`).join('');
+  return n;
 }
 function dateOptions(cur) {
   const list = D.candDates.slice();
@@ -1410,6 +1871,7 @@ function filteredClasses() {
       if (f.status === 'warn' && !st.warn.length) return false;
       if (f.status === 'moved' && !st.moved) return false;
       if (f.status === 'undecided' && !st.undecided) return false;
+      if (f.status === 'keep' && !st.keep) return false;
       if (f.status === 'open' && st.done) return false;
       if (f.status === 'done' && !st.done) return false;
     }
@@ -1422,7 +1884,8 @@ function statusPills(st) {
   if (st.bad.length) out.push(`<span class="pill bad" title="${esc(st.bad.map(describeConflict).join('\n'))}">겹침 ${st.bad.length}</span>`);
   if (st.warn.length) out.push(`<span class="pill warn" title="${esc(st.warn.join('\n'))}">확인 ${st.warn.length}</span>`);
   if (st.moved) out.push('<span class="pill mv">변경</span>');
-  if (st.done) out.push('<span class="pill ok">확정</span>');
+  if (st.keep) out.push('<span class="pill ok">기존 시간표 수업 진행</span>');
+  else if (st.done) out.push('<span class="pill ok">확정</span>');
   if (!out.length) out.push('<span class="pill na">기본</span>');
   return `<div class="st">${out.join('')}</div>`;
 }
@@ -1458,7 +1921,7 @@ function profMessage(prof) {
   list.forEach((c, i) => {
     const ex = S.exams[c.id];
     if (!hasSlot(ex)) lines.push(`${i + 1}) ${c.course} (${groupOf(c)}): ${ex.method}`);
-    else lines.push(`${i + 1}) ${c.course} (${groupOf(c)}): ${fmt(ex.date)} ${pRange(ex.start, ex.len)} ${tRange(ex.start, ex.len)}, ${roomLabel(ex.room)}, ${ex.method === '미정' ? '시험 방식 미정' : ex.method}`);
+    else lines.push(`${i + 1}) ${c.course} (${groupOf(c)}): ${fmt(ex.date)} ${pRange(ex.start, ex.len)} ${tRange(ex.start, ex.len)}, ${roomLabel(ex.room)}, ${methodLabel(c) === '미정' ? '시험 방식 미정' : methodLabel(c)}`);
     if (ex.note) lines.push(`   메모: ${ex.note}`);
   });
   lines.push('', '시험 방식이나 시간을 바꾸셔야 하면 회신 부탁드립니다. 감사합니다.');
@@ -1478,11 +1941,17 @@ function renderProfs() {
 
 /* ===== src/js/view-setup.js ===== */
 /* ---------- 설정 탭: 지금 보고 있는 시험 하나의 설정 ----------
-   (새 학기·새 시험은 '학기별 기록' 탭의 '새 시험 만들기'로. 여기는 이미 만든 시험을 고칠 때) */
+   - 자료 다시 넣기: 학기 중에 시간표·수업일 현황이 바뀌거나 보강이 생기면 파일을 넣는다(종류는 알아서 알아봄).
+   - 보강 목록: 파일로 들어온 보강을 확인·삭제하고, 직접 추가할 수도 있다.
+   옮기지 않은 시험은 바뀐 자료의 새 기본 시간을 따라간다(rebaseUnmoved). */
 function renderSetup() {
   const p = ui.pending;
   const maxWeek = S.calendar.weeks.length;
   const src = S.sources || {};
+  const mks = (S.makeups || []).slice().sort((a, b) => a.to.localeCompare(b.to) || a.start - b.start);
+  const classOpts = D.groups.map(g => `<optgroup label="${esc(g)}">${S.classes.filter(c => groupOf(c) === g)
+    .map(c => `<option value="${esc(c.id)}">${esc(g)} ${esc(c.course)} (${esc(c.prof)}) · ${esc(c.day)} ${pRange(c.start, lenOf(c))}</option>`).join('')}</optgroup>`).join('');
+  const found = p.files || [];
   $('#setupGrid').innerHTML = `
   <article class="card"><h2>기본 정보</h2>
     <label class="field" for="sTitle"><span>시험 이름 (공지·엑셀 제목에 쓰여요)</span><input type="text" class="editable" id="sTitle" value="${esc(S.title)}"></label>
@@ -1490,34 +1959,90 @@ function renderSetup() {
     <div class="row"><label class="field" for="sWeek"><span>시험 주차</span><select class="editable" id="sWeek">${opts(range(1, maxWeek), S.examWeek, v => `${v}주차`)}</select></label>
       <button type="button" class="btn small editable" id="btnWeek" style="align-self:flex-end">주차 적용</button></div>
     ${p.week ? `<div class="result">시험 주차를 ${p.week}주차로 바꾸면 모든 과목의 방식·날짜·메모가 새로 시작돼요. <button type="button" class="btn small danger" id="btnWeekYes">바꾸기</button> <button type="button" class="btn small" data-cancel="week">취소</button></div>` : ''}
-    <p class="hint">중간고사는 보통 ${KINDS.mid.week}주차, 기말고사는 ${KINDS.final.week}주차예요. 주차를 바꾸면 각 과목의 그 주차 수업 시간이 기본 시험 시간이 돼요.</p>
+    <p class="hint">중간고사는 보통 ${KINDS.mid.week}주차, 기말고사는 ${KINDS.final.week}주차예요.</p>
   </article>
-  <article class="card"><h2>요일별 수업일 현황 고치기</h2>
-    <p class="hint">이 시험에만 적용돼요. 수업일 현황 PDF를 다시 올리거나, '주 / 월~토' 표를 붙여 넣으세요.${src.calendar ? ` 지금 자료: ${esc(src.calendar)}` : ''}</p>
-    <div class="row"><label class="btn small editable" for="sCalPdf">PDF 다시 올리기</label><input type="file" id="sCalPdf" class="editable" accept=".pdf,application/pdf" hidden></div>
-    <label class="field" for="sYear"><span>학년도</span><input type="number" class="editable" id="sYear" value="${esc(S.year)}" min="2020" max="2100" style="width:110px"></label>
-    <label class="field" for="sCal"><span>수업일 표</span><textarea class="editable" id="sCal" rows="9">${esc(p.calText ?? calendarText(S.calendar))}</textarea></label>
-    <div class="row"><button type="button" class="btn small editable" id="btnCal">수업일 적용</button></div>
-    ${p.cal ? `<div class="result ${p.cal.error ? 'bad' : ''}">${esc(p.cal.msg)} ${p.cal.data ? `<button type="button" class="btn small danger" id="btnCalYes">적용하기</button> <button type="button" class="btn small" data-cancel="cal">취소</button>` : ''}</div>` : ''}
+  <article class="card"><h2>자료 다시 넣기</h2>
+    <p class="hint">시간표가 바뀌었거나 보강이 생겼을 때 파일을 넣으세요. 강의시간표(.xlsx), 요일별 수업일 현황(.pdf·.hwp·.xlsx), 보강결과보고서(.hwp·.xlsx·.pdf)를 알아서 알아봐요. 옮기지 않은 시험은 새 자료의 기본 시간을 따라가요.</p>
+    <p class="hint">지금 자료: 시간표 ${esc(src.timetable || '-')} · 수업일 ${esc(src.calendar || '-')}${src.makeups ? ` · 보강 ${esc(src.makeups)}` : ''}</p>
+    <div class="row"><label class="btn small primary editable" for="sFiles">파일 고르기 (여러 개 가능)</label><input type="file" id="sFiles" class="editable" multiple accept=".xlsx,.xlsm,.pdf,.hwp,.txt,.csv" hidden></div>
+    ${p.busy ? `<p class="hint">${esc(p.busy)}</p>` : ''}
+    ${found.length ? `<div class="filelist">${found.map((f, i) => `<div class="it ${f.type === 'unknown' ? 'bad' : 'ok'}"><span class="ty">${esc(TYPE_LABEL[f.type])}</span><span>${esc(f.name)}</span><span class="hint">${esc(f.msg)}</span>
+      ${f.type === 'unknown' ? '' : f.applied ? '<span class="keepnote">✓ 적용함</span>' : `<button type="button" class="btn small danger editable" data-apply="${i}">${f.type === 'makeups' ? '보강 추가' : '이 자료로 바꾸기'}</button>`}</div>`).join('')}</div>` : ''}
+    ${p.applyMsg ? `<div class="result">${esc(p.applyMsg)}</div>` : ''}
+    <details><summary class="hint">요일별 수업일 현황 직접 고치기</summary>
+      <label class="field" for="sYear"><span>학년도</span><input type="number" class="editable" id="sYear" value="${esc(S.year)}" min="2020" max="2100" style="width:110px"></label>
+      <label class="field" for="sCal"><span>수업일 표</span><textarea class="editable" id="sCal" rows="9">${esc(p.calText ?? calendarText(S.calendar))}</textarea></label>
+      <div class="row"><button type="button" class="btn small editable" id="btnCal">수업일 적용</button></div>
+      ${p.cal ? `<div class="result ${p.cal.error ? 'bad' : ''}">${esc(p.cal.msg)} ${p.cal.data ? `<button type="button" class="btn small danger" id="btnCalYes">적용하기</button> <button type="button" class="btn small" data-cancel="cal">취소</button>` : ''}</div>` : ''}
+    </details>
   </article>
-  <article class="card"><h2>강의시간표 바꾸기</h2>
-    <p class="hint">이 시험에만 적용돼요. 시간표가 학기 중에 바뀌었을 때 새 엑셀(.xlsx)을 올리세요. '요일·학년·반·1~10교시' 머리글이 있는 시트를 찾아 읽어요.${src.timetable ? ` 지금 자료: ${esc(src.timetable)}` : ''}</p>
-    <input type="file" id="sXlsx" class="editable" accept=".xlsx">
-    ${p.xlsx ? `<div class="result ${p.xlsx.error ? 'bad' : ''}">${esc(p.xlsx.msg)} ${p.xlsx.data ? `<button type="button" class="btn small danger" id="btnXlsxYes">이 시간표로 바꾸기</button> <button type="button" class="btn small" data-cancel="xlsx">취소</button>` : ''}</div>` : ''}
+  <article class="card" style="grid-column:1/-1"><h2>보강 ${mks.length}건</h2>
+    <p class="hint">보강일·교시에는 그 수업이 있는 것으로, 결강일에는 원래 수업이 없는 것으로 겹침을 검사해요. 날짜별 배치에서는 '보강' 표시로 보여요.</p>
+    ${mks.length ? `<div class="tablebox"><table class="mklist"><thead><tr><th>반</th><th>과목 · 교수</th><th>결강(원래 수업)</th><th>보강</th><th>강의실</th><th></th></tr></thead><tbody>${mks.map(m => {
+      const c = D.byId[m.classId];
+      const fw = m.from && D.dateMap[m.from] ? `${D.dateMap[m.from].week}주차` : '';
+      return `<tr><td class="gtag">${esc(c ? groupOf(c) : '?')}</td><td>${esc(c ? c.course : m.classId)}<span class="sub">${esc(c ? c.prof : '')}</span></td>
+        <td>${m.from ? `${esc(fmt(m.from))} <span class="wk">${fw}</span>` : '-'}</td><td>${esc(fmt(m.to))} ${pRange(m.start, m.end - m.start + 1)}</td><td>${esc(roomLabel(m.room))}</td>
+        <td><button type="button" class="btn small danger editable" data-delmk="${esc(m.id)}">삭제</button></td></tr>`; }).join('')}</tbody></table></div>` : '<p class="hint">아직 보강이 없어요.</p>'}
+    <details><summary class="hint">보강 직접 추가</summary>
+      <div class="row" style="margin-top:8px">
+        <label class="field"><span>수업</span><select id="mkClass" class="editable">${classOpts}</select></label>
+        <label class="field"><span>결강일 (없으면 비움)</span><input type="date" id="mkFrom" class="editable"></label>
+        <label class="field"><span>보강일</span><input type="date" id="mkTo" class="editable"></label>
+        <label class="field"><span>교시</span><span class="row"><select id="mkStart" class="editable">${opts(range(1, 14), 1)}</select>~<select id="mkEnd" class="editable">${opts(range(1, 14), 2)}</select></span></label>
+        <label class="field"><span>강의실 (비우면 원래 강의실)</span><input type="text" id="mkRoom" class="editable" size="8" list="roomList"></label>
+        <button type="button" class="btn small primary editable" id="mkAdd" style="align-self:flex-end">추가</button>
+      </div>
+    </details>
   </article>
   <article class="card"><h2>이 시험 처음부터 다시</h2>
-    <p class="hint">입력한 방식·날짜·메모를 모두 지우고 ${S.examWeek}주차 수업 시간 그대로 다시 배치해요. 시간표와 수업일 현황은 그대로예요.</p>
+    <p class="hint">입력한 방식·날짜·메모·확정을 모두 지우고 ${S.examWeek}주차 수업 시간 그대로 다시 배치해요. 시간표·수업일·보강은 그대로예요.</p>
     <div class="row"><button type="button" class="btn small danger editable" id="btnReset">처음 상태로 되돌리기</button></div>
     ${p.reset ? `<div class="result">정말 되돌릴까요? <button type="button" class="btn small danger" id="btnResetYes">되돌리기</button> <button type="button" class="btn small" data-cancel="reset">취소</button></div>` : ''}
   </article>
   <article class="card"><h2>겹침 검사 기준</h2>
     <ul class="plain">
       <li>그날 실제로 열리는 수업으로 검사해요. 예: 2026년 2학기 12/15(화)는 금요일 14주차 수업일이라 금요일 시간표로 봐요.</li>
-      <li>시험 주차 수업은 시험으로 바뀌므로 자리를 옮길 수 있어요. 다른 주차 수업은 고정이에요.</li>
+      <li>보강일에는 보강 수업이 있고, 결강일에는 원래 수업이 없는 것으로 봐요.</li>
+      <li>시험 주차 수업은 시험으로 바뀌므로 자리를 옮길 수 있어요. 다른 주차 수업·보강은 고정이에요.</li>
       <li>'과제 대체'나 '시험 없음'으로 정한 과목은 시험 주차에도 원래 시간에 수업하는 것으로 봐요.</li>
       <li>같은 반, 같은 교수님, 같은 강의실이 같은 시간에 겹치면 겹침으로 표시해요. 다른 학과의 강의실 사용은 알 수 없어서 검사하지 않아요.</li>
     </ul>
   </article>`;
+}
+
+/** 설정 탭에서 넣은 자료 하나를 지금 시험에 적용 → 결과 문구 */
+function applyFound(f) {
+  if (f.type === 'timetable') {
+    const old = S.exams;
+    const unmoved = new Set(S.classes.filter(c => !isMoved(c)).map(c => c.id));
+    S.classes = f.classes; S.sources = { ...(S.sources || {}), timetable: f.name }; S.exams = {};
+    derive();
+    // 같은 수업(id)이면 입력해 둔 방식·메모·확정을 이어받고, 옮기지 않았던 시험은 새 기본 시간으로
+    let kept = 0;
+    for (const c of S.classes) if (old[c.id]) {
+      S.exams[c.id] = old[c.id]; kept++;
+      if (unmoved.has(c.id)) Object.assign(S.exams[c.id], { date: defaultDate(c), start: defaultStart(c), len: defaultLen(c), room: defaultRoom(c) });
+    }
+    refreshRoomList();
+    return `시간표를 바꿨어요. 수업 ${S.classes.length}개 중 ${kept}개는 입력해 둔 내용을 이어받았어요.`;
+  }
+  if (f.type === 'calendar') {
+    rebaseUnmoved(() => { S.calendar = f.calendar; S.sources = { ...(S.sources || {}), calendar: f.name }; });
+    return `수업일 현황을 바꿨어요 (${f.msg}).`;
+  }
+  if (f.type === 'makeups') {
+    const r = parseMakeups(f.text, S.classes, S.calendar, S.year);
+    let added = 0;
+    rebaseUnmoved(() => {
+      S.makeups = S.makeups || [];
+      for (const m of r.makeups) if (!S.makeups.some(x => x.id === m.id)) { S.makeups.push(m); added++; }
+      const names = new Set(String(S.sources?.makeups || '').split(', ').filter(Boolean)); names.add(f.name);
+      S.sources = { ...(S.sources || {}), makeups: [...names].join(', ') };
+    });
+    return `보강 ${added}건을 추가했어요${r.makeups.length - added ? ` (이미 있던 ${r.makeups.length - added}건 제외)` : ''}.${r.unmatched.length ? ` 짝을 못 찾은 줄 ${r.unmatched.length}개: ${r.unmatched.map(u => u.line.replace(/\t+/g, ' ')).join(' / ')}` : ''}`;
+  }
+  return '';
 }
 
 function bindSetup() {
@@ -1527,19 +2052,12 @@ function bindSetup() {
     if (isLocked()) return;
     if (el.id === 'sTitle') { S.title = el.value.trim() || S.title; changed(); }
     else if (el.id === 'sDept') { S.dept = el.value.trim() || S.dept; changed(); }
-    else if (el.id === 'sCalPdf' && el.files[0]) {
-      const f = el.files[0];
-      ui.pending.cal = { msg: 'PDF 읽는 중…' }; renderSetup();
-      try { const res = await parseCalendarPdf(await f.arrayBuffer()); ui.pending.calText = res.text; ui.pending.calName = f.name; ui.pending.cal = res; ui.pending.calYear = S.year; }
-      catch (err) { ui.pending.cal = { error: true, msg: err.message || 'PDF를 읽지 못했어요.' }; }
-      renderSetup();
-    } else if (el.id === 'sXlsx' && el.files[0]) {
-      const f = el.files[0];
-      ui.pending.xlsx = { msg: '읽는 중…' }; renderSetup();
-      try { const res = await parseTimetableXlsx(await f.arrayBuffer());
-        const g = new Set(res.classes.map(groupOf)).size, pr = new Set(res.classes.map(c => c.prof)).size;
-        ui.pending.xlsx = { data: res.classes, name: f.name, msg: `'${res.sheet}' 시트에서 수업 ${res.classes.length}개(${g}개 반, 교수님 ${pr}분)를 읽었어요. 바꾸면 이 시험에 입력한 정보는 지워져요.` };
-      } catch (err) { ui.pending.xlsx = { error: true, msg: err.message || '파일을 읽지 못했어요.' }; }
+    else if (el.id === 'sFiles' && el.files.length) {
+      const files = [...el.files]; el.value = '';
+      ui.pending.busy = `파일 ${files.length}개 읽는 중…`; ui.pending.applyMsg = ''; renderSetup();
+      const out = [];
+      for (const f of files) { const r = await recognizeFile(f); out.push({ ...r }); }
+      ui.pending.files = out; ui.pending.busy = '';
       renderSetup();
     }
   });
@@ -1548,23 +2066,35 @@ function bindSetup() {
     const cancel = e.target.dataset && e.target.dataset.cancel;
     if (cancel) { delete ui.pending[cancel]; if (cancel === 'cal') delete ui.pending.calText; renderSetup(); return; }
     if (isLocked()) return;
+    const ap = e.target.closest('[data-apply]');
+    if (ap) {
+      const f = ui.pending.files[+ap.dataset.apply];
+      ui.pending.applyMsg = applyFound(f); f.applied = true;
+      changed(); toast(ui.pending.applyMsg.split('.')[0] + '.'); return;
+    }
+    const dm = e.target.closest('[data-delmk]');
+    if (dm) { rebaseUnmoved(() => { S.makeups = (S.makeups || []).filter(m => m.id !== dm.dataset.delmk); }); changed(); toast('보강을 지웠어요.'); return; }
+    if (id === 'mkAdd') {
+      const c = D.byId[$('#mkClass').value], from = $('#mkFrom').value, to = $('#mkTo').value;
+      const s = +$('#mkStart').value, en = +$('#mkEnd').value;
+      if (!c || !to) { toast('수업과 보강일을 골라 주세요.'); return; }
+      if (en < s) { toast('교시 범위를 확인해 주세요.'); return; }
+      const m = { id: `${c.id}|${from}|${to}|${s}`, classId: c.id, from, to, start: s, end: en, room: cleanRoom($('#mkRoom').value) || c.room, note: '직접 입력' };
+      rebaseUnmoved(() => { S.makeups = (S.makeups || []).filter(x => x.id !== m.id).concat([m]); });
+      changed(); toast(`${c.course}(${groupOf(c)}) 보강을 추가했어요.`); return;
+    }
     if (id === 'btnWeek') { const w = +$('#sWeek').value; if (w !== S.examWeek) { ui.pending.week = w; renderSetup(); } return; }
-    if (id === 'btnWeekYes') { S.examWeek = ui.pending.week; S.exams = {}; S.extraDates = []; delete ui.pending.week; derive(); changed(); toast(`${S.examWeek}주차 기준으로 다시 배치했어요.`); return; }
+    if (id === 'btnWeekYes') { S.examWeek = ui.pending.week; S.exams = {}; S.extraDates = []; delete S.range; delete ui.pending.week; derive(); changed(); toast(`${S.examWeek}주차 기준으로 다시 배치했어요.`); return; }
     if (id === 'btnCal') { ui.pending.calText = $('#sCal').value; ui.pending.cal = parseCalendarText(ui.pending.calText); ui.pending.calYear = +$('#sYear').value || S.year; renderSetup(); return; }
     if (id === 'btnCalYes') {
-      S.calendar = ui.pending.cal.data; S.year = ui.pending.calYear || S.year;
-      if (ui.pending.calName) S.sources = { ...(S.sources || {}), calendar: ui.pending.calName };
-      delete ui.pending.cal; delete ui.pending.calText; delete ui.pending.calName;
-      derive();
-      for (const c of S.classes) { const ex = S.exams[c.id]; if (!D.dateMap[ex.date]) ex.date = defaultDate(c); }
+      const cal = ui.pending.cal.data, yr = ui.pending.calYear || S.year;
+      delete ui.pending.cal; delete ui.pending.calText;
+      rebaseUnmoved(() => { S.calendar = cal; S.year = yr; });
+      for (const c of S.classes) { const ex = S.exams[c.id]; if (!D.dateMap[ex.date] && !(D.makeups || []).some(m => m.to === ex.date)) ex.date = defaultDate(c); }
       changed(); toast('수업일 현황을 바꿨어요.'); return;
     }
-    if (id === 'btnXlsxYes') {
-      S.classes = ui.pending.xlsx.data; S.sources = { ...(S.sources || {}), timetable: ui.pending.xlsx.name };
-      S.exams = {}; S.extraDates = []; delete ui.pending.xlsx; derive(); refreshRoomList(); changed(); toast('새 강의시간표로 바꿨어요.'); return;
-    }
     if (id === 'btnReset') { ui.pending.reset = true; renderSetup(); return; }
-    if (id === 'btnResetYes') { delete ui.pending.reset; S.exams = {}; S.extraDates = []; derive(); changed(); toast('처음 상태로 되돌렸어요.'); return; }
+    if (id === 'btnResetYes') { delete ui.pending.reset; S.exams = {}; S.extraDates = []; delete S.range; derive(); changed(); toast('처음 상태로 되돌렸어요.'); return; }
   });
 }
 
@@ -1635,7 +2165,7 @@ function applyRestore(st) {
 function switchPlan(id) {
   const p = Store.plans[id]; if (!p) return;
   Store.currentId = id; usePlan(p);
-  ui.pending = {}; ui.filter = { group: '', prof: '', status: '', q: '' };
+  ui.pending = {}; ui.filter = { group: '', prof: '', status: '', q: '' }; ui.days = []; ui.missing = null; ui.wiz = null;
   closeDrawer(); refreshRoomList(); persistLocal(); render();
 }
 
@@ -1674,50 +2204,70 @@ function bindHistory() {
 }
 
 /* ===== src/js/wizard.js ===== */
-/* ---------- 새 시험 만들기 (학기 강의시간표 + 수업일 현황 → 중간고사·기말고사 계획) ----------
-   1) 학기 · 만들 시험(중간 8주차 / 기말 15주차)
-   2) 자료: 파일 올리기(시간표 xlsx + 수업일 현황 PDF 또는 붙여넣기) 또는 같은 학기 다른 시험에서 가져오기
-   3) 미리보기(시험 주차 날짜, 대체 수업일) → 만들기 */
+/* ---------- 자료 넣기 (선택한 학년도·학기·시험에 아직 자료가 없을 때) ----------
+   위쪽에서 학년도·학기·중간/기말을 고르면, 그 시험이 없을 때 이 화면이 나온다.
+   - 파일을 한꺼번에 넣으면 종류를 알아서 알아본다(recognizeFile): 강의시간표(xlsx) / 요일별 수업일 현황(pdf·hwp·xlsx) / 보강(hwp·xlsx·pdf)
+   - 같은 학기 다른 시험(중간→기말)의 자료를 그대로 가져올 수도 있다. 새로 넣은 파일이 있으면 그것이 우선.
+   - 보강은 시간표·수업일 현황이 있어야 수업과 짝지을 수 있다(parseMakeups). */
 
 /** 다음에 만들 시험 기본값: 최근 학기에 빠진 시험이 있으면 그 학기, 둘 다 있으면 다음 학기 */
-function wizardDefaults() {
+function nextMissing() {
   const last = sortedPlans()[0];
   const now = new Date();
-  if (!last) return { termYear: now.getFullYear(), term: now.getMonth() < 7 ? 1 : 2, kinds: { mid: true, final: true }, from: '' };
+  if (!last) return { termYear: now.getFullYear(), term: now.getMonth() < 7 ? 1 : 2, kind: 'mid' };
   const same = sortedPlans().filter(p => p.termYear === last.termYear && p.term === last.term);
-  const has = k => same.some(p => p.kind === k);
-  if (!has('mid') || !has('final')) return { termYear: last.termYear, term: last.term, kinds: { mid: !has('mid'), final: !has('final') }, from: last.id };
-  return last.term === 1 ? { termYear: last.termYear, term: 2, kinds: { mid: true, final: true }, from: '' }
-    : { termYear: last.termYear + 1, term: 1, kinds: { mid: true, final: true }, from: '' };
+  for (const k of ['mid', 'final']) if (!same.some(p => p.kind === k)) return { termYear: last.termYear, term: last.term, kind: k };
+  return last.term === 1 ? { termYear: last.termYear, term: 2, kind: 'mid' } : { termYear: last.termYear + 1, term: 1, kind: 'mid' };
 }
-function openWizard() {
-  const d = wizardDefaults();
-  ui.wiz = { ...d, dept: S?.dept || '', src: d.from ? 'copy' : 'upload', tt: null, groupsOff: {}, cal: null, calText: '', busy: '' };
-  closeDrawer();
-  renderWizard();
-  $('#modal').hidden = false;
-  $('#wYear')?.focus();
-}
-function closeWizard() { ui.wiz = null; $('#modal').hidden = true; $('#modal').innerHTML = ''; }
+const findPlan = (y, t, k) => sortedPlans().find(p => p.termYear === +y && p.term === +t && p.kind === k);
 
-/** 마법사 입력에서 실제로 쓸 시간표·수업일. 준비가 안 됐으면 null */
+/** 위쪽 선택칸이 바뀌었을 때: 있으면 그 시험으로, 없으면 자료 넣기 화면 */
+function selectExam(termYear, term, kind) {
+  const p = findPlan(termYear, term, kind);
+  if (p) { ui.missing = null; ui.wiz = null; switchPlan(p.id); return; }
+  openWizard({ termYear: +termYear, term: +term, kind });
+}
+function openWizard(sel = nextMissing()) {
+  closeDrawer();
+  ui.missing = { termYear: +sel.termYear, term: +sel.term, kind: sel.kind };
+  const same = sortedPlans().find(p => p.termYear === ui.missing.termYear && p.term === ui.missing.term);
+  ui.wiz = { files: [], tt: null, cal: null, calText: '', mk: [], groupsOff: {}, base: same ? same.id : '', alsoOther: !same, dept: S?.dept || '', busy: '' };
+  render();
+}
+function closeWizard() { ui.missing = null; ui.wiz = null; render(); }
+
+/** 지금 넣은 자료로 만들 시험의 시간표·수업일·보강. 준비가 안 됐으면 classes/calendar가 null */
 function wizardSource() {
-  const w = ui.wiz;
-  if (w.src === 'copy') { const p = Store.plans[w.from]; return p ? { classes: p.classes, calendar: p.calendar, year: p.year, sources: p.sources || {}, dept: p.dept } : null; }
-  if (!w.tt?.classes || !w.cal?.data) return null;
-  const classes = w.tt.classes.filter(c => !w.groupsOff[groupOf(c)]);
-  return { classes, calendar: w.cal.data, year: +w.termYear, sources: { timetable: w.tt.name, calendar: w.cal.name || '붙여넣은 표' } };
+  const w = ui.wiz, base = w.base ? Store.plans[w.base] : null;
+  // 시간표는 다른 학기 것도 쓸 수 있지만, 수업일 현황·보강은 같은 학기 것만 가져온다
+  const sameTerm = base && base.termYear === ui.missing.termYear && base.term === ui.missing.term;
+  const classes = w.tt ? w.tt.classes.filter(c => !w.groupsOff[groupOf(c)]) : base ? base.classes : null;
+  const calendar = w.cal?.data || (sameTerm ? base.calendar : null);
+  const year = ui.missing.termYear;
+  let makeups = sameTerm && !w.tt ? (base.makeups || []).slice() : [];
+  const unmatched = [];
+  if (classes && calendar) for (const f of w.mk) {
+    const r = parseMakeups(f.text, classes, calendar, year);
+    for (const m of r.makeups) if (!makeups.some(x => x.id === m.id)) makeups.push(m);
+    unmatched.push(...r.unmatched.map(u => ({ ...u, file: f.name })));
+  }
+  const sources = { timetable: w.tt?.name || base?.sources?.timetable || '', calendar: w.cal?.name || base?.sources?.calendar || '', makeups: w.mk.map(f => f.name).join(', ') };
+  return { classes, calendar, year, makeups, unmatched, sources, dept: base?.dept };
 }
 function wizardIssues(src) {
-  const w = ui.wiz, out = [];
-  if (!(+w.termYear >= 2000)) out.push('학년도를 확인해 주세요.');
-  if (!w.kinds.mid && !w.kinds.final) out.push('만들 시험을 하나 이상 골라 주세요.');
-  if (!src) out.push(w.src === 'copy' ? '가져올 시험을 골라 주세요.' : '강의시간표와 수업일 현황을 모두 올려 주세요.');
-  else {
-    if (!src.classes.length) out.push('선택한 반에 수업이 없어요.');
-    for (const k of ['mid', 'final']) if (w.kinds[k] && !src.calendar.weeks[KINDS[k].week - 1]) out.push(`수업일 현황에 ${KINDS[k].week}주차(${KINDS[k].label})가 없어요.`);
-  }
+  const out = [];
+  if (!src.classes) out.push('강의시간표(.xlsx)를 넣어 주세요.');
+  else if (!src.classes.length) out.push('고른 반에 수업이 없어요.');
+  if (!src.calendar) out.push('요일별 수업일 현황(.pdf, .hwp, .xlsx 또는 붙여넣기)을 넣어 주세요.');
+  else for (const k of kindsToMake()) if (!src.calendar.weeks[KINDS[k].week - 1]) out.push(`수업일 현황에 ${KINDS[k].week}주차(${KINDS[k].label})가 없어요.`);
   return out;
+}
+const otherKind = k => (k === 'mid' ? 'final' : 'mid');
+function kindsToMake() {
+  const m = ui.missing, out = [m.kind];
+  const o = otherKind(m.kind);
+  if (ui.wiz.alsoOther && !findPlan(m.termYear, m.term, o)) out.push(o);
+  return out.sort((a, b) => (a === 'mid' ? -1 : 1));
 }
 
 function calendarPreview(cal, year, examWeeks) {
@@ -1746,118 +2296,123 @@ function renderWizard() {
   if (wizAgain) { wizAgain = false; renderWizard(); }
 }
 function drawWizard() {
-  const w = ui.wiz; if (!w) return;
+  const w = ui.wiz, m = ui.missing; if (!w || !m) return;
+  const title = `${m.termYear}학년도 ${m.term}학기 ${KINDS[m.kind].label}`;
   const others = sortedPlans();
   const src = wizardSource();
   const issues = wizardIssues(src);
-  const examWeeks = {}; for (const k of ['mid', 'final']) if (w.kinds[k]) examWeeks[KINDS[k].week] = KINDS[k].label;
-  const exists = ['mid', 'final'].filter(k => w.kinds[k] && Store.plans[`${w.termYear}-${w.term}-${k}`]);
-  const ttGroups = w.tt?.classes ? [...new Set(w.tt.classes.map(groupOf))].sort() : [];
-  const shifted = src ? shiftedDays(src.calendar, src.year) : [];
+  const kinds = kindsToMake();
+  const examWeeks = {}; for (const k of kinds) examWeeks[KINDS[k].week] = KINDS[k].label;
+  const ttGroups = w.tt ? [...new Set(w.tt.classes.map(groupOf))].sort() : [];
+  const shifted = src.calendar ? shiftedDays(src.calendar, src.year) : [];
+  const o = otherKind(m.kind), otherExists = !!findPlan(m.termYear, m.term, o);
+  const mkRows = src.makeups.map(x => {
+    const c = src.classes.find(cc => cc.id === x.classId);
+    return `<tr><td>${esc(c ? groupOf(c) : '')}</td><td>${esc(c ? c.course : x.classId)}</td><td>${x.from ? esc(fmt(x.from)) : '-'}</td><td>${esc(fmt(x.to))} ${pRange(x.start, x.end - x.start + 1)}</td></tr>`;
+  }).join('');
 
-  const uploadBox = `
-    <label class="field" for="wTt"><span>① 학과 강의시간표 (.xlsx) — '요일·학년·반·1~10교시' 머리글이 있는 시트를 찾아 읽어요</span>
-      <input type="file" id="wTt" accept=".xlsx"></label>
-    ${w.tt ? `<div class="result ${w.tt.error ? 'bad' : w.tt.classes ? 'ok' : ''}">${esc(w.tt.msg)}</div>` : ''}
-    ${ttGroups.length ? `<div class="field"><span>시험 대상 반 (전공심화·야간처럼 빼야 할 반은 체크를 푸세요)</span><div class="radios">${ttGroups.map(g => {
-        const n = w.tt.classes.filter(c => groupOf(c) === g).length;
-        return `<label><input type="checkbox" data-group="${esc(g)}"${w.groupsOff[g] ? '' : ' checked'}>${esc(g)} <small class="hint">${n}개</small></label>`; }).join('')}</div></div>` : ''}
-    <label class="field" for="wCalPdf"><span>② 요일별 수업일 현황 (.pdf)</span><input type="file" id="wCalPdf" accept=".pdf,application/pdf"></label>
-    <label class="field" for="wCalText"><span>또는 '주 / 월~토' 표를 붙여 넣기 (PDF를 읽은 결과도 여기에 나와요. 틀린 곳은 고친 뒤 '표 다시 읽기')</span>
-      <textarea id="wCalText" rows="6" placeholder="주	월	화	수	목	금	토&#10;1	3/2	3/3	3/4	3/5	3/6	3/7&#10;…">${esc(w.calText)}</textarea></label>
-    <div class="row"><button type="button" class="btn small" id="wCalParse">표 다시 읽기</button></div>
-    ${w.cal ? `<div class="result ${w.cal.error ? 'bad' : w.cal.data ? 'ok' : ''}">${esc(w.cal.msg)}</div>` : ''}`;
-  const copyBox = `
-    <label class="field" for="wFrom"><span>가져올 시험 (그 시험의 강의시간표·수업일 현황을 그대로 써요. 시험 일정은 새로 시작)</span>
-      <select id="wFrom"><option value="">고르세요</option>${others.map(p => `<option value="${esc(p.id)}"${p.id === w.from ? ' selected' : ''}>${esc(p.title)} · 수업 ${p.classes.length}개</option>`).join('')}</select></label>`;
+  $('#createPanel').innerHTML = `
+    <div class="row" style="justify-content:space-between"><h2>${esc(title)} · 자료 넣기</h2>
+      ${Object.keys(Store.plans).length ? `<button type="button" class="btn small" id="wClose">취소하고 돌아가기</button>` : ''}</div>
+    <p class="hint">이 시험은 아직 없어요. 그 학기 <b>강의시간표</b>와 <b>요일별 수업일 현황</b>, 있으면 <b>보강</b> 자료를 한꺼번에 넣으세요. 어떤 자료인지는 알아서 알아봐요. 지난 시험 기록은 그대로 남아요.</p>
+    <section class="step"><h3><span class="n">1</span>자료</h3>
+      ${others.length ? `<label class="field" for="wBase"><span>다른 시험의 자료 가져오기 (같은 학기 중간→기말이면 그대로 쓰면 돼요. 아래에 새 파일을 넣으면 그 자료가 우선해요)</span>
+        <select id="wBase"><option value="">가져오지 않음</option>${others.map(p => `<option value="${esc(p.id)}"${p.id === w.base ? ' selected' : ''}>${esc(p.title)} · 수업 ${p.classes.length}개${(p.makeups || []).length ? ` · 보강 ${p.makeups.length}건` : ''}</option>`).join('')}</select></label>` : ''}
+      <div class="dropzone" id="wDrop">
+        <b>여기에 파일을 끌어다 놓거나</b>
+        <label class="btn small primary" for="wFiles">파일 고르기 (여러 개 가능)</label><input type="file" id="wFiles" multiple accept=".xlsx,.xlsm,.pdf,.hwp,.txt,.csv" hidden>
+        <span class="hint">강의시간표 .xlsx · 수업일 현황 .pdf/.hwp/.xlsx · 보강결과보고서 .hwp/.xlsx/.pdf</span>
+      </div>
+      ${w.files.length ? `<div class="filelist">${w.files.map(f => `<div class="it ${f.type === 'unknown' ? 'bad' : 'ok'}"><span class="ty">${esc(TYPE_LABEL[f.type])}</span><span>${esc(f.name)}</span><span class="hint">${esc(f.msg)}</span></div>`).join('')}</div>` : ''}
+      ${w.busy ? `<p class="hint">${esc(w.busy)}</p>` : ''}
+      ${ttGroups.length ? `<div class="field"><span>시험 대상 반 (전공심화·야간처럼 빼야 할 반은 체크를 푸세요)</span><div class="radios">${ttGroups.map(g => {
+          const n = w.tt.classes.filter(c => groupOf(c) === g).length;
+          return `<label><input type="checkbox" data-group="${esc(g)}"${w.groupsOff[g] ? '' : ' checked'}>${esc(g)} <small class="hint">${n}개</small></label>`; }).join('')}</div></div>` : ''}
+      <details${src.calendar && !w.cal?.error ? '' : ' open'}><summary class="hint">요일별 수업일 현황 직접 붙여넣기·고치기</summary>
+        <label class="field" for="wCalText"><span>'주 / 월~토' 표 (PDF·한글에서 읽은 결과도 여기 나와요. 틀린 곳을 고친 뒤 '표 다시 읽기')</span>
+          <textarea id="wCalText" rows="6" placeholder="주	월	화	수	목	금	토&#10;1	3/2	3/3	3/4	3/5	3/6	3/7&#10;…">${esc(w.calText)}</textarea></label>
+        <div class="row"><button type="button" class="btn small" id="wCalParse">표 다시 읽기</button></div>
+        ${w.cal?.error ? `<div class="result bad">${esc(w.cal.msg)}</div>` : ''}
+      </details>
+    </section>
+    <section class="step"><h3><span class="n">2</span>확인</h3>
+      ${src.classes ? `<p class="hint">수업 ${src.classes.length}개 · ${new Set(src.classes.map(groupOf)).size}개 반 · 교수님 ${new Set(src.classes.map(c => c.prof).filter(Boolean)).size}분${src.sources.timetable ? ` (${esc(src.sources.timetable)})` : ''}</p>` : ''}
+      ${src.makeups.length || src.unmatched.length ? `<div class="field"><span>보강 ${src.makeups.length}건${src.unmatched.length ? ` · 짝을 못 찾은 줄 ${src.unmatched.length}개` : ''} (보강일에는 그 수업이 있는 것으로, 결강일에는 원래 수업이 없는 것으로 겹침을 검사해요)</span>
+        ${mkRows ? `<div class="miniscroll"><table class="mklist"><thead><tr><th>반</th><th>과목</th><th>결강일</th><th>보강</th></tr></thead><tbody>${mkRows}</tbody></table></div>` : ''}
+        ${src.unmatched.length ? `<div class="checks">${src.unmatched.map(u => `<div class="it warn">${esc(u.why)}: ${esc(u.line.replace(/\t+/g, ' '))}</div>`).join('')}</div>` : ''}</div>` : ''}
+      ${src.calendar ? `<p class="hint">색칠된 줄이 시험 주차예요. 주황 날짜는 실제 요일과 다른 요일 수업을 하는 날(대체 수업일)이라 그 요일 시간표로 겹침을 검사해요.</p>
+        ${shifted.length ? `<ul class="plain">${shifted.map(x => `<li>${esc(fmt(x.iso))} → ${esc(x.col)}요일 ${x.week}주차 수업일</li>`).join('')}</ul>` : ''}
+        ${calendarPreview(src.calendar, src.year, examWeeks)}` : ''}
+      ${otherExists ? '' : `<label class="chkline"><input type="checkbox" id="wAlso"${w.alsoOther ? ' checked' : ''}> 같은 자료로 ${KINDS[o].label}(${KINDS[o].week}주차)도 같이 만들기</label>`}
+      <label class="field" for="wDept"><span>학과</span><input type="text" id="wDept" value="${esc(w.dept || src.dept || '')}"></label>
+      ${issues.length ? `<div class="checks">${issues.map(t => `<div class="it warn">${esc(t)}</div>`).join('')}</div>` : ''}
+      <div class="row"><button type="button" class="btn primary" id="wCreate"${issues.length || w.busy ? ' disabled' : ''}>${esc(kinds.map(k => KINDS[k].label).join('·'))} 만들기</button></div>
+    </section>`;
+}
 
-  $('#modal').innerHTML = `<div class="mbox">
-    <div class="dhead"><div><h2 id="modalTitle">새 시험 만들기</h2><p>학기 강의시간표와 수업일 현황으로 중간고사·기말고사 시간표를 만들어요. 지난 시험 기록은 그대로 남아요.</p></div>
-      <button type="button" class="btn small" id="wClose">닫기</button></div>
-    <div class="dbody">
-      <section class="step"><h3><span class="n">1</span>학기와 시험</h3>
-        <div class="row">
-          <label class="field" for="wYear"><span>학년도</span><input type="number" id="wYear" value="${esc(w.termYear)}" min="2020" max="2100" style="width:110px"></label>
-          <div class="field"><span>학기</span><div class="radios">${[1, 2].map(t => `<label><input type="radio" name="wTerm" value="${t}"${+w.term === t ? ' checked' : ''}>${t}학기</label>`).join('')}</div></div>
-          <div class="field"><span>만들 시험</span><div class="radios">${['mid', 'final'].map(k => `<label><input type="checkbox" data-kind="${k}"${w.kinds[k] ? ' checked' : ''}>${KINDS[k].label} (${KINDS[k].week}주차)</label>`).join('')}</div></div>
-        </div>
-        <label class="field" for="wDept"><span>학과</span><input type="text" id="wDept" value="${esc(w.dept)}"></label>
-        ${exists.length ? `<p class="hint" style="color:var(--warn)">${exists.map(k => KINDS[k].label).join('·')}는 이미 있어요. 만들면 별도 사본(…-2)으로 하나 더 생겨요.</p>` : ''}
-      </section>
-      <section class="step"><h3><span class="n">2</span>강의시간표 · 수업일 현황</h3>
-        <div class="radios">
-          <label><input type="radio" name="wSrc" value="upload"${w.src === 'upload' ? ' checked' : ''}>파일 올리기 (새 학기)</label>
-          <label><input type="radio" name="wSrc" value="copy"${w.src === 'copy' ? ' checked' : ''}${others.length ? '' : ' disabled'}>다른 시험에서 가져오기 (같은 학기 중간→기말)</label>
-        </div>
-        ${w.src === 'copy' ? copyBox : uploadBox}
-        ${w.busy ? `<p class="hint">${esc(w.busy)}</p>` : ''}
-      </section>
-      <section class="step"><h3><span class="n">3</span>확인</h3>
-        ${src ? `<p class="hint">수업 ${src.classes.length}개 · ${new Set(src.classes.map(groupOf)).size}개 반 · 교수님 ${new Set(src.classes.map(c => c.prof).filter(Boolean)).size}분. 색칠된 줄이 시험 주차예요. 주황 날짜는 실제 요일과 다른 요일 수업을 하는 날(대체 수업일)이라 그 요일 시간표로 겹침을 검사해요.</p>
-          ${shifted.length ? `<ul class="plain">${shifted.map(x => `<li>${esc(fmt(x.iso))} → ${esc(x.col)}요일 ${x.week}주차 수업일</li>`).join('')}</ul>` : ''}
-          ${calendarPreview(src.calendar, src.year, examWeeks)}` : '<p class="hint">자료를 올리면 여기서 주차별 날짜를 확인할 수 있어요.</p>'}
-        ${issues.length ? `<div class="checks">${issues.map(t => `<div class="it warn">${esc(t)}</div>`).join('')}</div>` : ''}
-        <div class="row"><button type="button" class="btn primary" id="wCreate"${issues.length || w.busy ? ' disabled' : ''}>시험 만들기</button></div>
-      </section>
-    </div></div>`;
+/** 넣은 파일들을 알아보고 마법사 상태에 반영 */
+async function wizardAddFiles(files) {
+  const w = ui.wiz; if (!w || !files.length) return;
+  w.busy = `파일 ${files.length}개 읽는 중…`; renderWizard();
+  for (const f of files) {
+    const r = await recognizeFile(f);
+    w.files = w.files.filter(x => x.name !== r.name).concat([{ name: r.name, type: r.type, msg: r.msg }]);
+    if (r.type === 'timetable') { w.tt = { name: r.name, classes: r.classes }; w.groupsOff = {}; }
+    else if (r.type === 'calendar') { w.cal = { name: r.name, data: r.calendar, msg: r.msg }; w.calText = r.text; }
+    else if (r.type === 'makeups') { w.mk = w.mk.filter(x => x.name !== r.name).concat([{ name: r.name, text: r.text }]); }
+  }
+  w.busy = '';
+  renderWizard();
 }
 
 function createFromWizard() {
-  const w = ui.wiz, src = wizardSource();
-  if (!src || wizardIssues(src).length) return;
+  const w = ui.wiz, m = ui.missing, src = wizardSource();
+  if (wizardIssues(src).length) return;
   const made = [];
-  for (const k of ['mid', 'final']) {
-    if (!w.kinds[k]) continue;
-    const p = makePlan({ termYear: +w.termYear, term: +w.term, kind: k, dept: w.dept.trim() || src.dept || S?.dept,
+  for (const k of kindsToMake()) {
+    const p = makePlan({ termYear: m.termYear, term: m.term, kind: k, dept: (w.dept || '').trim() || src.dept || S?.dept,
       calendar: src.calendar, classes: src.classes, sources: src.sources, taken: Store.plans });
     p.year = src.year;
+    p.makeups = clone(src.makeups);
     Store.plans[p.id] = p; made.push(p);
     touchPlan(p);
   }
-  closeWizard();
-  switchPlan(made[0].id);
+  ui.missing = null; ui.wiz = null;
+  const first = made.find(p => p.kind === m.kind) || made[0];
+  switchPlan(first.id);
   setTab('board');
-  toast(`${made.map(p => p.title).join(', ')}을(를) 만들었어요.`);
+  toast(`${made.map(p => p.title).join(', ')}을(를) 만들었어요.${src.makeups.length ? ` 보강 ${src.makeups.length}건 반영.` : ''}`);
 }
 
 function bindWizard() {
-  const m = $('#modal');
-  m.addEventListener('click', e => {
-    if (e.target === m || e.target.closest('#wClose')) { closeWizard(); return; }
+  const box = $('#createPanel');
+  box.addEventListener('click', e => {
+    if (e.target.closest('#wClose')) { closeWizard(); return; }
     if (e.target.closest('#wCreate')) { createFromWizard(); return; }
     if (e.target.closest('#wCalParse')) {
       const w = ui.wiz; w.calText = $('#wCalText').value;
-      w.cal = { ...parseCalendarText(w.calText), name: w.cal?.name || '붙여넣은 표' };
+      const r = parseCalendarText(w.calText);
+      w.cal = r.data ? { name: w.cal?.name || '붙여넣은 표', data: r.data, msg: r.msg } : { error: true, msg: r.msg };
       renderWizard();
     }
   });
-  m.addEventListener('change', async e => {
+  box.addEventListener('change', e => {
     const w = ui.wiz, el = e.target; if (!w) return;
-    if (el.id === 'wYear') w.termYear = +el.value;
-    else if (el.name === 'wTerm') w.term = +el.value;
-    else if (el.dataset.kind) w.kinds[el.dataset.kind] = el.checked;
-    else if (el.id === 'wDept') w.dept = el.value;
-    else if (el.name === 'wSrc') w.src = el.value;
-    else if (el.id === 'wFrom') w.from = el.value;
+    if (el.id === 'wFiles') { const fs = [...el.files]; el.value = ''; wizardAddFiles(fs); return; }
+    if (el.id === 'wBase') w.base = el.value;
+    else if (el.id === 'wAlso') w.alsoOther = el.checked;
+    else if (el.id === 'wDept') { w.dept = el.value; return; }
     else if (el.dataset.group) w.groupsOff[el.dataset.group] = !el.checked;
-    else if (el.id === 'wCalText') { w.calText = el.value; if (el.value.trim()) w.cal = { ...parseCalendarText(el.value), name: '붙여넣은 표' }; }
-    else if (el.id === 'wTt' && el.files[0]) {
-      const f = el.files[0]; w.busy = '강의시간표 읽는 중…'; renderWizard();
-      try {
-        const res = await parseTimetableXlsx(await f.arrayBuffer());
-        const g = new Set(res.classes.map(groupOf)).size, pr = new Set(res.classes.map(c => c.prof).filter(Boolean)).size;
-        w.tt = { name: f.name, classes: res.classes, msg: `${f.name}: '${res.sheet}' 시트에서 수업 ${res.classes.length}개(${g}개 반, 교수님 ${pr}분)를 읽었어요.` };
-        w.groupsOff = {};
-      } catch (err) { w.tt = { error: true, msg: `${f.name}: ${err.message || '파일을 읽지 못했어요.'}` }; }
-      w.busy = '';
-    } else if (el.id === 'wCalPdf' && el.files[0]) {
-      const f = el.files[0]; w.busy = '수업일 현황 PDF 읽는 중…'; renderWizard();
-      try { const res = await parseCalendarPdf(await f.arrayBuffer()); w.calText = res.text; w.cal = { ...res, name: f.name, fromPdf: true, msg: `${f.name}: ${res.msg}` }; }
-      catch (err) { w.cal = { error: true, msg: `${f.name}: ${err.message || 'PDF를 읽지 못했어요.'}` }; }
-      w.busy = '';
+    else if (el.id === 'wCalText') {
+      w.calText = el.value;
+      if (el.value.trim()) { const r = parseCalendarText(el.value); w.cal = r.data ? { name: '붙여넣은 표', data: r.data, msg: r.msg } : { error: true, msg: r.msg }; }
     } else return;
     renderWizard();
   });
+  // 끌어다 놓기
+  box.addEventListener('dragover', e => { const z = e.target.closest('#wDrop'); if (!z) return; e.preventDefault(); z.classList.add('over'); });
+  box.addEventListener('dragleave', e => { const z = e.target.closest('#wDrop'); if (z) z.classList.remove('over'); });
+  box.addEventListener('drop', e => { const z = e.target.closest('#wDrop'); if (!z) return; e.preventDefault(); z.classList.remove('over'); wizardAddFiles([...e.dataTransfer.files]); });
 }
 
 /* ===== src/js/drawer.js ===== */
@@ -1870,7 +2425,8 @@ function openDrawer(id) {
   const dr = $('#drawer');
   dr.innerHTML = `
     <div class="dhead"><div><h2>${esc(c.course)}</h2><p>${esc(groupOf(c))} · ${esc(c.prof)} · 원래 ${esc(c.day)} ${pRange(c.start, lenOf(c))} ${tRange(c.start, lenOf(c))}, ${esc(roomLabel(c.room))}</p>
-      <p>${S.examWeek}주차 기본: ${fmt(defaultDate(c))} · ${S.examWeek - 1}주차 수업 ${fmt(prevDate(c))}</p></div>
+      <p><span class="wk wk-exam">${S.examWeek}주차 수업</span> ${fmt(defaultDate(c))} ${pRange(defaultStart(c), defaultLen(c))}${D.examMakeup[c.id] ? ` (보강, 원래 ${fmt(D.examMakeup[c.id].from)})` : ''} · ${S.examWeek - 1}주차 수업 ${fmt(prevDate(c))}</p>
+      ${isMoved(c) ? `<p class="mvnote">↪ ${S.examWeek}주차 수업을 ${fmt(ex.date)} ${pRange(ex.start, ex.len)}(으)로 옮겼어요</p>` : ''}</div>
       <button type="button" class="btn small" id="dClose" aria-label="닫기">닫기</button></div>
     <div class="dbody">
       <div class="fgrid">
@@ -1884,6 +2440,10 @@ function openDrawer(id) {
       </div>
       <div class="dsec"><h3>검사 결과</h3><div class="checks" id="dChecks"></div></div>
       <div class="dsec"><h3>겹치지 않는 시간 <span id="dSlotLen"></span></h3><div class="slots" id="dSlots"></div></div>
+      ${hasSlot(ex) ? `<div class="row">${isKept(c)
+        ? `<span class="keepnote">✓ 기존 시간표 수업 진행으로 확정됨</span> <button type="button" class="btn small" id="dKeep">확정 취소</button>`
+        : isMoved(c) ? `<span class="hint">옮긴 과목은 '기존 시간표 수업 진행'으로 확정할 수 없어요. 원래 시간으로 되돌리면 할 수 있어요.</span>`
+        : `<button type="button" class="btn small primary" id="dKeep">기존 시간표 수업 진행으로 확정</button>`}</div>` : ''}
       <div class="row"><button type="button" class="btn small" id="dToReg">시험 일정 등록 창으로</button> <button type="button" class="btn small" id="dReset">${S.examWeek}주차 원래 시간으로 되돌리기</button></div>
     </div>`;
   dr.hidden = false;
@@ -1911,6 +2471,7 @@ function refreshDrawerChecks() {
 }
 function setExamField(id, f, raw) {
   const ex = S.exams[id]; if (!ex) return;
+  if (f === 'date' || f === 'start') ex.keep = false;
   if (f === 'start' || f === 'len') ex[f] = Math.max(1, Math.min(NP, parseInt(raw, 10) || 1));
   else if (f === 'done') ex.done = !!raw;
   else if (f === 'room') ex.room = String(raw).replace(/호/g, '').trim();
@@ -1933,7 +2494,7 @@ function openRegister(preId) {
     <div class="dbody">
       <div class="fgrid">
         <label class="field full" for="rCourse"><span>과목</span><select id="rCourse" data-r="id"><option value="">과목 선택</option>${courseOpts}</select></label>
-        ${id ? `<p class="hint full">현재: ${hasSlot(S.exams[id]) ? `${fmt(S.exams[id].date)} ${pRange(S.exams[id].start, S.exams[id].len)} ${tRange(S.exams[id].start, S.exams[id].len)} · ${esc(roomLabel(S.exams[id].room))}` : esc(S.exams[id].method)} · ${S.examWeek}주차 기본 ${fmt(defaultDate(D.byId[id]))} ${pRange(D.byId[id].start, lenOf(D.byId[id]))}</p>` : ''}
+        ${id ? `<p class="hint full">현재: ${hasSlot(S.exams[id]) ? `${fmt(S.exams[id].date)} ${pRange(S.exams[id].start, S.exams[id].len)} ${tRange(S.exams[id].start, S.exams[id].len)} · ${esc(roomLabel(S.exams[id].room))}` : esc(S.exams[id].method)} · ${S.examWeek}주차 기본 ${fmt(defaultDate(D.byId[id]))} ${pRange(defaultStart(D.byId[id]), defaultLen(D.byId[id]))}</p>` : ''}
         <label class="field full" for="rMethod"><span>시험 방식</span><select id="rMethod" data-r="method"${id ? '' : ' disabled'}>${opts(METHODS, r.method || '미정')}</select></label>
         <label class="field full" for="rDate"><span>날짜</span><select id="rDate" data-r="date"${dis}>${dateOptions(r.date)}</select></label>
         <label class="field" for="rStart"><span>시작 교시</span><select id="rStart" data-r="start"${dis}>${opts(range(1, NP), r.start || 1, v => `${v}교시 (${PERIODS[v - 1][0]})`)}</select></label>
@@ -1979,6 +2540,7 @@ function saveRegister() {
   const c = D.byId[r.id], ex = S.exams[r.id];
   ex.method = r.method; ex.note = r.note || '';
   if (!NO_SLOT.has(r.method)) { ex.date = r.date; ex.start = +r.start; ex.len = +r.len; ex.room = cleanRoom(r.room); }
+  if (isMoved(c)) ex.keep = false;
   changed();
   const n = hasSlot(ex) ? conflictsOf(c, { date: ex.date, start: ex.start, len: ex.len, room: ex.room }).length : 0;
   toast(`${c.course}(${groupOf(c)}) 등록: ${hasSlot(ex) ? `${fmt(ex.date)} ${pRange(ex.start, ex.len)}` : ex.method}${n ? ` · 겹침 ${n}건` : ''}`);
@@ -2017,24 +2579,32 @@ function bindDrawer() {
     if (isLocked()) return;
     if (e.target.closest('#dToReg')) { openRegister(ui.drawerId); return; }
     if (e.target.closest('#rSave')) { saveRegister(); return; }
-    if (e.target.closest('#rDefault')) { const c = D.byId[ui.reg.id]; Object.assign(ui.reg, { date: defaultDate(c), start: c.start, len: lenOf(c), room: c.room }); openRegisterValues(); return; }
+    if (e.target.closest('#rDefault')) { const c = D.byId[ui.reg.id]; Object.assign(ui.reg, { date: defaultDate(c), start: defaultStart(c), len: defaultLen(c), room: defaultRoom(c) }); openRegisterValues(); return; }
     const rs = e.target.closest('[data-rslot]');
     if (rs) { const [d, st] = rs.dataset.rslot.split('|'); ui.reg.date = d; ui.reg.start = +st; openRegisterValues(); return; }
-    if (e.target.closest('#dReset')) { const c = D.byId[ui.drawerId], ex = S.exams[ui.drawerId]; ex.date = defaultDate(c); ex.start = c.start; ex.len = lenOf(c); ex.room = c.room; changed(); openDrawer(ui.drawerId); return; }
+    if (e.target.closest('#dReset')) { const c = D.byId[ui.drawerId], ex = S.exams[ui.drawerId]; ex.date = defaultDate(c); ex.start = defaultStart(c); ex.len = defaultLen(c); ex.room = defaultRoom(c); changed(); openDrawer(ui.drawerId); return; }
+    if (e.target.closest('#dKeep')) {
+      const c = D.byId[ui.drawerId], ex = S.exams[ui.drawerId];
+      if (isKept(c)) { ex.keep = false; ex.done = false; } else if (!isMoved(c)) { ex.keep = true; ex.done = true; }
+      changed(); openDrawer(ui.drawerId);
+      toast(ex.keep ? `${c.course}(${groupOf(c)}): 기존 시간표 수업 진행으로 확정했어요.` : `${c.course}(${groupOf(c)}) 확정을 취소했어요.`); return;
+    }
     const sb = e.target.closest('[data-slot]');
-    if (sb) { const [d, s] = sb.dataset.slot.split('|'); const ex = S.exams[ui.drawerId]; ex.date = d; ex.start = +s; changed(); openDrawer(ui.drawerId); }
+    if (sb) { const [d, s] = sb.dataset.slot.split('|'); const ex = S.exams[ui.drawerId]; ex.date = d; ex.start = +s; ex.keep = false; changed(); openDrawer(ui.drawerId); }
   });
 }
 
 /* ===== src/js/drag.js ===== */
 /* ---------- 날짜별 배치 화면 드래그 (pointer 이벤트, 같은 반 줄 안에서만, 가장자리 자동 스크롤) ---------- */
 let drag = null;
-function clearHighlight() { $$('.cell.ok,.cell.bad').forEach(el => el.classList.remove('ok', 'bad')); }
+function clearHighlight() { $$('.cell.ok,.cell.bad,.wcell.ok,.wcell.bad').forEach(el => el.classList.remove('ok', 'bad')); }
 function dragTarget(x, y) {
   const el = document.elementFromPoint(x, y);
   const cell = el && el.closest ? el.closest('.cell') : null;
-  if (!cell) return null;
-  return { date: cell.dataset.date, group: cell.dataset.group, p: +cell.dataset.p, track: cell.parentElement };
+  if (cell) return { date: cell.dataset.date, group: cell.dataset.group, p: +cell.dataset.p, track: cell.parentElement };
+  const wc = el && el.closest ? el.closest('.wcell') : null;   // 주차×요일 판의 날짜 칸: 같은 교시 그대로 날짜만 옮김
+  if (wc) return { date: wc.dataset.date, whole: true, el: wc };
+  return null;
 }
 function onDragMove(e) {
   if (!drag) return;
@@ -2072,7 +2642,14 @@ function updateTarget(x, y) {
   const c = D.byId[drag.id], ex = S.exams[drag.id];
   drag.target = null;
   if (!t) { tip.hidden = true; return; }
-  if (t.group !== groupOf(c)) {
+  if (t.whole) {
+    const place = { date: t.date, start: ex.start, len: ex.len, room: ex.room };
+    const cf = conflictsOf(c, place), wn = warningsOf(c, place);
+    t.el.classList.add(cf.length ? 'bad' : 'ok');
+    drag.target = place;
+    tip.hidden = false;
+    tip.textContent = `${fmt(t.date)} ${pRange(ex.start, ex.len)} ${tRange(ex.start, ex.len)}` + (cf.length ? '\n' + cf.map(describeConflict).join('\n') : ' · 겹침 없음') + (wn.length ? '\n' + wn.join('\n') : '');
+  } else if (t.group !== groupOf(c)) {
     tip.hidden = false; tip.textContent = `${groupOf(c)} 줄 안에서만 옮길 수 있어요`;
   } else {
     const start = Math.max(1, Math.min(NP - ex.len + 1, t.p - drag.grabP));
@@ -2106,7 +2683,7 @@ function endDrag(e, cancelled) {
     const ex = S.exams[d.id];
     if (ex.date !== d.target.date || ex.start !== d.target.start) {
       const before = `${fmt(ex.date)} ${pRange(ex.start, ex.len)}`;
-      ex.date = d.target.date; ex.start = d.target.start;
+      ex.date = d.target.date; ex.start = d.target.start; ex.keep = false;
       changed();
       const c = D.byId[d.id];
       const n = conflictsOf(c, { date: ex.date, start: ex.start, len: ex.len, room: ex.room }).length;
@@ -2159,33 +2736,60 @@ function bind() {
   $('#summary').addEventListener('click', e => { const b = e.target.closest('[data-jump]'); if (!b) return; ui.filter = { group: '', prof: '', status: b.dataset.jump, q: '' }; setTab('courses'); });
   $('#btnExport').addEventListener('click', exportExcel);
   $('#btnRegister').addEventListener('click', () => { if (!isLocked()) openRegister(); });
-  $('#planSel').addEventListener('change', e => { switchPlan(e.target.value); toast(`${S.title}을(를) 열었어요.`); });
-  $('#btnNewPlan').addEventListener('click', openWizard);
+  // 학년도·학기·시험 선택
+  for (const id of ['#selYear', '#selTerm', '#selKind']) $(id).addEventListener('change', () => {
+    selectExam(+$('#selYear').value, +$('#selTerm').value, $('#selKind').value);
+    if (!ui.missing) toast(`${S.title}을(를) 열었어요.`);
+  });
   $('#lockBanner').addEventListener('click', e => { if (e.target.closest('#btnUnlock')) { S.locked = false; touchPlan(S); render(); toast('보관을 풀었어요. 이제 수정할 수 있어요.'); } });
 
-  const board = $('#board');
-  board.addEventListener('pointerdown', e => {
-    const b = e.target.closest('.blk.exam'); if (!b || e.button !== 0 || isLocked()) return;
+  // 날짜별 배치: 주차×요일 판(카드는 날짜 칸으로) + 펼친 날짜의 반×교시 시간표(블록은 교시까지)
+  const tb = $('#tab-board');
+  tb.addEventListener('pointerdown', e => {
+    const b = e.target.closest('.blk.exam, .wcard.exam'); if (!b || e.button !== 0 || isLocked()) return;
     const id = b.dataset.id, ex = S.exams[id];
-    const r = b.getBoundingClientRect();
-    const grabP = Math.max(0, Math.min(ex.len - 1, Math.floor((e.clientX - r.left) / (r.width / ex.len))));
+    let grabP = 0;
+    if (b.classList.contains('blk')) { const r = b.getBoundingClientRect(); grabP = Math.max(0, Math.min(ex.len - 1, Math.floor((e.clientX - r.left) / (r.width / ex.len)))); }
     drag = { id, el: b, x0: e.clientX, y0: e.clientY, started: false, grabP };
     e.preventDefault();
     window.addEventListener('pointermove', onDragMove);
     window.addEventListener('pointerup', onUp);
     window.addEventListener('pointercancel', onCancel);
   });
-  board.addEventListener('click', e => {
-    const rm = e.target.closest('[data-rmdate]');
-    if (rm) { if (isLocked()) return; S.extraDates = (S.extraDates || []).filter(d => d !== rm.dataset.rmdate); changed(); return; }
-    const b = e.target.closest('.blk.exam');
+  tb.addEventListener('click', e => {
+    const dd = e.target.closest('[data-daydetail]');
+    if (dd) {
+      const d = dd.dataset.daydetail, days = ui.days || [];
+      ui.days = days.includes(d) ? days.filter(x => x !== d) : [...days, d];
+      renderBoard(); if (isLocked()) lockControls();
+      if (ui.days.includes(d)) document.querySelector(`.day[data-day="${d}"]`)?.scrollIntoView({ block: 'nearest' });
+      return;
+    }
+    const cd = e.target.closest('[data-closeday]');
+    if (cd) { ui.days = (ui.days || []).filter(x => x !== cd.dataset.closeday); renderBoard(); return; }
+    if (e.target.closest('#btnKeepAll')) {
+      if (isLocked()) return;
+      const n = keepAllUnmoved(); changed();
+      toast(`${n}과목을 '기존 시간표 수업 진행'으로 확정했어요.`); return;
+    }
+    if (e.target.closest('#rangeReset')) { if (isLocked()) return; delete S.range; changed(); return; }
+    const b = e.target.closest('.blk.exam, .wcard.exam');
     if (b && (e.detail === 0 || isLocked())) openDrawer(b.dataset.id);
+  });
+  tb.addEventListener('change', e => {
+    if (e.target.id === 'showFixed') { ui.showFixed = e.target.checked; renderBoard(); return; }
+    if (e.target.id === 'rangeFrom' || e.target.id === 'rangeTo') {
+      const from = $('#rangeFrom').value, to = $('#rangeTo').value;
+      if (!from || !to) return;
+      if (from > to) { toast('기간의 시작이 끝보다 늦어요.'); renderBoard(); return; }
+      if (isLocked()) { renderBoard(); return; }
+      S.range = { from, to }; changed();
+    }
   });
   document.addEventListener('keydown', e => {
     if (e.key !== 'Escape') return;
-    if (drag) endDrag(e, true); else if (ui.wiz) closeWizard(); else if (ui.drawerId || ui.reg) closeDrawer();
+    if (drag) endDrag(e, true); else if (ui.drawerId || ui.reg) closeDrawer();
   });
-  $('#addDate').addEventListener('change', e => { const d = e.target.value; if (!d || isLocked()) return; S.extraDates = [...new Set([...(S.extraDates || []), d])]; changed(); toast(`${fmt(d)}을 추가했어요. 시험 블록을 이 날짜로 끌어 놓을 수 있어요.`); });
 
   const lt = $('#listTable');
   lt.addEventListener('change', e => {

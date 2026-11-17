@@ -12,8 +12,8 @@ export const SEED = JSON.parse(readFileSync(join(ROOT, 'data/seed.json'), 'utf8'
 
 /** DOM 없이 동작하는 파일들(util → model → calendar → rules → importers)을 한 vm 컨텍스트에 올린다. */
 export function loadCore() {
-  const ctx = vm.createContext({ console });
-  for (const f of ['util.js', 'model.js', 'calendar.js', 'rules.js', 'importers.js'])
+  const ctx = vm.createContext({ console, DecompressionStream, Blob, Response, TextDecoder, TextEncoder });
+  for (const f of ['util.js', 'model.js', 'calendar.js', 'rules.js', 'importers.js', 'hwp.js', 'makeups.js'])
     vm.runInContext(readFileSync(join(ROOT, 'src/js', f), 'utf8'), ctx, { filename: f });
   // let/const 전역(S, D, Store …)은 컨텍스트 객체 속성이 아니라서 식으로 꺼낸다
   ctx.get = expr => vm.runInContext(expr, ctx);
@@ -176,3 +176,61 @@ export async function openApp(browser, { viewport = { width: 1440, height: 2400 
   await page.goto(await serve() + '/index.html');
   return { ctx, page, errors };
 }
+
+/**
+ * 테스트용 한글(.hwp 5.0) 파일 만들기: 행마다 표 하나(학교 보강결과보고서처럼), 칸마다 문단 하나.
+ * rows: [['35382-101', 'JAVA프로그래밍응용', '2', ...], ...], before: 표 앞 본문 문단들
+ * compressed: true면 BodyText를 raw deflate로 압축 (실제 한글 기본값)
+ * CFB는 테스트용으로 단순하게: 512바이트 섹터, 미니 스트림 없음(cutoff 0)
+ */
+export function makeHwp(rows, { before = [], compressed = false } = {}) {
+  const zlib = require('node:zlib');
+  const rec = (tag, level, payload) => {
+    const size = payload.length;
+    const h = Buffer.alloc(size >= 0xfff ? 8 : 4);
+    h.writeUInt32LE((tag | (level << 10) | (Math.min(size, 0xfff) << 20)) >>> 0, 0);
+    if (size >= 0xfff) h.writeUInt32LE(size, 4);
+    return Buffer.concat([h, payload]);
+  };
+  const text = s => Buffer.from(s + '\r', 'utf16le');   // 문단 끝 13
+  const parts = [];
+  for (const b of before) parts.push(rec(66, 0, Buffer.alloc(24)), rec(67, 1, text(b)));
+  for (const row of rows) {
+    parts.push(rec(66, 0, Buffer.alloc(24)), rec(77, 2, Buffer.from([1, 0, 0, 0, 1, 0, row.length, 0, 0, 0, 0, 0])));
+    row.forEach((cell, col) => {
+      const lh = Buffer.alloc(34); lh.writeUInt16LE(1, 0); lh.writeUInt16LE(col, 8); lh.writeUInt16LE(0, 10); lh.writeUInt16LE(1, 12); lh.writeUInt16LE(1, 14);
+      parts.push(rec(72, 2, lh), rec(66, 2, Buffer.alloc(24)), rec(67, 3, text(String(cell))));
+    });
+  }
+  let section = Buffer.concat(parts);
+  if (compressed) section = zlib.deflateRawSync(section);
+  const fh = Buffer.alloc(256); fh.write('HWP Document File', 0, 'latin1'); fh.writeUInt32LE(0x05000300, 32); fh.writeUInt32LE(compressed ? 1 : 0, 36);
+  const SS = 512, pad = b => Buffer.concat([b, Buffer.alloc((SS - (b.length % SS)) % SS)]);
+  const fhS = pad(fh), secS = pad(section);
+  const nFh = fhS.length / SS, nSec = secS.length / SS;
+  const END = 0xFFFFFFFE, FREE = 0xFFFFFFFF;
+  const fat = Buffer.alloc(SS, 0xff);
+  fat.writeUInt32LE(0xFFFFFFFD, 0); fat.writeUInt32LE(END, 4);   // 0: FAT, 1: 디렉터리
+  const chainAt = (start, n) => { for (let i = 0; i < n; i++) fat.writeUInt32LE(i === n - 1 ? END : start + i + 1, (start + i) * 4); };
+  chainAt(2, nFh); chainAt(2 + nFh, nSec);
+  const ent = (name, type, { left = FREE, right = FREE, child = FREE, start = END, size = 0 } = {}) => {
+    const e = Buffer.alloc(128); e.write(name, 0, 'utf16le'); e.writeUInt16LE((name.length + 1) * 2, 0x40); e[0x42] = type; e[0x43] = 1;
+    e.writeUInt32LE(left, 0x44); e.writeUInt32LE(right, 0x48); e.writeUInt32LE(child, 0x4C); e.writeUInt32LE(start, 0x74); e.writeUInt32LE(size, 0x78);
+    return e;
+  };
+  const dir = Buffer.concat([
+    ent('Root Entry', 5, { child: 1 }),
+    ent('FileHeader', 2, { right: 2, start: 2, size: fh.length }),
+    ent('BodyText', 1, { child: 3 }),
+    ent('Section0', 2, { start: 2 + nFh, size: section.length }),
+  ]);
+  const hdr = Buffer.alloc(SS, 0);
+  Buffer.from([0xD0, 0xCF, 0x11, 0xE0, 0xA1, 0xB1, 0x1A, 0xE1]).copy(hdr, 0);
+  hdr.writeUInt16LE(0x3E, 0x18); hdr.writeUInt16LE(3, 0x1A); hdr.writeUInt16LE(0xFFFE, 0x1C); hdr.writeUInt16LE(9, 0x1E); hdr.writeUInt16LE(6, 0x20);
+  hdr.writeUInt32LE(1, 0x2C); hdr.writeUInt32LE(1, 0x30); hdr.writeUInt32LE(0, 0x38); hdr.writeUInt32LE(END, 0x3C); hdr.writeUInt32LE(0, 0x40);
+  hdr.writeUInt32LE(END, 0x44); hdr.writeUInt32LE(0, 0x48);
+  for (let i = 0; i < 109; i++) hdr.writeUInt32LE(i === 0 ? 0 : FREE, 0x4C + i * 4);
+  return Buffer.concat([hdr, fat, dir, fhS, secS]);
+}
+/** 학교 보강결과보고서 모양의 행 (과목코드, 과목명, 학년, 결강일, 요일, 교시, 보강일, 요일, 교시, 교수, 확인, 제출) */
+export const MAKEUP_HEAD = ['과목코드', '과목명', '학년', '일자', '요일', '시간', '일자', '요일', '시간', '담당교수', '확인', '제출'];
