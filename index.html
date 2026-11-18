@@ -348,6 +348,14 @@ body.missing .summary,body.missing .tabs,body.missing main,body.missing #btnRegi
 .mknotice b{color:var(--warn)}
 .mknotice ul{margin:6px 0 0;padding-left:18px}
 .mknotice li b{color:var(--ink)}
+
+/* 파일 끌어다 놓기 (화면 전체) */
+.dropoverlay{position:fixed;inset:0;z-index:80;background:rgba(15,25,45,.35);display:flex;align-items:center;justify-content:center;padding:24px;pointer-events:none}
+.dropoverlay[hidden]{display:none}
+.dropbox{background:var(--surface);border:3px dashed var(--accent);border-radius:18px;padding:30px 40px;display:flex;flex-direction:column;align-items:center;gap:8px;color:var(--accent);box-shadow:0 14px 40px rgba(0,0,0,.25);text-align:center}
+.dropbox b{font-size:18px;color:var(--ink)}
+.dropbox span{font-size:13px;color:var(--muted)}
+.dropzone.over{border-color:var(--accent);background:var(--y2)}
 </style>
 </head>
 <body>
@@ -424,6 +432,7 @@ body.missing .summary,body.missing .tabs,body.missing main,body.missing #btnRegi
 </div>
 <aside id="drawer" class="drawer" hidden aria-label="과목 시험 설정"></aside>
 <div id="dragTip" class="dragtip" hidden></div>
+<div id="dropOverlay" class="dropoverlay" hidden aria-hidden="true"><div class="dropbox"><svg viewBox="0 0 24 24" width="38" height="38" aria-hidden="true"><path d="M12 4v11M7 10l5 5 5-5M5 19h14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg><b class="dropmsg">놓으면 자료로 넣어요</b><span>강의시간표 · 요일별 수업일 현황 · 보강 (.xlsx .xls .pdf .hwp) · 백업 .json</span></div></div>
 <div id="toast" class="toast" role="status" aria-live="polite"></div>
 <datalist id="roomList"></datalist>
 <script id="seed" type="application/json">{"title": "2026학년도 2학기 기말고사", "dept": "컴퓨터소프트웨어과", "year": 2026, "examWeek": 15, "calendar": {"cols": ["월", "화", "수", "목", "금", "토"], "weeks": [["9/7", "9/1", "9/2", "9/3", "9/4", "9/5"], ["9/14", "9/8", "9/9", "9/10", "9/11", "9/12"], ["9/21", "9/15", "9/16", "9/17", "9/18", "9/19"], ["9/28", "9/22", "9/30", "10/1", "10/2", "10/10"], ["10/12", "9/29", "10/7", "10/8", "10/16", "10/17"], ["10/19", "10/6", "10/14", "10/15", "10/23", "10/24"], ["10/26", "10/13", "10/21", "10/22", "10/30", "10/31"], ["11/2", "10/20", "10/28", "10/29", "11/6", "11/7"], ["11/9", "10/27", "11/4", "11/5", "11/13", "11/14"], ["11/16", "11/3", "11/11", "11/12", "11/20", "11/21"], ["11/23", "11/10", "11/18", "11/19", "11/27", "11/28"], ["11/30", "11/17", "11/25", "11/26", "12/4", "12/5"], ["12/7", "11/24", "12/2", "12/3", "12/11", "12/12"], ["12/14", "12/1", "12/9", "12/10", "12/15(화)", "12/19"], ["12/21", "12/8", "12/16", "12/17", "12/18", "12/22(화)"]]}, "classes": [{"day": "월", "year": 2, "ban": "A", "start": 2, "end": 4, "course": "앱프로그래밍기초", "prof": "정세일", "room": "412", "id": "월-2A-2"}, {"day": "월", "year": 2, "ban": "A", "start": 6, "end": 7, "course": "현대사회와AI활용", "prof": "김영미A", "room": "산학관101", "id": "월-2A-6"}, {"day": "월", "year": 2, "ban": "B", "start": 3, "end": 4, "course": "현대사회와AI활용", "prof": "김영미A", "room": "산학관101", "id": "월-2B-3"}, {"day": "월", "year": 2, "ban": "B", "start": 6, "end": 8, "course": "앱프로그래밍기초", "prof": "정세일", "room": "412", "id": "월-2B-6"}, {"day": "월", "year": 2, "ban": "C", "start": 6, "end": 8, "course": "웹자바프로그래밍입문", "prof": "이성욱", "room": "212", "id": "월-2C-6"}, {"day": "월", "year": 2, "ban": "C", "start": 9, "end": 10, "course": "현대사회와AI활용", "prof": "김영미A", "room": "산학관101", "id": "월-2C-9"}, {"day": "월", "year": 3, "ban": "A", "start": 2, "end": 4, "course": "프로젝트UI개선", "prof": "곽민정", "room": "413", "id": "월-3A-2"}, {"day": "월", "year": 3, "ban": "A", "start": 6, "end": 8, "course": "IT영어이해", "prof": "장석구", "room": "401", "id": "월-3A-6"}, {"day": "월", "year": 3, "ban": "B", "start": 2, "end": 4, "course": "IT영어이해", "prof": "장석구", "room": "401", "id": "월-3B-2"}, {"day": "월", "year": 3, "ban": "B", "start": 6, "end": 9, "course": "프로젝트패키징", "prof": "조동일", "room": "111", "id": "월-3B-6"}, {"day": "월", "year": 3, "ban": "C", "start": 6, "end": 8, "course": "프로젝트UI개선", "prof": "곽민정", "room": "413", "id": "월-3C-6"}, {"day": "화", "year": 1, "ban": "A", "start": 2, "end": 4, "course": "데이터베이스기초", "prof": "정재헌", "room": "212", "id": "화-1A-2"}, {"day": "화", "year": 1, "ban": "B", "start": 6, "end": 8, "course": "데이터베이스기초", "prof": "정재헌", "room": "212", "id": "화-1B-6"}, {"day": "화", "year": 2, "ban": "A", "start": 1, "end": 4, "course": "프로젝트분석설계", "prof": "이인선", "room": "401", "id": "화-2A-1"}, {"day": "화", "year": 2, "ban": "A", "start": 6, "end": 8, "course": "JAVA프로그래밍응용", "prof": "양숙희", "room": "413", "id": "화-2A-6"}, {"day": "화", "year": 2, "ban": "B", "start": 2, "end": 4, "course": "JAVA프로그래밍응용", "prof": "양숙희", "room": "413", "id": "화-2B-2"}, {"day": "화", "year": 2, "ban": "B", "start": 6, "end": 9, "course": "프로젝트분석설계", "prof": "이인선", "room": "401", "id": "화-2B-6"}, {"day": "화", "year": 2, "ban": "C", "start": 2, "end": 4, "course": "Python프로그래밍", "prof": "장준국", "room": "산학관101", "id": "화-2C-2"}, {"day": "화", "year": 2, "ban": "C", "start": 6, "end": 8, "course": "앱프로그래밍기초", "prof": "정세일", "room": "412", "id": "화-2C-6"}, {"day": "화", "year": 3, "ban": "A", "start": 6, "end": 9, "course": "프로젝트패키징", "prof": "박신성", "room": "111", "id": "화-3A-6"}, {"day": "화", "year": 3, "ban": "B", "start": 2, "end": 4, "course": "프로젝트UI개선", "prof": "곽민정", "room": "412", "id": "화-3B-2"}, {"day": "화", "year": 3, "ban": "C", "start": 1, "end": 4, "course": "프로젝트패키징", "prof": "박신성", "room": "111", "id": "화-3C-1"}, {"day": "화", "year": 3, "ban": "C", "start": 6, "end": 8, "course": "IT응용", "prof": "안해리", "room": "산학관101", "id": "화-3C-6"}, {"day": "수", "year": 1, "ban": "A", "start": 6, "end": 8, "course": "마이크로프로세서실습", "prof": "박신성", "room": "412", "id": "수-1A-6"}, {"day": "수", "year": 1, "ban": "B", "start": 2, "end": 4, "course": "마이크로프로세서실습", "prof": "박신성", "room": "412", "id": "수-1B-2"}, {"day": "수", "year": 1, "ban": "B", "start": 6, "end": 8, "course": "자바프로그래밍기초", "prof": "한정수", "room": "413", "id": "수-1B-6"}, {"day": "수", "year": 2, "ban": "A", "start": 2, "end": 4, "course": "Python프로그래밍", "prof": "장준국", "room": "413", "id": "수-2A-2"}, {"day": "수", "year": 2, "ban": "B", "start": 2, "end": 4, "course": "웹자바프로그래밍입문", "prof": "이성욱", "room": "212", "id": "수-2B-2"}, {"day": "수", "year": 2, "ban": "B", "start": 6, "end": 8, "course": "Python프로그래밍", "prof": "장준국", "room": "212", "id": "수-2B-6"}, {"day": "수", "year": 3, "ban": "A", "start": 2, "end": 4, "course": "IT응용", "prof": "안해리", "room": "산학관101", "id": "수-3A-2"}, {"day": "수", "year": 3, "ban": "A", "start": 6, "end": 8, "course": "애플리케이션프레임워크", "prof": "조동일", "room": "산학관101", "id": "수-3A-6"}, {"day": "수", "year": 3, "ban": "B", "start": 6, "end": 8, "course": "IT응용", "prof": "안해리", "room": "111", "id": "수-3B-6"}, {"day": "수", "year": 3, "ban": "C", "start": 2, "end": 4, "course": "IT영어이해", "prof": "강성관", "room": "401", "id": "수-3C-2"}, {"day": "목", "year": 1, "ban": "A", "start": 3, "end": 4, "course": "생활영어Ⅱ", "prof": "민리", "room": "404", "id": "목-1A-3"}, {"day": "목", "year": 1, "ban": "A", "start": 6, "end": 7, "course": "셀프디자인", "prof": "한정수", "room": "111", "id": "목-1A-6"}, {"day": "목", "year": 1, "ban": "A", "start": 8, "end": 10, "course": "자바프로그래밍기초", "prof": "한정수", "room": "413", "id": "목-1A-8"}, {"day": "목", "year": 1, "ban": "B", "start": 6, "end": 7, "course": "생활영어Ⅱ", "prof": "민리", "room": "404", "id": "목-1B-6"}, {"day": "목", "year": 1, "ban": "B", "start": 8, "end": 9, "course": "셀프디자인", "prof": "안해리", "room": "111", "id": "목-1B-8"}, {"day": "목", "year": 2, "ban": "A", "start": 1, "end": 2, "course": "커리어디자인", "prof": "조동일", "room": "산학관101", "id": "목-2A-1"}, {"day": "목", "year": 2, "ban": "A", "start": 6, "end": 8, "course": "웹자바프로그래밍입문", "prof": "이성욱", "room": "212", "id": "목-2A-6"}, {"day": "목", "year": 2, "ban": "B", "start": 3, "end": 4, "course": "커리어디자인", "prof": "박신성", "room": "산학관101", "id": "목-2B-3"}, {"day": "목", "year": 2, "ban": "C", "start": 3, "end": 4, "course": "커리어디자인", "prof": "이성욱", "room": "남관412", "id": "목-2C-3"}, {"day": "목", "year": 2, "ban": "C", "start": 6, "end": 9, "course": "프로젝트분석설계", "prof": "이인선", "room": "401", "id": "목-2C-6"}, {"day": "목", "year": 3, "ban": "B", "start": 6, "end": 8, "course": "애플리케이션프레임워크", "prof": "조동일", "room": "412", "id": "목-3B-6"}, {"day": "목", "year": 3, "ban": "C", "start": 2, "end": 4, "course": "빅데이터프로그래밍", "prof": "한정수", "room": "413", "id": "목-3C-2"}, {"day": "금", "year": 1, "ban": "A", "start": 2, "end": 4, "course": "자바스크립트기초", "prof": "김영미B", "room": "212", "id": "금-1A-2"}, {"day": "금", "year": 1, "ban": "A", "start": 6, "end": 8, "course": "PHP프로그래밍", "prof": "한성훈", "room": "413", "id": "금-1A-6"}, {"day": "금", "year": 1, "ban": "B", "start": 2, "end": 4, "course": "PHP프로그래밍", "prof": "안해리", "room": "산학관101", "id": "금-1B-2"}, {"day": "금", "year": 1, "ban": "B", "start": 6, "end": 8, "course": "자바스크립트기초", "prof": "김영미B", "room": "212", "id": "금-1B-6"}, {"day": "금", "year": 2, "ban": "C", "start": 2, "end": 4, "course": "JAVA프로그래밍응용", "prof": "한성훈", "room": "413", "id": "금-2C-2"}]}</script>
@@ -2166,7 +2175,11 @@ function renderSetup() {
   <article class="card"><h2>자료 다시 넣기</h2>
     <p class="hint">시간표가 바뀌었거나 보강이 생겼을 때 파일을 넣으세요. 강의시간표(.xlsx), 요일별 수업일 현황(.pdf·.hwp·.xlsx), 보강결과보고서(.hwp·.xlsx·.pdf)를 알아서 알아봐요. 옮기지 않은 시험은 새 자료의 기본 시간을 따라가요.</p>
     <p class="hint">지금 자료: 시간표 ${esc(src.timetable || '-')} · 수업일 ${esc(src.calendar || '-')}${src.makeups ? ` · 보강 ${esc(src.makeups)}` : ''}</p>
-    <div class="row"><label class="btn small primary editable" for="sFiles">파일 고르기 (여러 개 가능)</label><input type="file" id="sFiles" class="editable" multiple accept=".xlsx,.xlsm,.pdf,.hwp,.txt,.csv" hidden></div>
+    <div class="dropzone" id="sDrop" data-drop="setup">
+      <b>여기에 파일을 끌어다 놓거나</b>
+      <label class="btn small primary editable" for="sFiles">파일 고르기 (여러 개 가능)</label><input type="file" id="sFiles" class="editable" multiple accept=".xlsx,.xlsm,.xls,.pdf,.hwp,.txt,.csv" hidden>
+      <span class="hint">강의시간표 .xlsx/.xls · 수업일 현황 .pdf/.hwp/.xlsx · 보강 .hwp/.xls/.xlsx</span>
+    </div>
     ${p.busy ? `<p class="hint">${esc(p.busy)}</p>` : ''}
     ${found.length ? `<div class="filelist">${found.map((f, i) => `<div class="it ${f.type === 'unknown' ? 'bad' : 'ok'}"><span class="ty">${esc(TYPE_LABEL[f.type])}</span><span>${esc(f.name)}</span><span class="hint">${esc(f.msg)}</span>
       ${f.type === 'unknown' ? '' : f.applied ? '<span class="keepnote">✓ 적용함</span>' : `<button type="button" class="btn small danger editable" data-apply="${i}">${f.type === 'makeups' ? '보강 추가' : '이 자료로 바꾸기'}</button>`}</div>`).join('')}</div>` : ''}
@@ -2247,6 +2260,18 @@ function applyFound(f) {
   return '';
 }
 
+/** 설정 탭 '자료 다시 넣기'에 파일들을 넣는다 (파일 고르기·끌어다 놓기 공통) → 종류를 알아보고 적용 버튼을 보여 줌 */
+async function setupAddFiles(files) {
+  if (!files.length) return;
+  if (isLocked()) { toast('보관된 기록이라 자료를 넣을 수 없어요. 먼저 보관을 해제하세요.'); return; }
+  if (ui.tab !== 'setup') setTab('setup');
+  ui.pending.busy = `파일 ${files.length}개 읽는 중…`; ui.pending.applyMsg = ''; renderSetup();
+  const out = [];
+  for (const f of files) { const r = await recognizeFile(f); out.push({ ...r }); }
+  ui.pending.files = out; ui.pending.busy = '';
+  renderSetup();
+  $('#sDrop')?.scrollIntoView({ block: 'nearest' });
+}
 function bindSetup() {
   const sg = $('#setupGrid');
   sg.addEventListener('change', async e => {
@@ -2254,14 +2279,7 @@ function bindSetup() {
     if (isLocked()) return;
     if (el.id === 'sTitle') { S.title = el.value.trim() || S.title; changed(); }
     else if (el.id === 'sDept') { S.dept = el.value.trim() || S.dept; changed(); }
-    else if (el.id === 'sFiles' && el.files.length) {
-      const files = [...el.files]; el.value = '';
-      ui.pending.busy = `파일 ${files.length}개 읽는 중…`; ui.pending.applyMsg = ''; renderSetup();
-      const out = [];
-      for (const f of files) { const r = await recognizeFile(f); out.push({ ...r }); }
-      ui.pending.files = out; ui.pending.busy = '';
-      renderSetup();
-    }
+    else if (el.id === 'sFiles' && el.files.length) { const files = [...el.files]; el.value = ''; setupAddFiles(files); }
   });
   sg.addEventListener('click', e => {
     const id = e.target.id;
@@ -2371,6 +2389,13 @@ function switchPlan(id) {
   closeDrawer(); refreshRoomList(); persistLocal(); render();
 }
 
+/** 백업(.json) 파일 → 불러오기 확인 (파일 고르기·끌어다 놓기 공통) */
+async function historyRestoreFile(f) {
+  if (ui.tab !== 'history') setTab('history');
+  try { ui.hist.restore = planRestore(JSON.parse(await f.text())); }
+  catch { ui.hist.restore = { error: true, msg: '파일을 읽지 못했어요. JSON 백업 파일인지 확인해 주세요.' }; }
+  renderHistory();
+}
 function bindHistory() {
   bindGitHubCard();
   const box = $('#historyBox');
@@ -2399,9 +2424,8 @@ function bindHistory() {
   });
   box.addEventListener('change', async e => {
     if (e.target.id !== 'hRestore' || !e.target.files[0]) return;
-    try { ui.hist.restore = planRestore(JSON.parse(await e.target.files[0].text())); }
-    catch { ui.hist.restore = { error: true, msg: '파일을 읽지 못했어요. JSON 백업 파일인지 확인해 주세요.' }; }
-    renderHistory();
+    const f = e.target.files[0]; e.target.value = '';
+    historyRestoreFile(f);
   });
 }
 
@@ -2520,10 +2544,10 @@ function drawWizard() {
     <section class="step"><h3><span class="n">1</span>자료</h3>
       ${others.length ? `<label class="field" for="wBase"><span>다른 시험의 자료 가져오기 (같은 학기 중간→기말이면 그대로 쓰면 돼요. 아래에 새 파일을 넣으면 그 자료가 우선해요)</span>
         <select id="wBase"><option value="">가져오지 않음</option>${others.map(p => `<option value="${esc(p.id)}"${p.id === w.base ? ' selected' : ''}>${esc(p.title)} · 수업 ${p.classes.length}개${(p.makeups || []).length ? ` · 보강 ${p.makeups.length}건` : ''}</option>`).join('')}</select></label>` : ''}
-      <div class="dropzone" id="wDrop">
+      <div class="dropzone" id="wDrop" data-drop="wizard">
         <b>여기에 파일을 끌어다 놓거나</b>
-        <label class="btn small primary" for="wFiles">파일 고르기 (여러 개 가능)</label><input type="file" id="wFiles" multiple accept=".xlsx,.xlsm,.pdf,.hwp,.txt,.csv" hidden>
-        <span class="hint">강의시간표 .xlsx · 수업일 현황 .pdf/.hwp/.xlsx · 보강결과보고서 .hwp/.xlsx/.pdf</span>
+        <label class="btn small primary" for="wFiles">파일 고르기 (여러 개 가능)</label><input type="file" id="wFiles" multiple accept=".xlsx,.xlsm,.xls,.pdf,.hwp,.txt,.csv" hidden>
+        <span class="hint">강의시간표 .xlsx/.xls · 수업일 현황 .pdf/.hwp/.xlsx · 보강 .hwp/.xls/.xlsx</span>
       </div>
       ${w.files.length ? `<div class="filelist">${w.files.map(f => `<div class="it ${f.type === 'unknown' ? 'bad' : 'ok'}"><span class="ty">${esc(TYPE_LABEL[f.type])}</span><span>${esc(f.name)}</span><span class="hint">${esc(f.msg)}</span></div>`).join('')}</div>` : ''}
       ${w.busy ? `<p class="hint">${esc(w.busy)}</p>` : ''}
@@ -2611,10 +2635,6 @@ function bindWizard() {
     } else return;
     renderWizard();
   });
-  // 끌어다 놓기
-  box.addEventListener('dragover', e => { const z = e.target.closest('#wDrop'); if (!z) return; e.preventDefault(); z.classList.add('over'); });
-  box.addEventListener('dragleave', e => { const z = e.target.closest('#wDrop'); if (z) z.classList.remove('over'); });
-  box.addEventListener('drop', e => { const z = e.target.closest('#wDrop'); if (!z) return; e.preventDefault(); z.classList.remove('over'); wizardAddFiles([...e.dataTransfer.files]); });
 }
 
 /* ===== src/js/drawer.js ===== */
@@ -2932,6 +2952,42 @@ function setTab(tab, push = true) {
   render();
 }
 
+/* ---------- 파일 끌어다 놓기 (화면 어디서나) ----------
+   - 고른 시험이 없을 때(자료 넣기 화면) → 그 화면으로
+   - 백업(.json)만 → 학기별 기록의 백업 불러오기
+   - 그 밖(시간표·수업일 현황·보강) → 설정 탭 '자료 다시 넣기' (종류를 알아보고 적용 버튼) */
+function routeDroppedFiles(files) {
+  if (!files.length) return;
+  if (ui.missing) { wizardAddFiles(files); return; }
+  if (files.every(f => /\.json$/i.test(f.name))) { historyRestoreFile(files[0]); return; }
+  setupAddFiles(files);
+}
+function bindFileDrop() {
+  const ov = $('#dropOverlay');
+  let depth = 0;
+  const hasFiles = e => [...(e.dataTransfer?.types || [])].includes('Files');
+  const hide = () => { depth = 0; ov.hidden = true; $$('.dropzone.over').forEach(z => z.classList.remove('over')); };
+  window.addEventListener('dragenter', e => {
+    if (!hasFiles(e)) return;
+    depth++;
+    ov.hidden = false;
+    ov.querySelector('.dropmsg').textContent = ui.missing ? '놓으면 이 시험의 자료로 넣어요' : '놓으면 자료로 넣어요';
+  });
+  window.addEventListener('dragover', e => {
+    if (!hasFiles(e)) return;
+    e.preventDefault();                                   // 브라우저가 파일을 열어 버리지 않게
+    e.dataTransfer.dropEffect = 'copy';
+    $$('.dropzone').forEach(z => z.classList.toggle('over', z.contains(e.target)));
+  });
+  window.addEventListener('dragleave', e => { if (!hasFiles(e)) return; depth = Math.max(0, depth - 1); if (!depth) hide(); });
+  window.addEventListener('drop', e => {
+    if (!hasFiles(e)) return;
+    e.preventDefault();
+    hide();
+    routeDroppedFiles([...e.dataTransfer.files]);
+  });
+}
+
 function bind() {
   $('.tabs').addEventListener('click', e => { const b = e.target.closest('button[data-tab]'); if (b) setTab(b.dataset.tab); });
   window.addEventListener('hashchange', () => { const h = location.hash.slice(1); if (TABS.includes(h) && h !== ui.tab) setTab(h, false); });
@@ -2993,6 +3049,7 @@ function bind() {
 
   bindDrawer();
   bindRange();
+  bindFileDrop();
   bindSetup();
   bindHistory();
   bindWizard();
