@@ -83,62 +83,6 @@ function boardRange() {
   if (r && r.from && r.to && r.from <= r.to) return { from: r.from, to: r.to };
   return defaultRange();
 }
-const inBoardRange = (r, d) => (r.days ? r.days.includes(d) : d >= r.from && d <= r.to);
-const WEEK_ROWS = ['월', '화', '수', '목', '금', '토'];
-function weekBadge(it) {
-  if (it.kind === 'makeup') return `<span class="wk wk-mk" title="${esc(it.from ? `${fmt(it.from)} 결강한 수업의 보강` : '보강')}">보강${it.week ? ` · ${it.week}주차분` : ''}</span>`;
-  if (it.kind === 'exam') return `<span class="wk wk-exam">${S.examWeek}주차${D.examMakeup[it.c.id] ? '(보강)' : ''}</span>`;
-  return `<span class="wk">${it.week}주차</span>`;
-}
-function weekCard(it, st) {
-  const c = it.c, g = groupOf(c), y = esc(String(c.year));
-  const head = `<span class="g">${esc(g)}</span><span class="p">${pRange(it.s, it.e - it.s + 1)}</span><span class="t">${esc(c.course)}</span>`;
-  if (it.kind !== 'exam') {   // 고정 수업·보강: 한 줄로 작게
-    const tip = it.kind === 'makeup' ? `보강: ${c.course}(${c.prof}) ${it.from ? fmt(it.from) + `(${it.week || '?'}주차) 결강분` : ''} → ${pRange(it.s, it.e - it.s + 1)} ${roomLabel(it.room)}` : `${it.week}주차 정상 수업: ${c.course}(${c.prof}) ${roomLabel(c.room)}`;
-    return `<div class="wcard fixed${it.kind === 'makeup' ? ' mk' : ''}" title="${esc(tip)}">${weekBadge(it)}${head}</div>`;
-  }
-  const ex = S.exams[c.id];
-  const notes = [];
-  if (st.moved) notes.push(`<span class="mvnote">↪ ${S.examWeek}주차 ${esc(fmt(defaultDate(c)))} ${pRange(defaultStart(c), defaultLen(c))}에서 옮김</span>`);
-  if (st.keep) notes.push('<span class="keepnote">✓ 기존 시간표 수업 진행</span>');
-  else if (st.done) notes.push('<span class="keepnote">✓ 확정</span>');
-  if (st.bad.length) notes.push(`<span class="badnote">겹침 ${st.bad.length}</span>`);
-  const tip = [`${c.course} (${c.prof}) ${g}`, `${fmt(ex.date)} ${pRange(ex.start, ex.len)} ${tRange(ex.start, ex.len)} · ${roomLabel(ex.room)} · ${ex.method}`, ...st.bad.map(describeConflict), ...st.warn].join('\n');
-  return `<button type="button" class="wcard exam y${y}${st.bad.length ? ' bad' : ''}" data-id="${esc(c.id)}" title="${esc(tip)}">${head}<span class="x">${weekBadge(it)}${notes.join('')}<span>${esc(c.prof)} · ${esc(roomLabel(ex.room))} · ${esc(ex.method)}</span></span></button>`;
-}
-function renderWeekGrid(statusCache) {
-  const r = boardRange();
-  $('#rangeText').textContent = rangeLabel(r);
-  const showFixed = ui.showFixed !== false;
-  $('#showFixed').checked = showFixed;
-  const weeks = [];
-  for (let m = mondayOf(r.from); m <= r.to && weeks.length < 10; m = addDays(m, 7)) weeks.push(m);
-  let html = `<div></div>` + weeks.map((m, i) => {
-    const sem = [...new Set(range(0, 5).map(k => D.dateMap[addDays(m, k)]?.week).filter(Boolean))].sort((a, b) => a - b);
-    return `<div class="wh"><b>${i + 1}주차</b>${esc(fmt(m).replace(/\(.\)/, ''))} ~ ${esc(fmt(addDays(m, 5)).replace(/\(.\)/, ''))}${sem.length ? ` · 학기 ${sem[0]}${sem.length > 1 ? `~${sem[sem.length - 1]}` : ''}주` : ''}</div>`;
-  }).join('');
-  for (const dw of WEEK_ROWS) {
-    html += `<div class="wday">${dw}</div>`;
-    for (const m of weeks) {
-      const d = addDays(m, WEEK_ROWS.indexOf(dw));
-      const info = D.dateMap[d];
-      const items = itemsOn(d, null).filter(it => showFixed || it.kind === 'exam')
-        .sort((a, b) => a.s - b.s || groupOf(a.c).localeCompare(groupOf(b.c)));
-      const real = DOW[dowOf(d)];
-      let tag = '<span class="tag">수업일 아님</span>';
-      if (info) {
-        const ex = info.week === S.examWeek;
-        const txt = info.col !== real ? `${info.col}요일 ${info.week}주차 수업일` : `${info.week}주차`;
-        tag = `<span class="tag ${ex ? '' : info.col !== real ? 'alt' : ''}">${esc(txt)}${ex ? ' · 시험 주차' : ''}</span>`;
-      }
-      const cls = ['wcell', inBoardRange(r, d) ? '' : 'out', info && info.week === S.examWeek ? 'examday' : '', ui.focusDay === d ? 'sel' : ''].filter(Boolean).join(' ');
-      html += `<div class="${cls}" data-date="${d}"><div class="wdate"><button type="button" class="linkbtn" data-daydetail="${d}" title="반×교시 자세히 보기">${esc(fmt(d))}</button>${tag}</div>${items.map(it => weekCard(it, statusCache[it.c.id])).join('')}</div>`;
-    }
-  }
-  const g = $('#weekGrid');
-  g.style.gridTemplateColumns = `34px repeat(${weeks.length}, minmax(250px, 1fr))`;
-  g.innerHTML = html;
-}
 /** 날짜 하나의 반×교시 자세한 시간표 (날짜를 누르면 아래에 펼침) */
 function renderDaySection(d, statusCache) {
   const head = `<div class="ghead"><div></div><div class="periods">${PERIODS.map((p, i) => `<div><b>${i + 1}</b>${i + 1 === LUNCH ? '점심' : p[0]}</div>`).join('')}</div></div>`;
@@ -161,13 +105,14 @@ function renderDaySection(d, statusCache) {
       }
       const ex = S.exams[it.c.id], st = statusCache[it.c.id];
       const badge = st.bad.length ? `<span class="badge b-bad">겹침</span>` : st.keep ? `<span class="badge b-ok">기존</span>` : st.done ? `<span class="badge b-ok">확정</span>` : st.moved ? `<span class="badge b-mv">이동</span>` : '';
-      const tip = [`${it.c.course} (${it.c.prof}) ${g}`, `${fmt(ex.date)} ${pRange(ex.start, ex.len)} ${tRange(ex.start, ex.len)} · ${roomLabel(ex.room)} · ${ex.method}`, ...st.bad.map(describeConflict), ...st.warn].join('\n');
-      return `<button type="button" class="blk exam y${esc(year)}${st.bad.length ? ' bad' : ''}${badge ? ' has-badge' : ''}" style="${pos}" data-id="${esc(it.c.id)}" title="${esc(tip)}"><span class="t">${esc(it.c.course)}</span><span class="s">${S.examWeek}주차 · ${esc(it.c.prof)} · ${esc(roomLabel(ex.room))}</span>${badge}</button>`;
+      const tip = [`${it.c.course} (${it.c.prof}) ${g}`, `${fmt(ex.date)} ${pRange(ex.start, ex.len)} ${tRange(ex.start, ex.len)} · ${roomLabel(ex.room)} · ${ex.method}`,
+        st.moved ? `↪ ${S.examWeek}주차 수업 ${fmt(defaultDate(it.c))} ${pRange(defaultStart(it.c), defaultLen(it.c))}에서 옮김` : '', st.keep ? '✓ 기존 시간표 수업 진행' : '', ...st.bad.map(describeConflict), ...st.warn].filter(Boolean).join('\n');
+      return `<button type="button" class="blk exam y${esc(year)}${st.bad.length ? ' bad' : ''}${badge ? ' has-badge' : ''}" style="${pos}" data-id="${esc(it.c.id)}" title="${esc(tip)}"><span class="t">${esc(it.c.course)}</span><span class="s">${st.moved ? `${S.examWeek}주차 · ${esc(fmt(defaultDate(it.c)))}에서 옮김` : `${S.examWeek}주차${D.examMakeup[it.c.id] ? '(보강)' : ''} · ${esc(it.c.prof)} · ${esc(roomLabel(ex.room))}`}</span>${badge}</button>`;
     }).join('');
     rows += `<div class="grow${prevYear !== null && prevYear !== year ? ' yb' : ''}"><div class="glabel y${esc(year)}">${esc(g)}</div><div class="track" style="grid-template-rows:repeat(${lanes},minmax(30px,auto))">${cells}${blocks}</div></div>`;
     prevYear = year;
   }
-  return `<section class="day${ui.focusDay === d ? ' focus' : ''}" data-day="${d}">
+  return `<section class="day${D.dateMap[d] && D.dateMap[d].week === S.examWeek ? ' examday' : ''}" data-day="${d}">
     <div class="dayhead"><h3>${+m}/${+dd}<span class="dow">(${DOW[dowOf(d)]})</span></h3><span class="tag ${lab.cls}">${esc(lab.text)}</span>
     <span class="cnt">시험 ${nExam}과목</span></div>
     <div class="scroller"><div class="grid">${head}${rows}</div></div></section>`;
@@ -175,47 +120,39 @@ function renderDaySection(d, statusCache) {
 function renderBoard() {
   const statusCache = {};
   for (const c of S.classes) statusCache[c.id] = statusOf(c);
-  renderWeekGrid(statusCache);
+  $('#rangeText').textContent = daysLabel(stripDates());
   renderRangePop();
   const keepable = S.classes.filter(c => { const st = statusCache[c.id]; return !st.noslot && !st.moved && !st.keep && !st.bad.length; }).length;
   const kb = $('#btnKeepAll');
   kb.textContent = `옮기지 않은 과목 모두 '기존 시간표 수업 진행' 확정 (${keepable})`;
   kb.disabled = !keepable || isLocked();
-  renderDayStrip(statusCache);
+  renderDayRows(statusCache);
 }
-/** 고른 기간의 날짜마다 작은 반×교시 시간표를 가로로 나란히 (옆으로 넘겨 봄). 일요일은 뺌 */
+/** 고른 날짜들 (일요일 제외). 고른 적이 없으면 시험 주차 날짜들이 들어가는 주의 월~토 */
 function stripDates() {
   const r = boardRange();
   if (r.days) return r.days.filter(d => dowOf(d) !== 0);
   const out = [];
-  for (let d = r.from; d <= r.to && out.length < 60; d = addDays(d, 1)) if (dowOf(d) !== 0) out.push(d);
+  for (let d = r.from; d <= r.to && out.length < 90; d = addDays(d, 1)) if (dowOf(d) !== 0) out.push(d);
   return out;
 }
-function renderDayStrip(statusCache) {
-  const strip = $('#board');
-  const keep = strip.scrollLeft;   // 옮긴 뒤 다시 그려도 보던 자리 유지
-  const dates = stripDates();
-  strip.innerHTML = dates.map(d => renderDaySection(d, statusCache)).join('') || '<p class="hint">기간을 골라 주세요.</p>';
-  strip.scrollLeft = ui.stripScroll === 0 ? 0 : keep;
-  ui.stripScroll = null;
-  if (ui.focusDay) { const el = strip.querySelector(`.day[data-day="${ui.focusDay}"]`); if (el) strip.scrollLeft = el.offsetLeft - strip.offsetLeft; }
-  updateStripPos();
-}
-function updateStripPos() {
-  const strip = $('#board'), days = [...strip.querySelectorAll('.day')];
-  if (!days.length) { $('#stripPos').textContent = ''; return; }
-  const left = strip.scrollLeft, right = left + strip.clientWidth;
-  const vis = days.filter(el => el.offsetLeft - strip.offsetLeft + el.offsetWidth / 2 >= left && el.offsetLeft - strip.offsetLeft + el.offsetWidth / 2 <= right);
-  const f = vis[0]?.dataset.day, l = vis[vis.length - 1]?.dataset.day;
-  $('#stripPos').textContent = f ? `${fmt(f)}${l && l !== f ? ` ~ ${fmt(l)}` : ''} · 전체 ${days.length}일` : `전체 ${days.length}일`;
-}
-/** 날짜별 시간표를 그 날짜로 넘김 */
-function focusStripDay(d) {
-  ui.focusDay = d;
-  const strip = $('#board'), el = strip.querySelector(`.day[data-day="${d}"]`);
-  strip.querySelectorAll('.day.focus').forEach(x => x.classList.remove('focus'));
-  if (el) { el.classList.add('focus'); strip.scrollTo({ left: el.offsetLeft - strip.offsetLeft, behavior: 'auto' }); strip.scrollIntoView({ block: 'nearest' }); }
-  updateStripPos();
+/** 고른 날짜를 주(월요일 시작)마다 한 줄로: 줄 안에서는 날짜가 가로로 (넘치면 옆으로 넘김) */
+function renderDayRows(statusCache) {
+  const box = $('#board');
+  const keep = {};   // 다시 그려도 줄마다 보던 자리 유지
+  box.querySelectorAll('.weekrow').forEach(el => { keep[el.dataset.week] = el.querySelector('.weekdays').scrollLeft; });
+  const weeks = new Map();
+  for (const d of stripDates()) { const m = mondayOf(d); if (!weeks.has(m)) weeks.set(m, []); weeks.get(m).push(d); }
+  const md = d => fmt(d).replace(/\(.\)/, '');
+  box.innerHTML = [...weeks].map(([m, ds]) => {
+    const sem = [...new Set(ds.map(d => D.dateMap[d]?.week).filter(Boolean))].sort((a, b) => a - b);
+    const semTxt = sem.length ? `학기 ${sem[0]}${sem.length > 1 ? `~${sem[sem.length - 1]}` : ''}주차` : '수업일 아님';
+    const hasExam = sem.includes(S.examWeek);
+    return `<section class="weekrow" data-week="${m}">
+      <div class="weekrow-head"><b>${esc(md(ds[0]))}${ds.length > 1 ? ` ~ ${esc(md(ds[ds.length - 1]))}` : ''}</b> <span class="wk${hasExam ? ' wk-exam' : ''}">${esc(semTxt)}</span> <span class="hint">${ds.length}일</span></div>
+      <div class="weekdays">${ds.map(d => renderDaySection(d, statusCache)).join('')}</div></section>`;
+  }).join('') || `<p class="hint">'날짜 선택'을 눌러 날짜를 골라 주세요.</p>`;
+  box.querySelectorAll('.weekrow').forEach(el => { if (keep[el.dataset.week]) el.querySelector('.weekdays').scrollLeft = keep[el.dataset.week]; });
 }
 /** 옮기지 않았고 겹침 없는 과목을 모두 '기존 시간표 수업 진행'으로 확정 */
 function keepAllUnmoved() {

@@ -253,57 +253,24 @@ body.missing .summary,body.missing .tabs,body.missing main,body.missing #btnRegi
 .mklist{font-size:12.5px}
 .mklist td,.mklist th{padding:4px 7px}
 
-/* 주차 × 요일 판 */
+/* 날짜별 배치 공통 */
 .rangebar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;font-size:13px}
 .rangebar input[type="date"]{border:1px solid var(--line);background:var(--surface);border-radius:7px;padding:4px 7px}
 .chkline{display:flex;gap:5px;align-items:center;color:var(--muted)}
-.weekgrid-wrap{overflow-x:auto;margin-bottom:16px}
-.weekgrid{display:grid;gap:6px;min-width:min-content}
-.wh{font-size:12.5px;color:var(--muted);padding:2px 4px}
-.wh b{color:var(--ink);font-size:14px;display:block}
-.wday{display:flex;align-items:flex-start;justify-content:center;font-weight:700;padding-top:8px}
-.wcell{background:var(--surface);border:1px solid var(--line);border-radius:9px;padding:6px;display:flex;flex-direction:column;gap:4px;min-height:70px;min-width:250px}
-.wcell.out{opacity:.45}
-.wcell.examday{border-color:var(--accent)}
-.wcell.ok{background:var(--ok-bg);box-shadow:inset 0 0 0 2px var(--ok)}
-.wcell.bad{background:var(--bad-bg);box-shadow:inset 0 0 0 2px var(--bad)}
-.wcell.sel{box-shadow:inset 0 0 0 2px var(--accent)}
-.wdate{display:flex;gap:6px;align-items:baseline;flex-wrap:wrap;font-size:12.5px}
-.wdate .linkbtn{font-size:14px}
-.wcard{display:grid;grid-template-columns:auto auto 1fr;gap:1px 6px;align-items:baseline;text-align:left;font-size:12px;line-height:1.35;border-radius:6px;padding:4px 6px;border:1px solid var(--line);background:var(--surface)}
-.wcard .g{font-weight:700}
-.wcard .p{color:var(--muted);white-space:nowrap}
-.wcard .t{font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.wcard .x{grid-column:1/-1;display:flex;flex-wrap:wrap;gap:3px 6px;align-items:center;color:var(--muted);font-size:11.5px}
-.wcard.exam{cursor:grab;touch-action:none;user-select:none;-webkit-user-select:none}
-.wcard.exam.y1{background:var(--y1);border-color:var(--y1s)} .wcard.exam.y2{background:var(--y2);border-color:var(--y2s)} .wcard.exam.y3{background:var(--y3);border-color:var(--y3s)}
-.wcard.exam.bad{border:2px solid var(--bad)}
-.wcard.fixed{background:repeating-linear-gradient(135deg,var(--fixed) 0 6px,transparent 6px 10px);color:var(--fixed-ink)}
-.wcard.fixed .t{font-weight:500}
 .wk{display:inline-block;font-size:11px;font-weight:700;border-radius:4px;padding:0 5px;background:var(--fixed);color:var(--muted);white-space:nowrap}
 .wk.wk-exam{background:var(--accent);color:var(--accent-ink)}
 .wk.wk-mk{background:var(--warn-bg);color:var(--warn);border:1px solid var(--warn)}
 .mvnote{color:var(--warn);font-weight:600}
 .keepnote{color:var(--ok);font-weight:600}
 .badnote{color:var(--bad);font-weight:700}
-body.dragging .wcard{pointer-events:none}
-.wcard.src{opacity:.35}
-.wcard.ghost{position:fixed}
-.daydetail-head{display:flex;gap:10px;align-items:center;justify-content:space-between;margin:4px 0 8px}
-.wcard.fixed{grid-template-columns:auto auto auto 1fr;padding:2px 6px;font-size:11.5px;align-items:center}
-.wcard.fixed .wk{font-size:10.5px}
-.wcard.fixed.mk{background:var(--warn-bg);border-color:var(--warn);color:var(--warn)}
 
 .planpick label{white-space:nowrap}
 
 /* 기간선택 칸 · 달력 (디자인: 한 달, 연·월 선택, 시작~끝 띠, 오늘·취소·선택) */
-.datefield-wrap{position:relative;display:flex;flex-direction:column;gap:3px}
-.flabel{font-size:12.5px;color:var(--muted)}
-.datefield{display:inline-flex;align-items:center;justify-content:space-between;gap:14px;min-width:260px;max-width:100%;border:1px solid var(--line);background:var(--surface);border-radius:8px;padding:8px 12px;font-size:14px;color:var(--ink);text-align:left}
-.datefield svg{color:var(--muted);flex-shrink:0}
-.datefield:hover,.datefield.on{border-color:var(--accent)}
-.datefield span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.calpop{position:absolute;top:calc(100% + 6px);left:0;z-index:35;width:330px;background:var(--surface);border:1px solid var(--line);border-radius:14px;box-shadow:0 12px 32px rgba(0,0,0,.16);padding:14px 14px 10px}
+.datefield-wrap{position:relative}
+.datebtn{display:inline-flex;align-items:center;gap:7px}
+.rangetext{font-size:13.5px;font-weight:600}
+.calpop{position:absolute;top:calc(100% + 6px);left:0;z-index:35;width:360px;background:var(--surface);border:1px solid var(--line);border-radius:14px;box-shadow:0 12px 32px rgba(0,0,0,.16);padding:14px 14px 10px}
 .calpop[hidden]{display:none}
 .calhead{display:flex;align-items:center;justify-content:space-between;gap:6px;margin-bottom:8px}
 .calnav{width:30px;height:30px;border-radius:50%;border:1px solid var(--line);background:var(--surface);font-size:16px;line-height:1}
@@ -312,45 +279,56 @@ body.dragging .wcard{pointer-events:none}
 .calym select{border:0;background:none;font-weight:700;font-size:15px;padding:2px 4px;cursor:pointer}
 .calgrid{display:grid;grid-template-columns:repeat(7,1fr);row-gap:3px;user-select:none;-webkit-user-select:none;touch-action:none}
 .cdow{text-align:center;font-size:12px;color:var(--muted);padding:4px 0}
-.cmonth{grid-column:1/-1;font-size:12px;font-weight:700;color:var(--muted);padding:4px 2px 2px}
-.cday{position:relative;height:38px;border:0;background:none;padding:0;display:flex;align-items:center;justify-content:center;font-size:13.5px;color:var(--ink)}
-.cday span{width:34px;height:34px;display:flex;align-items:center;justify-content:center;border-radius:50%}
-.cday:hover span{box-shadow:inset 0 0 0 1.5px var(--accent)}
 .cday.other{color:var(--muted);opacity:.55}
-.cday.exam{color:var(--bad);font-weight:700}
-.cday.today::after{content:"";position:absolute;bottom:2px;left:50%;width:4px;height:4px;margin-left:-2px;border-radius:50%;background:var(--bad)}
-.cday.mk span{box-shadow:inset 0 -2px 0 var(--warn)}
-.cday.band{background:var(--y2)}
-.cday.start{background:linear-gradient(90deg,transparent 50%,var(--y2) 50%)}
-.cday.end{background:linear-gradient(90deg,var(--y2) 50%,transparent 50%)}
-.cday.start span,.cday.end span,.cday.one span{background:var(--accent);color:var(--accent-ink);font-weight:700}
 .calsel{margin:8px 2px 2px;font-size:12.5px;color:var(--ink)}
 .callegend{margin:2px;font-size:11.5px;color:var(--muted);display:flex;gap:6px;align-items:center}
-.callegend .dot{display:inline-block;width:8px;height:8px;border-radius:50%}
-.callegend .dot.exam{background:var(--bad)} .callegend .dot.mk{background:var(--warn);margin-left:8px}
 .calfoot{display:flex;justify-content:space-between;align-items:center;border-top:1px solid var(--line);margin-top:8px;padding-top:10px}
-@media (max-width:640px){ .calpop{position:fixed;left:8px;right:8px;top:auto;bottom:8px;width:auto} .datefield{min-width:0;width:100%} }
+@media (max-width:640px){ .calpop{position:fixed;left:8px;right:8px;top:auto;bottom:8px;width:auto} }
+/* 날짜별 시간표: 고른 날짜를 주마다 한 줄, 줄 안에서 가로로 (넘치면 옆으로 넘김) */
+.striphead{margin:6px 0 6px}
+.striphead h3{font-size:16px;margin:0}
+.dayrows{display:flex;flex-direction:column;gap:16px}
+.weekrow-head{display:flex;gap:8px;align-items:baseline;margin:0 0 6px;font-size:13.5px}
+.weekdays{display:flex;gap:8px;overflow-x:auto;padding:2px 2px 8px}
+.weekdays .day{flex:1 1 0;min-width:300px;max-width:560px}
+.weekdays .day.examday{border-color:var(--bad)}
+.weekdays .dayhead{padding:5px 8px;gap:3px 8px}
+.weekdays .dayhead h3{font-size:14.5px}
+.weekdays .tag{font-size:10.5px}
+.weekdays .cnt{font-size:11.5px}
+.weekdays .grid{min-width:0}
+.weekdays .ghead,.weekdays .grow{grid-template-columns:30px 1fr}
+.weekdays .ghead{font-size:9.5px}
+.weekdays .ghead .periods div{padding:2px 0;white-space:nowrap;overflow:hidden}
+.weekdays .ghead .periods b{font-size:10.5px}
+.weekdays .glabel{font-size:11px}
+.weekdays .track{padding:2px 0}
+.weekdays .blk{margin:1px 1px;padding:2px 4px;font-size:10.5px;border-radius:5px}
+.weekdays .blk .s{font-size:9.5px}
+.weekdays .blk .badge{font-size:9px;line-height:12px;top:2px;right:2px;padding:0 3px}
+.weekdays .blk.has-badge .t{padding-right:22px}
 
-/* 날짜별 시간표: 작게, 가로로 넘기기 */
-.striphead{display:flex;flex-wrap:wrap;gap:6px 16px;align-items:flex-end;justify-content:space-between;margin:6px 0 6px}
-.striphead h3,.sectitle{font-size:16px;margin:0}
-.sectitle{margin-top:22px}
-.daystrip{display:flex;gap:10px;overflow-x:auto;scroll-snap-type:x proximity;padding:2px 2px 10px;margin-bottom:6px;flex-direction:row !important}
-.daystrip .day{flex:0 0 clamp(460px,31%,600px);scroll-snap-align:start}
-.daystrip .day.focus{border-color:var(--accent);box-shadow:0 0 0 2px var(--accent)}
-.daystrip .dayhead{padding:6px 10px;gap:4px 8px}
-.daystrip .dayhead h3{font-size:15px}
-.daystrip .tag{font-size:11px}
-.daystrip .grid{min-width:0}
-.daystrip .ghead,.daystrip .grow{grid-template-columns:34px 1fr}
-.daystrip .ghead{font-size:10px}
-.daystrip .ghead .periods div{padding:2px 0}
-.daystrip .ghead .periods b{font-size:11px}
-.daystrip .ghead .periods div{white-space:nowrap;overflow:hidden}
-.daystrip .glabel{font-size:11.5px}
-.daystrip .track{padding:2px 0}
-.daystrip .blk{margin:1px 2px;padding:2px 5px;font-size:11px;border-radius:5px}
-.daystrip .blk .s{font-size:10px}
-.daystrip .blk .badge{font-size:9.5px;line-height:13px;top:2px;right:3px}
-.daystrip .blk.has-badge .t{padding-right:24px}
-body.dragging .daystrip{scroll-snap-type:none}
+/* 날짜 선택 달력 칸 */
+.cday{position:relative;height:46px;border:0;background:none;padding:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:0;color:var(--ink)}
+.cday .n{width:34px;height:30px;display:flex;align-items:center;justify-content:center;border-radius:9px;font-size:13.5px}
+.cday .wkl{font-size:9.5px;font-weight:700;line-height:1;margin-top:1px}
+.cday:hover .n{box-shadow:inset 0 0 0 1.5px var(--accent)}
+.cday.exam.w8 .n{background:#fde8d4;color:#a14a00} .cday.exam.w8 .wkl{color:#a14a00}
+.cday.exam.w15 .n,.cday.exam .n{background:var(--bad-bg);color:var(--bad)} .cday.exam.w15 .wkl,.cday.exam .wkl{color:var(--bad)}
+.cday.exam.w8 .n{background:#fde8d4;color:#a14a00}
+.cday.today .n{font-weight:800;text-decoration:underline;text-underline-offset:3px}
+.cday.mk::after{content:"";position:absolute;top:5px;right:6px;width:5px;height:5px;border-radius:50%;background:var(--warn)}
+.cday.pick .n{background:var(--accent) !important;color:var(--accent-ink) !important;font-weight:700}
+.cday.pick.jl::before,.cday.pick.jr::before{content:"";position:absolute;top:8px;height:30px;background:var(--y2);z-index:-1}
+.cday.pick.jl::before{left:0;right:50%} .cday.pick.jr::before{left:50%;right:0} .cday.pick.jl.jr::before{left:0;right:0}
+.calgrid{isolation:isolate}
+.callegend .sw8,.callegend .sw15{display:inline-block;width:12px;height:12px;border-radius:3px;vertical-align:-1px}
+.callegend .sw8{background:#fde8d4;border:1px solid #a14a00} .callegend .sw15{background:var(--bad-bg);border:1px solid var(--bad)}
+.calquick{display:flex;gap:14px;margin:4px 2px 0;font-size:12.5px}
+.calquick .linkbtn{font-weight:600;color:var(--accent)}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]) .cday.exam.w8 .n{background:#3a2610;color:#f0a35a} :root:not([data-theme="light"]) .cday.exam.w8 .wkl{color:#f0a35a} }
+.callegend{flex-wrap:wrap;gap:4px 12px}
+.callegend span{white-space:nowrap}
+.callegend i{display:inline-block;width:12px;height:12px;border-radius:3px;vertical-align:-1px}
+.callegend i.sw8{background:#fde8d4;border:1px solid #a14a00} .callegend i.sw15{background:var(--bad-bg);border:1px solid var(--bad)}
+.calhelp{margin:2px;font-size:11.5px;color:var(--muted)}

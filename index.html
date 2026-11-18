@@ -263,57 +263,24 @@ body.missing .summary,body.missing .tabs,body.missing main,body.missing #btnRegi
 .mklist{font-size:12.5px}
 .mklist td,.mklist th{padding:4px 7px}
 
-/* 주차 × 요일 판 */
+/* 날짜별 배치 공통 */
 .rangebar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;font-size:13px}
 .rangebar input[type="date"]{border:1px solid var(--line);background:var(--surface);border-radius:7px;padding:4px 7px}
 .chkline{display:flex;gap:5px;align-items:center;color:var(--muted)}
-.weekgrid-wrap{overflow-x:auto;margin-bottom:16px}
-.weekgrid{display:grid;gap:6px;min-width:min-content}
-.wh{font-size:12.5px;color:var(--muted);padding:2px 4px}
-.wh b{color:var(--ink);font-size:14px;display:block}
-.wday{display:flex;align-items:flex-start;justify-content:center;font-weight:700;padding-top:8px}
-.wcell{background:var(--surface);border:1px solid var(--line);border-radius:9px;padding:6px;display:flex;flex-direction:column;gap:4px;min-height:70px;min-width:250px}
-.wcell.out{opacity:.45}
-.wcell.examday{border-color:var(--accent)}
-.wcell.ok{background:var(--ok-bg);box-shadow:inset 0 0 0 2px var(--ok)}
-.wcell.bad{background:var(--bad-bg);box-shadow:inset 0 0 0 2px var(--bad)}
-.wcell.sel{box-shadow:inset 0 0 0 2px var(--accent)}
-.wdate{display:flex;gap:6px;align-items:baseline;flex-wrap:wrap;font-size:12.5px}
-.wdate .linkbtn{font-size:14px}
-.wcard{display:grid;grid-template-columns:auto auto 1fr;gap:1px 6px;align-items:baseline;text-align:left;font-size:12px;line-height:1.35;border-radius:6px;padding:4px 6px;border:1px solid var(--line);background:var(--surface)}
-.wcard .g{font-weight:700}
-.wcard .p{color:var(--muted);white-space:nowrap}
-.wcard .t{font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.wcard .x{grid-column:1/-1;display:flex;flex-wrap:wrap;gap:3px 6px;align-items:center;color:var(--muted);font-size:11.5px}
-.wcard.exam{cursor:grab;touch-action:none;user-select:none;-webkit-user-select:none}
-.wcard.exam.y1{background:var(--y1);border-color:var(--y1s)} .wcard.exam.y2{background:var(--y2);border-color:var(--y2s)} .wcard.exam.y3{background:var(--y3);border-color:var(--y3s)}
-.wcard.exam.bad{border:2px solid var(--bad)}
-.wcard.fixed{background:repeating-linear-gradient(135deg,var(--fixed) 0 6px,transparent 6px 10px);color:var(--fixed-ink)}
-.wcard.fixed .t{font-weight:500}
 .wk{display:inline-block;font-size:11px;font-weight:700;border-radius:4px;padding:0 5px;background:var(--fixed);color:var(--muted);white-space:nowrap}
 .wk.wk-exam{background:var(--accent);color:var(--accent-ink)}
 .wk.wk-mk{background:var(--warn-bg);color:var(--warn);border:1px solid var(--warn)}
 .mvnote{color:var(--warn);font-weight:600}
 .keepnote{color:var(--ok);font-weight:600}
 .badnote{color:var(--bad);font-weight:700}
-body.dragging .wcard{pointer-events:none}
-.wcard.src{opacity:.35}
-.wcard.ghost{position:fixed}
-.daydetail-head{display:flex;gap:10px;align-items:center;justify-content:space-between;margin:4px 0 8px}
-.wcard.fixed{grid-template-columns:auto auto auto 1fr;padding:2px 6px;font-size:11.5px;align-items:center}
-.wcard.fixed .wk{font-size:10.5px}
-.wcard.fixed.mk{background:var(--warn-bg);border-color:var(--warn);color:var(--warn)}
 
 .planpick label{white-space:nowrap}
 
 /* 기간선택 칸 · 달력 (디자인: 한 달, 연·월 선택, 시작~끝 띠, 오늘·취소·선택) */
-.datefield-wrap{position:relative;display:flex;flex-direction:column;gap:3px}
-.flabel{font-size:12.5px;color:var(--muted)}
-.datefield{display:inline-flex;align-items:center;justify-content:space-between;gap:14px;min-width:260px;max-width:100%;border:1px solid var(--line);background:var(--surface);border-radius:8px;padding:8px 12px;font-size:14px;color:var(--ink);text-align:left}
-.datefield svg{color:var(--muted);flex-shrink:0}
-.datefield:hover,.datefield.on{border-color:var(--accent)}
-.datefield span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.calpop{position:absolute;top:calc(100% + 6px);left:0;z-index:35;width:330px;background:var(--surface);border:1px solid var(--line);border-radius:14px;box-shadow:0 12px 32px rgba(0,0,0,.16);padding:14px 14px 10px}
+.datefield-wrap{position:relative}
+.datebtn{display:inline-flex;align-items:center;gap:7px}
+.rangetext{font-size:13.5px;font-weight:600}
+.calpop{position:absolute;top:calc(100% + 6px);left:0;z-index:35;width:360px;background:var(--surface);border:1px solid var(--line);border-radius:14px;box-shadow:0 12px 32px rgba(0,0,0,.16);padding:14px 14px 10px}
 .calpop[hidden]{display:none}
 .calhead{display:flex;align-items:center;justify-content:space-between;gap:6px;margin-bottom:8px}
 .calnav{width:30px;height:30px;border-radius:50%;border:1px solid var(--line);background:var(--surface);font-size:16px;line-height:1}
@@ -322,48 +289,59 @@ body.dragging .wcard{pointer-events:none}
 .calym select{border:0;background:none;font-weight:700;font-size:15px;padding:2px 4px;cursor:pointer}
 .calgrid{display:grid;grid-template-columns:repeat(7,1fr);row-gap:3px;user-select:none;-webkit-user-select:none;touch-action:none}
 .cdow{text-align:center;font-size:12px;color:var(--muted);padding:4px 0}
-.cmonth{grid-column:1/-1;font-size:12px;font-weight:700;color:var(--muted);padding:4px 2px 2px}
-.cday{position:relative;height:38px;border:0;background:none;padding:0;display:flex;align-items:center;justify-content:center;font-size:13.5px;color:var(--ink)}
-.cday span{width:34px;height:34px;display:flex;align-items:center;justify-content:center;border-radius:50%}
-.cday:hover span{box-shadow:inset 0 0 0 1.5px var(--accent)}
 .cday.other{color:var(--muted);opacity:.55}
-.cday.exam{color:var(--bad);font-weight:700}
-.cday.today::after{content:"";position:absolute;bottom:2px;left:50%;width:4px;height:4px;margin-left:-2px;border-radius:50%;background:var(--bad)}
-.cday.mk span{box-shadow:inset 0 -2px 0 var(--warn)}
-.cday.band{background:var(--y2)}
-.cday.start{background:linear-gradient(90deg,transparent 50%,var(--y2) 50%)}
-.cday.end{background:linear-gradient(90deg,var(--y2) 50%,transparent 50%)}
-.cday.start span,.cday.end span,.cday.one span{background:var(--accent);color:var(--accent-ink);font-weight:700}
 .calsel{margin:8px 2px 2px;font-size:12.5px;color:var(--ink)}
 .callegend{margin:2px;font-size:11.5px;color:var(--muted);display:flex;gap:6px;align-items:center}
-.callegend .dot{display:inline-block;width:8px;height:8px;border-radius:50%}
-.callegend .dot.exam{background:var(--bad)} .callegend .dot.mk{background:var(--warn);margin-left:8px}
 .calfoot{display:flex;justify-content:space-between;align-items:center;border-top:1px solid var(--line);margin-top:8px;padding-top:10px}
-@media (max-width:640px){ .calpop{position:fixed;left:8px;right:8px;top:auto;bottom:8px;width:auto} .datefield{min-width:0;width:100%} }
+@media (max-width:640px){ .calpop{position:fixed;left:8px;right:8px;top:auto;bottom:8px;width:auto} }
+/* 날짜별 시간표: 고른 날짜를 주마다 한 줄, 줄 안에서 가로로 (넘치면 옆으로 넘김) */
+.striphead{margin:6px 0 6px}
+.striphead h3{font-size:16px;margin:0}
+.dayrows{display:flex;flex-direction:column;gap:16px}
+.weekrow-head{display:flex;gap:8px;align-items:baseline;margin:0 0 6px;font-size:13.5px}
+.weekdays{display:flex;gap:8px;overflow-x:auto;padding:2px 2px 8px}
+.weekdays .day{flex:1 1 0;min-width:300px;max-width:560px}
+.weekdays .day.examday{border-color:var(--bad)}
+.weekdays .dayhead{padding:5px 8px;gap:3px 8px}
+.weekdays .dayhead h3{font-size:14.5px}
+.weekdays .tag{font-size:10.5px}
+.weekdays .cnt{font-size:11.5px}
+.weekdays .grid{min-width:0}
+.weekdays .ghead,.weekdays .grow{grid-template-columns:30px 1fr}
+.weekdays .ghead{font-size:9.5px}
+.weekdays .ghead .periods div{padding:2px 0;white-space:nowrap;overflow:hidden}
+.weekdays .ghead .periods b{font-size:10.5px}
+.weekdays .glabel{font-size:11px}
+.weekdays .track{padding:2px 0}
+.weekdays .blk{margin:1px 1px;padding:2px 4px;font-size:10.5px;border-radius:5px}
+.weekdays .blk .s{font-size:9.5px}
+.weekdays .blk .badge{font-size:9px;line-height:12px;top:2px;right:2px;padding:0 3px}
+.weekdays .blk.has-badge .t{padding-right:22px}
 
-/* 날짜별 시간표: 작게, 가로로 넘기기 */
-.striphead{display:flex;flex-wrap:wrap;gap:6px 16px;align-items:flex-end;justify-content:space-between;margin:6px 0 6px}
-.striphead h3,.sectitle{font-size:16px;margin:0}
-.sectitle{margin-top:22px}
-.daystrip{display:flex;gap:10px;overflow-x:auto;scroll-snap-type:x proximity;padding:2px 2px 10px;margin-bottom:6px;flex-direction:row !important}
-.daystrip .day{flex:0 0 clamp(460px,31%,600px);scroll-snap-align:start}
-.daystrip .day.focus{border-color:var(--accent);box-shadow:0 0 0 2px var(--accent)}
-.daystrip .dayhead{padding:6px 10px;gap:4px 8px}
-.daystrip .dayhead h3{font-size:15px}
-.daystrip .tag{font-size:11px}
-.daystrip .grid{min-width:0}
-.daystrip .ghead,.daystrip .grow{grid-template-columns:34px 1fr}
-.daystrip .ghead{font-size:10px}
-.daystrip .ghead .periods div{padding:2px 0}
-.daystrip .ghead .periods b{font-size:11px}
-.daystrip .ghead .periods div{white-space:nowrap;overflow:hidden}
-.daystrip .glabel{font-size:11.5px}
-.daystrip .track{padding:2px 0}
-.daystrip .blk{margin:1px 2px;padding:2px 5px;font-size:11px;border-radius:5px}
-.daystrip .blk .s{font-size:10px}
-.daystrip .blk .badge{font-size:9.5px;line-height:13px;top:2px;right:3px}
-.daystrip .blk.has-badge .t{padding-right:24px}
-body.dragging .daystrip{scroll-snap-type:none}
+/* 날짜 선택 달력 칸 */
+.cday{position:relative;height:46px;border:0;background:none;padding:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:0;color:var(--ink)}
+.cday .n{width:34px;height:30px;display:flex;align-items:center;justify-content:center;border-radius:9px;font-size:13.5px}
+.cday .wkl{font-size:9.5px;font-weight:700;line-height:1;margin-top:1px}
+.cday:hover .n{box-shadow:inset 0 0 0 1.5px var(--accent)}
+.cday.exam.w8 .n{background:#fde8d4;color:#a14a00} .cday.exam.w8 .wkl{color:#a14a00}
+.cday.exam.w15 .n,.cday.exam .n{background:var(--bad-bg);color:var(--bad)} .cday.exam.w15 .wkl,.cday.exam .wkl{color:var(--bad)}
+.cday.exam.w8 .n{background:#fde8d4;color:#a14a00}
+.cday.today .n{font-weight:800;text-decoration:underline;text-underline-offset:3px}
+.cday.mk::after{content:"";position:absolute;top:5px;right:6px;width:5px;height:5px;border-radius:50%;background:var(--warn)}
+.cday.pick .n{background:var(--accent) !important;color:var(--accent-ink) !important;font-weight:700}
+.cday.pick.jl::before,.cday.pick.jr::before{content:"";position:absolute;top:8px;height:30px;background:var(--y2);z-index:-1}
+.cday.pick.jl::before{left:0;right:50%} .cday.pick.jr::before{left:50%;right:0} .cday.pick.jl.jr::before{left:0;right:0}
+.calgrid{isolation:isolate}
+.callegend .sw8,.callegend .sw15{display:inline-block;width:12px;height:12px;border-radius:3px;vertical-align:-1px}
+.callegend .sw8{background:#fde8d4;border:1px solid #a14a00} .callegend .sw15{background:var(--bad-bg);border:1px solid var(--bad)}
+.calquick{display:flex;gap:14px;margin:4px 2px 0;font-size:12.5px}
+.calquick .linkbtn{font-weight:600;color:var(--accent)}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]) .cday.exam.w8 .n{background:#3a2610;color:#f0a35a} :root:not([data-theme="light"]) .cday.exam.w8 .wkl{color:#f0a35a} }
+.callegend{flex-wrap:wrap;gap:4px 12px}
+.callegend span{white-space:nowrap}
+.callegend i{display:inline-block;width:12px;height:12px;border-radius:3px;vertical-align:-1px}
+.callegend i.sw8{background:#fde8d4;border:1px solid #a14a00} .callegend i.sw15{background:var(--bad-bg);border:1px solid var(--bad)}
+.calhelp{margin:2px;font-size:11.5px;color:var(--muted)}
 </style>
 </head>
 <body>
@@ -398,19 +376,16 @@ body.dragging .daystrip{scroll-snap-type:none}
       <div class="boardbar">
         <div class="rangebar">
           <div class="datefield-wrap">
-            <span class="flabel">기간선택</span>
-            <button type="button" class="datefield" id="rangeBtn" aria-haspopup="dialog" aria-expanded="false" aria-controls="rangePop"><span id="rangeText"></span><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><rect x="3.5" y="5" width="17" height="15" rx="2" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M3.5 9.5h17M8 3v4M16 3v4" stroke="currentColor" stroke-width="1.6" fill="none" stroke-linecap="round"/></svg></button>
-            <section id="rangePop" class="calpop" hidden role="dialog" aria-label="기간 선택 달력"></section>
+            <button type="button" class="btn primary datebtn" id="rangeBtn" aria-haspopup="dialog" aria-expanded="false" aria-controls="rangePop"><svg viewBox="0 0 24 24" width="17" height="17" aria-hidden="true"><rect x="3.5" y="5" width="17" height="15" rx="2" fill="none" stroke="currentColor" stroke-width="1.7"/><path d="M3.5 9.5h17M8 3v4M16 3v4" stroke="currentColor" stroke-width="1.7" fill="none" stroke-linecap="round"/></svg>날짜 선택</button>
+            <section id="rangePop" class="calpop" hidden role="dialog" aria-label="날짜 선택 달력"></section>
           </div>
+          <span class="rangetext" id="rangeText"></span>
           <button type="button" class="btn small" id="rangeReset">시험 주차에 맞추기</button>
           <label class="chkline"><input type="checkbox" id="showFixed" checked> 다른 주차 수업·보강도 보기</label>
         </div>
         <button type="button" class="btn small" id="btnKeepAll"></button>
       </div>
-      <div class="striphead">
-        <div><h3>날짜별 시간표</h3><p class="hint">시험 블록을 끌어서 다른 날짜·교시로 옮기세요 (같은 반 줄 안에서). 옆으로 넘겨 보고, 끄는 중에 가장자리로 가면 자동으로 넘어가요. 블록을 누르면 방식·확정을 고를 수 있어요.</p></div>
-        <div class="row"><span class="hint" id="stripPos"></span><button type="button" class="btn small" id="stripPrev" aria-label="이전 날짜">‹</button><button type="button" class="btn small" id="stripNext" aria-label="다음 날짜">›</button></div>
-      </div>
+      <div class="striphead"><h3>날짜별 시간표</h3><p class="hint">고른 날짜를 주마다 한 줄씩 보여 줘요. 시험 블록을 다른 날짜·교시로 끌어서 옮기세요(같은 반 줄 안에서). 끄는 중에 줄의 좌우 가장자리로 가면 자동으로 넘어가요. 블록을 누르면 방식·확정을 고를 수 있어요.</p></div>
       <div class="legend" style="margin-bottom:8px">
         <span><i class="sw y1"></i>1학년</span><span><i class="sw y2"></i>2학년</span><span><i class="sw y3"></i>3학년</span>
         <span><span class="wk wk-exam">15주차</span> 시험 주차 수업(옮길 수 있음)</span>
@@ -418,10 +393,7 @@ body.dragging .daystrip{scroll-snap-type:none}
         <span><span class="wk wk-mk">보강</span> 보강 수업(고정)</span>
         <span><i class="sw bd"></i>겹침</span>
       </div>
-      <div class="daystrip" id="board"></div>
-      <h3 class="sectitle">주차 × 요일 한눈에 보기</h3>
-      <p class="hint" style="margin-bottom:8px">카드를 다른 날짜 칸으로 끌면 같은 교시로 옮겨져요. 날짜를 누르면 위 날짜별 시간표가 그 날로 넘어가요.</p>
-      <div class="weekgrid-wrap"><div id="weekGrid" class="weekgrid"></div></div>
+      <div class="dayrows" id="board"></div>
     </section>
     <section id="tab-courses" class="tabpanel" role="tabpanel" hidden>
       <div class="filters">
@@ -1807,62 +1779,6 @@ function boardRange() {
   if (r && r.from && r.to && r.from <= r.to) return { from: r.from, to: r.to };
   return defaultRange();
 }
-const inBoardRange = (r, d) => (r.days ? r.days.includes(d) : d >= r.from && d <= r.to);
-const WEEK_ROWS = ['월', '화', '수', '목', '금', '토'];
-function weekBadge(it) {
-  if (it.kind === 'makeup') return `<span class="wk wk-mk" title="${esc(it.from ? `${fmt(it.from)} 결강한 수업의 보강` : '보강')}">보강${it.week ? ` · ${it.week}주차분` : ''}</span>`;
-  if (it.kind === 'exam') return `<span class="wk wk-exam">${S.examWeek}주차${D.examMakeup[it.c.id] ? '(보강)' : ''}</span>`;
-  return `<span class="wk">${it.week}주차</span>`;
-}
-function weekCard(it, st) {
-  const c = it.c, g = groupOf(c), y = esc(String(c.year));
-  const head = `<span class="g">${esc(g)}</span><span class="p">${pRange(it.s, it.e - it.s + 1)}</span><span class="t">${esc(c.course)}</span>`;
-  if (it.kind !== 'exam') {   // 고정 수업·보강: 한 줄로 작게
-    const tip = it.kind === 'makeup' ? `보강: ${c.course}(${c.prof}) ${it.from ? fmt(it.from) + `(${it.week || '?'}주차) 결강분` : ''} → ${pRange(it.s, it.e - it.s + 1)} ${roomLabel(it.room)}` : `${it.week}주차 정상 수업: ${c.course}(${c.prof}) ${roomLabel(c.room)}`;
-    return `<div class="wcard fixed${it.kind === 'makeup' ? ' mk' : ''}" title="${esc(tip)}">${weekBadge(it)}${head}</div>`;
-  }
-  const ex = S.exams[c.id];
-  const notes = [];
-  if (st.moved) notes.push(`<span class="mvnote">↪ ${S.examWeek}주차 ${esc(fmt(defaultDate(c)))} ${pRange(defaultStart(c), defaultLen(c))}에서 옮김</span>`);
-  if (st.keep) notes.push('<span class="keepnote">✓ 기존 시간표 수업 진행</span>');
-  else if (st.done) notes.push('<span class="keepnote">✓ 확정</span>');
-  if (st.bad.length) notes.push(`<span class="badnote">겹침 ${st.bad.length}</span>`);
-  const tip = [`${c.course} (${c.prof}) ${g}`, `${fmt(ex.date)} ${pRange(ex.start, ex.len)} ${tRange(ex.start, ex.len)} · ${roomLabel(ex.room)} · ${ex.method}`, ...st.bad.map(describeConflict), ...st.warn].join('\n');
-  return `<button type="button" class="wcard exam y${y}${st.bad.length ? ' bad' : ''}" data-id="${esc(c.id)}" title="${esc(tip)}">${head}<span class="x">${weekBadge(it)}${notes.join('')}<span>${esc(c.prof)} · ${esc(roomLabel(ex.room))} · ${esc(ex.method)}</span></span></button>`;
-}
-function renderWeekGrid(statusCache) {
-  const r = boardRange();
-  $('#rangeText').textContent = rangeLabel(r);
-  const showFixed = ui.showFixed !== false;
-  $('#showFixed').checked = showFixed;
-  const weeks = [];
-  for (let m = mondayOf(r.from); m <= r.to && weeks.length < 10; m = addDays(m, 7)) weeks.push(m);
-  let html = `<div></div>` + weeks.map((m, i) => {
-    const sem = [...new Set(range(0, 5).map(k => D.dateMap[addDays(m, k)]?.week).filter(Boolean))].sort((a, b) => a - b);
-    return `<div class="wh"><b>${i + 1}주차</b>${esc(fmt(m).replace(/\(.\)/, ''))} ~ ${esc(fmt(addDays(m, 5)).replace(/\(.\)/, ''))}${sem.length ? ` · 학기 ${sem[0]}${sem.length > 1 ? `~${sem[sem.length - 1]}` : ''}주` : ''}</div>`;
-  }).join('');
-  for (const dw of WEEK_ROWS) {
-    html += `<div class="wday">${dw}</div>`;
-    for (const m of weeks) {
-      const d = addDays(m, WEEK_ROWS.indexOf(dw));
-      const info = D.dateMap[d];
-      const items = itemsOn(d, null).filter(it => showFixed || it.kind === 'exam')
-        .sort((a, b) => a.s - b.s || groupOf(a.c).localeCompare(groupOf(b.c)));
-      const real = DOW[dowOf(d)];
-      let tag = '<span class="tag">수업일 아님</span>';
-      if (info) {
-        const ex = info.week === S.examWeek;
-        const txt = info.col !== real ? `${info.col}요일 ${info.week}주차 수업일` : `${info.week}주차`;
-        tag = `<span class="tag ${ex ? '' : info.col !== real ? 'alt' : ''}">${esc(txt)}${ex ? ' · 시험 주차' : ''}</span>`;
-      }
-      const cls = ['wcell', inBoardRange(r, d) ? '' : 'out', info && info.week === S.examWeek ? 'examday' : '', ui.focusDay === d ? 'sel' : ''].filter(Boolean).join(' ');
-      html += `<div class="${cls}" data-date="${d}"><div class="wdate"><button type="button" class="linkbtn" data-daydetail="${d}" title="반×교시 자세히 보기">${esc(fmt(d))}</button>${tag}</div>${items.map(it => weekCard(it, statusCache[it.c.id])).join('')}</div>`;
-    }
-  }
-  const g = $('#weekGrid');
-  g.style.gridTemplateColumns = `34px repeat(${weeks.length}, minmax(250px, 1fr))`;
-  g.innerHTML = html;
-}
 /** 날짜 하나의 반×교시 자세한 시간표 (날짜를 누르면 아래에 펼침) */
 function renderDaySection(d, statusCache) {
   const head = `<div class="ghead"><div></div><div class="periods">${PERIODS.map((p, i) => `<div><b>${i + 1}</b>${i + 1 === LUNCH ? '점심' : p[0]}</div>`).join('')}</div></div>`;
@@ -1885,13 +1801,14 @@ function renderDaySection(d, statusCache) {
       }
       const ex = S.exams[it.c.id], st = statusCache[it.c.id];
       const badge = st.bad.length ? `<span class="badge b-bad">겹침</span>` : st.keep ? `<span class="badge b-ok">기존</span>` : st.done ? `<span class="badge b-ok">확정</span>` : st.moved ? `<span class="badge b-mv">이동</span>` : '';
-      const tip = [`${it.c.course} (${it.c.prof}) ${g}`, `${fmt(ex.date)} ${pRange(ex.start, ex.len)} ${tRange(ex.start, ex.len)} · ${roomLabel(ex.room)} · ${ex.method}`, ...st.bad.map(describeConflict), ...st.warn].join('\n');
-      return `<button type="button" class="blk exam y${esc(year)}${st.bad.length ? ' bad' : ''}${badge ? ' has-badge' : ''}" style="${pos}" data-id="${esc(it.c.id)}" title="${esc(tip)}"><span class="t">${esc(it.c.course)}</span><span class="s">${S.examWeek}주차 · ${esc(it.c.prof)} · ${esc(roomLabel(ex.room))}</span>${badge}</button>`;
+      const tip = [`${it.c.course} (${it.c.prof}) ${g}`, `${fmt(ex.date)} ${pRange(ex.start, ex.len)} ${tRange(ex.start, ex.len)} · ${roomLabel(ex.room)} · ${ex.method}`,
+        st.moved ? `↪ ${S.examWeek}주차 수업 ${fmt(defaultDate(it.c))} ${pRange(defaultStart(it.c), defaultLen(it.c))}에서 옮김` : '', st.keep ? '✓ 기존 시간표 수업 진행' : '', ...st.bad.map(describeConflict), ...st.warn].filter(Boolean).join('\n');
+      return `<button type="button" class="blk exam y${esc(year)}${st.bad.length ? ' bad' : ''}${badge ? ' has-badge' : ''}" style="${pos}" data-id="${esc(it.c.id)}" title="${esc(tip)}"><span class="t">${esc(it.c.course)}</span><span class="s">${st.moved ? `${S.examWeek}주차 · ${esc(fmt(defaultDate(it.c)))}에서 옮김` : `${S.examWeek}주차${D.examMakeup[it.c.id] ? '(보강)' : ''} · ${esc(it.c.prof)} · ${esc(roomLabel(ex.room))}`}</span>${badge}</button>`;
     }).join('');
     rows += `<div class="grow${prevYear !== null && prevYear !== year ? ' yb' : ''}"><div class="glabel y${esc(year)}">${esc(g)}</div><div class="track" style="grid-template-rows:repeat(${lanes},minmax(30px,auto))">${cells}${blocks}</div></div>`;
     prevYear = year;
   }
-  return `<section class="day${ui.focusDay === d ? ' focus' : ''}" data-day="${d}">
+  return `<section class="day${D.dateMap[d] && D.dateMap[d].week === S.examWeek ? ' examday' : ''}" data-day="${d}">
     <div class="dayhead"><h3>${+m}/${+dd}<span class="dow">(${DOW[dowOf(d)]})</span></h3><span class="tag ${lab.cls}">${esc(lab.text)}</span>
     <span class="cnt">시험 ${nExam}과목</span></div>
     <div class="scroller"><div class="grid">${head}${rows}</div></div></section>`;
@@ -1899,47 +1816,39 @@ function renderDaySection(d, statusCache) {
 function renderBoard() {
   const statusCache = {};
   for (const c of S.classes) statusCache[c.id] = statusOf(c);
-  renderWeekGrid(statusCache);
+  $('#rangeText').textContent = daysLabel(stripDates());
   renderRangePop();
   const keepable = S.classes.filter(c => { const st = statusCache[c.id]; return !st.noslot && !st.moved && !st.keep && !st.bad.length; }).length;
   const kb = $('#btnKeepAll');
   kb.textContent = `옮기지 않은 과목 모두 '기존 시간표 수업 진행' 확정 (${keepable})`;
   kb.disabled = !keepable || isLocked();
-  renderDayStrip(statusCache);
+  renderDayRows(statusCache);
 }
-/** 고른 기간의 날짜마다 작은 반×교시 시간표를 가로로 나란히 (옆으로 넘겨 봄). 일요일은 뺌 */
+/** 고른 날짜들 (일요일 제외). 고른 적이 없으면 시험 주차 날짜들이 들어가는 주의 월~토 */
 function stripDates() {
   const r = boardRange();
   if (r.days) return r.days.filter(d => dowOf(d) !== 0);
   const out = [];
-  for (let d = r.from; d <= r.to && out.length < 60; d = addDays(d, 1)) if (dowOf(d) !== 0) out.push(d);
+  for (let d = r.from; d <= r.to && out.length < 90; d = addDays(d, 1)) if (dowOf(d) !== 0) out.push(d);
   return out;
 }
-function renderDayStrip(statusCache) {
-  const strip = $('#board');
-  const keep = strip.scrollLeft;   // 옮긴 뒤 다시 그려도 보던 자리 유지
-  const dates = stripDates();
-  strip.innerHTML = dates.map(d => renderDaySection(d, statusCache)).join('') || '<p class="hint">기간을 골라 주세요.</p>';
-  strip.scrollLeft = ui.stripScroll === 0 ? 0 : keep;
-  ui.stripScroll = null;
-  if (ui.focusDay) { const el = strip.querySelector(`.day[data-day="${ui.focusDay}"]`); if (el) strip.scrollLeft = el.offsetLeft - strip.offsetLeft; }
-  updateStripPos();
-}
-function updateStripPos() {
-  const strip = $('#board'), days = [...strip.querySelectorAll('.day')];
-  if (!days.length) { $('#stripPos').textContent = ''; return; }
-  const left = strip.scrollLeft, right = left + strip.clientWidth;
-  const vis = days.filter(el => el.offsetLeft - strip.offsetLeft + el.offsetWidth / 2 >= left && el.offsetLeft - strip.offsetLeft + el.offsetWidth / 2 <= right);
-  const f = vis[0]?.dataset.day, l = vis[vis.length - 1]?.dataset.day;
-  $('#stripPos').textContent = f ? `${fmt(f)}${l && l !== f ? ` ~ ${fmt(l)}` : ''} · 전체 ${days.length}일` : `전체 ${days.length}일`;
-}
-/** 날짜별 시간표를 그 날짜로 넘김 */
-function focusStripDay(d) {
-  ui.focusDay = d;
-  const strip = $('#board'), el = strip.querySelector(`.day[data-day="${d}"]`);
-  strip.querySelectorAll('.day.focus').forEach(x => x.classList.remove('focus'));
-  if (el) { el.classList.add('focus'); strip.scrollTo({ left: el.offsetLeft - strip.offsetLeft, behavior: 'auto' }); strip.scrollIntoView({ block: 'nearest' }); }
-  updateStripPos();
+/** 고른 날짜를 주(월요일 시작)마다 한 줄로: 줄 안에서는 날짜가 가로로 (넘치면 옆으로 넘김) */
+function renderDayRows(statusCache) {
+  const box = $('#board');
+  const keep = {};   // 다시 그려도 줄마다 보던 자리 유지
+  box.querySelectorAll('.weekrow').forEach(el => { keep[el.dataset.week] = el.querySelector('.weekdays').scrollLeft; });
+  const weeks = new Map();
+  for (const d of stripDates()) { const m = mondayOf(d); if (!weeks.has(m)) weeks.set(m, []); weeks.get(m).push(d); }
+  const md = d => fmt(d).replace(/\(.\)/, '');
+  box.innerHTML = [...weeks].map(([m, ds]) => {
+    const sem = [...new Set(ds.map(d => D.dateMap[d]?.week).filter(Boolean))].sort((a, b) => a - b);
+    const semTxt = sem.length ? `학기 ${sem[0]}${sem.length > 1 ? `~${sem[sem.length - 1]}` : ''}주차` : '수업일 아님';
+    const hasExam = sem.includes(S.examWeek);
+    return `<section class="weekrow" data-week="${m}">
+      <div class="weekrow-head"><b>${esc(md(ds[0]))}${ds.length > 1 ? ` ~ ${esc(md(ds[ds.length - 1]))}` : ''}</b> <span class="wk${hasExam ? ' wk-exam' : ''}">${esc(semTxt)}</span> <span class="hint">${ds.length}일</span></div>
+      <div class="weekdays">${ds.map(d => renderDaySection(d, statusCache)).join('')}</div></section>`;
+  }).join('') || `<p class="hint">'날짜 선택'을 눌러 날짜를 골라 주세요.</p>`;
+  box.querySelectorAll('.weekrow').forEach(el => { if (keep[el.dataset.week]) el.querySelector('.weekdays').scrollLeft = keep[el.dataset.week]; });
 }
 /** 옮기지 않았고 겹침 없는 과목을 모두 '기존 시간표 수업 진행'으로 확정 */
 function keepAllUnmoved() {
@@ -2015,31 +1924,36 @@ function renderList() {
 }
 
 /* ===== src/js/view-range.js ===== */
-/* ---------- 기간선택 달력 (날짜별 배치) ----------
-   '기간선택' 칸을 누르면 한 달짜리 달력이 칸 아래에 뜬다(#rangePop).
-   - 위: ‹ [연도▾] [월▾] ›, 요일 일~토, 앞뒤 달 날짜는 흐리게
-   - 시작일을 누르고 끝일을 누르면(또는 끌면) 그 사이가 띠로 이어진다. 같은 날을 두 번 누르면 하루만.
-   - 8·15주차(중간·기말 시험 주차) 날짜는 빨간색, 오늘은 점
-   - 아래: [오늘]  [취소] [선택]. '선택'을 눌러야 S.range = {from, to}에 저장된다. */
+/* ---------- 날짜 선택 달력 (날짜별 배치) ----------
+   '날짜 선택' 버튼 → 한 달 달력(#rangePop).
+   - 8·15주차(시험 주차) 날짜는 다른 색 + 칸 안에 "8주차"/"15주차"
+   - 고르기: 날짜를 누르면 하나씩 넣고 빼기, 끌면 연속으로(첫 칸이 이미 골라져 있었으면 연속으로 빼기),
+     Shift+누르기 = 마지막으로 누른 날부터 여기까지 연속
+   - 아래: [오늘] [시험 주차 날짜] [모두 해제]   [취소] [선택] — '선택'을 눌러야 S.range = {from, to, days}에 저장
+   고른 날짜는 아래 '날짜별 시간표'에 주(월~토)마다 한 줄씩 가로로 나온다. */
 
 const ymOf = iso => iso.slice(0, 7);
 const addMonths = (ym, n) => { const [y, m] = ym.split('-').map(Number); return new Date(Date.UTC(y, m - 1 + n, 1)).toISOString().slice(0, 7); };
 const todayIso = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
-const dotted = iso => iso.replace(/-/g, '.');
+const datesBetween = (a, b) => { const [x, y] = a <= b ? [a, b] : [b, a], out = []; for (let d = x; d <= y; d = addDays(d, 1)) out.push(d); return out; };
 /** 달력 한 장: 1일이 든 주의 일요일부터 6주(42칸) */
 function calendarCells(ym) {
   const first = `${ym}-01`;
   const start = addDays(first, -dowOf(first));
   return range(0, 41).map(k => addDays(start, k));
 }
-/** 시험 주차(중간 8주차·기말 15주차, 바꾼 시험 주차 포함) 날짜 */
+/** 시험 주차(중간 8주차·기말 15주차, 바꾼 시험 주차 포함) 날짜 → 주차 */
 function examWeekDates() {
   const weeks = new Set([KINDS.mid.week, KINDS.final.week, S.examWeek]);
-  return new Set(Object.entries(D.dateMap).filter(([, x]) => weeks.has(x.week)).map(([d]) => d));
+  return new Map(Object.entries(D.dateMap).filter(([, x]) => weeks.has(x.week)).map(([d, x]) => [d, x.week]));
 }
-function rangeLabel(r) {
-  if (r.days) return `특정일 ${r.days.length}일 · ${r.days.slice(0, 3).map(dotted).join(', ')}${r.days.length > 3 ? ' …' : ''}`;
-  return r.from === r.to ? dotted(r.from) : `${dotted(r.from)} – ${dotted(r.to)}`;
+/** 고른 날짜 요약: 이어진 날은 묶어서 "11/18(수)~11/21(토), 11/23(월) · 5일" */
+function daysLabel(days) {
+  if (!days.length) return '날짜를 골라 주세요';
+  const runs = [];
+  for (const d of days) { const r = runs[runs.length - 1]; if (r && addDays(r[1], 1) === d) r[1] = d; else runs.push([d, d]); }
+  const txt = runs.slice(0, 3).map(([a, b]) => (a === b ? fmt(a) : `${fmt(a)}~${fmt(b)}`)).join(', ');
+  return `${txt}${runs.length > 3 ? ' …' : ''} · ${days.length}일`;
 }
 
 function renderRangePop() {
@@ -2047,27 +1961,30 @@ function renderRangePop() {
   const open = !!(rp && rp.open) && !isLocked();
   pop.hidden = !open;
   $('#rangeBtn').setAttribute('aria-expanded', String(open));
-  $('#rangeBtn').classList.toggle('on', open);
   if (!open) return;
-  // 미리보기: 시작일만 있고 마우스가 다른 날 위에 있으면 그 사이를 띠로
-  let a = rp.start, b = rp.end || (rp.start && rp.hover) || rp.start;
-  if (a && b && b < a) [a, b] = [b, a];
+  const sel = new Set(rp.days);
+  if (rp.drag && rp.drag.moved) for (const d of rp.drag.swept) rp.drag.paint === 'add' ? sel.add(d) : sel.delete(d);
   const ex = examWeekDates(), today = todayIso(), mk = new Set((D.makeups || []).map(m => m.to));
   const [y, m] = rp.month.split('-').map(Number);
   const years = range(Math.min(y, S.year) - 1, Math.max(y, S.year) + 1);
-  const cells = calendarCells(rp.month).map(d => {
+  const cells = calendarCells(rp.month);
+  const html = cells.map((d, i) => {
     const info = D.dateMap[d], real = DOW[dowOf(d)];
     const cls = ['cday'];
     if (ymOf(d) !== rp.month) cls.push('other');
-    if (ex.has(d)) cls.push('exam');
+    if (ex.has(d)) cls.push('exam', `w${ex.get(d)}`);
     if (d === today) cls.push('today');
     if (mk.has(d)) cls.push('mk');
-    if (a && d >= a && d <= b) cls.push(d === a && d === b ? 'one' : d === a ? 'start' : d === b ? 'end' : 'band');
+    if (sel.has(d)) {
+      cls.push('pick');
+      if (i % 7 && sel.has(cells[i - 1])) cls.push('jl');          // 왼쪽 날도 골랐으면 띠로 잇기
+      if (i % 7 !== 6 && sel.has(cells[i + 1])) cls.push('jr');
+    }
     const tip = [fmt(d), info ? `${info.col}요일 시간표 ${info.week}주차${info.col !== real ? ` (${real}요일에 ${info.col}요일 수업)` : ''}` : '수업일 아님',
-      ex.has(d) ? '시험 주차' : '', mk.has(d) ? '보강 있음' : '', d === today ? '오늘' : ''].filter(Boolean).join(' · ');
-    return `<button type="button" class="${cls.join(' ')}" data-d="${d}" title="${esc(tip)}"><span>${+d.slice(8)}</span></button>`;
+      mk.has(d) ? '보강 있음' : '', d === today ? '오늘' : ''].filter(Boolean).join(' · ');
+    return `<button type="button" class="${cls.join(' ')}" data-d="${d}" title="${esc(tip)}"><span class="n">${+d.slice(8)}</span>${ex.has(d) ? `<span class="wkl">${ex.get(d)}주차</span>` : ''}</button>`;
   }).join('');
-  const sel = rp.start ? `${dotted(a)}${b !== a ? ` – ${dotted(b)}` : ''}${rp.start && !rp.end ? ' (끝 날짜를 누르세요)' : ''}` : '시작 날짜를 누르세요';
+  const days = [...sel].sort();
   pop.innerHTML = `
     <div class="calhead">
       <button type="button" class="calnav" data-nav="-1" aria-label="이전 달">‹</button>
@@ -2079,89 +1996,85 @@ function renderRangePop() {
     </div>
     <div class="calgrid">
       ${['일', '월', '화', '수', '목', '금', '토'].map(x => `<span class="cdow">${x}</span>`).join('')}
-      <span class="cmonth">${y}년 ${m}월</span>
-      ${cells}
+      ${html}
     </div>
-    <p class="calsel">${esc(sel)}</p>
-    <p class="callegend"><span class="dot exam"></span>8·15주차(시험 주차) <span class="dot mk"></span>보강</p>
+    <p class="calsel">${esc(daysLabel(days))}</p>
+    <p class="callegend"><span><i class="sw8"></i> 8주차</span><span><i class="sw15"></i> 15주차</span><span>(시험 주차)</span></p>
+    <p class="calhelp">누르면 하나씩 · 끌면 연속 · Shift+누르기 = 이어서</p>
+    <div class="calquick"><button type="button" class="linkbtn" data-today>오늘</button><button type="button" class="linkbtn" data-examdays>${S.examWeek}주차 날짜 모두</button><button type="button" class="linkbtn" data-clear>모두 해제</button></div>
     <div class="calfoot">
-      <button type="button" class="linkbtn" data-today>오늘</button>
-      <span class="row"><button type="button" class="btn small" data-cancel>취소</button><button type="button" class="btn small primary" data-apply${rp.start ? '' : ' disabled'}>선택</button></span>
+      <span class="hint">${days.length}일 골랐어요</span>
+      <span class="row"><button type="button" class="btn small" data-cancel>취소</button><button type="button" class="btn small primary" data-apply${days.length ? '' : ' disabled'}>선택</button></span>
     </div>`;
 }
 
 function openRangePop() {
   const r = boardRange();
-  ui.rp = { open: true, month: ymOf(r.from), start: r.days ? null : r.from, end: r.days ? null : r.to, hover: null, drag: null };
+  // 직접 고른 적이 있으면 그 날짜들을 이어서 고치고, 처음이면 빈 상태로 (시험 주차 달이 보이게)
+  ui.rp = { open: true, month: ymOf(r.days ? r.days[0] : r.from), days: S.range ? stripDates() : [], last: null, drag: null };
   renderRangePop();
 }
 function closeRangePop() { if (ui.rp) ui.rp.open = false; renderRangePop(); }
 function applyRangePop() {
-  const rp = ui.rp; if (!rp?.start) return;
-  const end = rp.end || rp.start;
-  const [from, to] = rp.start <= end ? [rp.start, end] : [end, rp.start];
+  const rp = ui.rp; if (!rp?.days.length) return;
+  const ds = [...new Set(rp.days)].sort();
   rp.open = false;
-  S.range = { from, to };
-  ui.stripScroll = 0;
+  S.range = { from: ds[0], to: ds[ds.length - 1], days: ds };
   changed();
 }
 
 function bindRange() {
   $('#rangeBtn').addEventListener('click', () => { if (isLocked()) return; ui.rp?.open ? closeRangePop() : openRangePop(); });
   const pop = $('#rangePop');
-  // 바깥을 누르면 취소하고 닫기
-  document.addEventListener('pointerdown', e => {
-    if (!ui.rp?.open) return;
-    if (e.target.closest('#rangePop, #rangeBtn')) return;
+  document.addEventListener('pointerdown', e => {   // 바깥을 누르면 취소하고 닫기
+    if (!ui.rp?.open || e.target.closest('#rangePop, #rangeBtn')) return;
     closeRangePop();
   });
   const dayAt = (x, y) => { const el = document.elementFromPoint(x, y); const b = el && el.closest ? el.closest('#rangePop .cday[data-d]') : null; return b ? b.dataset.d : null; };
   const onMove = e => {
     const rp = ui.rp; if (!rp?.drag) return;
     const d = dayAt(e.clientX, e.clientY);
-    if (!d || d === rp.drag.last) return;
-    rp.drag.last = d; rp.drag.moved = true;
-    rp.start = rp.drag.from; rp.end = d;
+    if (!d || d === rp.drag.cur) return;
+    rp.drag.cur = d; rp.drag.moved = true;
+    rp.drag.swept = datesBetween(rp.drag.from, d).filter(x => dowOf(x) !== 0);
     renderRangePop();
   };
   const onUp = () => {
     window.removeEventListener('pointermove', onMove); window.removeEventListener('pointerup', onUp);
     const rp = ui.rp; if (!rp?.drag) return;
     const dr = rp.drag; rp.drag = null;
-    if (!dr.moved) {   // 누르기: 시작일 → 끝일 → (다시 누르면) 새 시작일
-      if (!rp.start || rp.end || dr.fresh) { rp.start = dr.from; rp.end = null; }
-      else rp.end = dr.from;
-    }
+    const set = new Set(rp.days);
+    if (dr.moved) for (const d of dr.swept) dr.paint === 'add' ? set.add(d) : set.delete(d);
+    else if (dr.shift && rp.last) for (const d of datesBetween(rp.last, dr.from).filter(x => dowOf(x) !== 0)) set.add(d);
+    else set.has(dr.from) ? set.delete(dr.from) : set.add(dr.from);
+    rp.days = [...set].sort();
+    rp.last = dr.cur;
     renderRangePop();
   };
   pop.addEventListener('pointerdown', e => {
     const b = e.target.closest('.cday[data-d]'); if (!b || e.button !== 0) return;
     e.preventDefault();
     const rp = ui.rp, d = b.dataset.d;
-    rp.drag = { from: d, last: d, moved: false, fresh: !rp.start || !!rp.end };
-    if (ymOf(d) !== rp.month) rp.month = ymOf(d);
+    rp.drag = { from: d, cur: d, moved: false, shift: e.shiftKey, swept: [d], paint: rp.days.includes(d) ? 'remove' : 'add' };
     window.addEventListener('pointermove', onMove);
     window.addEventListener('pointerup', onUp);
-  });
-  pop.addEventListener('pointerover', e => {
-    const rp = ui.rp; if (!rp || rp.drag || !rp.start || rp.end) return;
-    const b = e.target.closest('.cday[data-d]'); if (!b || b.dataset.d === rp.hover) return;
-    rp.hover = b.dataset.d; renderRangePop();
   });
   pop.addEventListener('click', e => {
     const rp = ui.rp; if (!rp) return;
     if (e.target.closest('[data-cancel]')) { closeRangePop(); return; }
     if (e.target.closest('[data-apply]')) { applyRangePop(); return; }
-    if (e.target.closest('[data-today]')) { const t = todayIso(); rp.month = ymOf(t); rp.start = t; rp.end = t; renderRangePop(); return; }
+    if (e.target.closest('[data-clear]')) { rp.days = []; renderRangePop(); return; }
+    if (e.target.closest('[data-today]')) { const t = todayIso(); rp.month = ymOf(t); if (!rp.days.includes(t) && dowOf(t) !== 0) rp.days = [...rp.days, t].sort(); renderRangePop(); return; }
+    if (e.target.closest('[data-examdays]')) {
+      const ds = Object.entries(D.dateMap).filter(([, x]) => x.week === S.examWeek).map(([d]) => d).sort();
+      rp.days = [...new Set([...rp.days, ...ds])].sort(); if (ds[0]) rp.month = ymOf(ds[0]); renderRangePop(); return;
+    }
     const nv = e.target.closest('[data-nav]');
     if (nv) { rp.month = addMonths(rp.month, +nv.dataset.nav); renderRangePop(); }
   });
   pop.addEventListener('change', e => {
     const rp = ui.rp; if (!rp) return;
-    if (e.target.id === 'calYear' || e.target.id === 'calMonth') {
-      rp.month = `${$('#calYear').value}-${String($('#calMonth').value).padStart(2, '0')}`;
-      renderRangePop();
-    }
+    if (e.target.id === 'calYear' || e.target.id === 'calMonth') { rp.month = `${$('#calYear').value}-${String($('#calMonth').value).padStart(2, '0')}`; renderRangePop(); }
   });
 }
 
@@ -2391,7 +2304,7 @@ function applyRestore(st) {
 function switchPlan(id) {
   const p = Store.plans[id]; if (!p) return;
   Store.currentId = id; usePlan(p);
-  ui.pending = {}; ui.filter = { group: '', prof: '', status: '', q: '' }; ui.focusDay = null; ui.rp = null; ui.stripScroll = 0; ui.missing = null; ui.wiz = null;
+  ui.pending = {}; ui.filter = { group: '', prof: '', status: '', q: '' }; ui.rp = null; ui.missing = null; ui.wiz = null;
   closeDrawer(); refreshRoomList(); persistLocal(); render();
 }
 
@@ -2821,15 +2734,13 @@ function bindDrawer() {
 }
 
 /* ===== src/js/drag.js ===== */
-/* ---------- 날짜별 배치 화면 드래그 (pointer 이벤트, 같은 반 줄 안에서만, 가장자리 자동 스크롤) ---------- */
+/* ---------- 날짜별 시간표 드래그 (pointer 이벤트, 같은 반 줄 안에서만, 위아래·좌우 가장자리 자동 스크롤) ---------- */
 let drag = null;
-function clearHighlight() { $$('.cell.ok,.cell.bad,.wcell.ok,.wcell.bad').forEach(el => el.classList.remove('ok', 'bad')); }
+function clearHighlight() { $$('.cell.ok,.cell.bad').forEach(el => el.classList.remove('ok', 'bad')); }
 function dragTarget(x, y) {
   const el = document.elementFromPoint(x, y);
   const cell = el && el.closest ? el.closest('.cell') : null;
   if (cell) return { date: cell.dataset.date, group: cell.dataset.group, p: +cell.dataset.p, track: cell.parentElement };
-  const wc = el && el.closest ? el.closest('.wcell') : null;   // 주차×요일 판의 날짜 칸: 같은 교시 그대로 날짜만 옮김
-  if (wc) return { date: wc.dataset.date, whole: true, el: wc };
   return null;
 }
 function onDragMove(e) {
@@ -2858,9 +2769,10 @@ function autoScroll() {
   let dy = 0;
   if (y < edge) dy = -Math.ceil((edge - y) / 3); else if (y > window.innerHeight - edge) dy = Math.ceil((y - (window.innerHeight - edge)) / 3);
   if (dy) { const before = window.scrollY; window.scrollBy(0, dy); if (window.scrollY !== before) updateTarget(drag.lastX, drag.lastY); }
-  // 날짜별 시간표(가로로 넘기는 줄): 좌우 가장자리로 끌면 옆 날짜로 넘어감
-  const strip = $('#board'), sr = strip && strip.getBoundingClientRect();
-  if (sr && y >= sr.top && y <= sr.bottom) {
+  // 날짜별 시간표의 주 줄(가로): 좌우 가장자리로 끌면 옆 날짜로 넘어감
+  const strip = [...document.querySelectorAll('#board .weekdays')].find(el => { const r = el.getBoundingClientRect(); return y >= r.top && y <= r.bottom; });
+  const sr = strip && strip.getBoundingClientRect();
+  if (sr) {
     const x = drag.lastX, hedge = 70;
     let dx = 0;
     if (x < sr.left + hedge) dx = -Math.ceil((sr.left + hedge - x) / 6); else if (x > sr.right - hedge) dx = Math.ceil((x - (sr.right - hedge)) / 6);
@@ -2876,14 +2788,7 @@ function updateTarget(x, y) {
   const c = D.byId[drag.id], ex = S.exams[drag.id];
   drag.target = null;
   if (!t) { tip.hidden = true; return; }
-  if (t.whole) {
-    const place = { date: t.date, start: ex.start, len: ex.len, room: ex.room };
-    const cf = conflictsOf(c, place), wn = warningsOf(c, place);
-    t.el.classList.add(cf.length ? 'bad' : 'ok');
-    drag.target = place;
-    tip.hidden = false;
-    tip.textContent = `${fmt(t.date)} ${pRange(ex.start, ex.len)} ${tRange(ex.start, ex.len)}` + (cf.length ? '\n' + cf.map(describeConflict).join('\n') : ' · 겹침 없음') + (wn.length ? '\n' + wn.join('\n') : '');
-  } else if (t.group !== groupOf(c)) {
+  if (t.group !== groupOf(c)) {
     tip.hidden = false; tip.textContent = `${groupOf(c)} 줄 안에서만 옮길 수 있어요`;
   } else {
     const start = Math.max(1, Math.min(NP - ex.len + 1, t.p - drag.grabP));
@@ -2980,7 +2885,7 @@ function bind() {
   // 날짜별 배치: 주차×요일 판(카드는 날짜 칸으로) + 펼친 날짜의 반×교시 시간표(블록은 교시까지)
   const tb = $('#tab-board');
   tb.addEventListener('pointerdown', e => {
-    const b = e.target.closest('.blk.exam, .wcard.exam'); if (!b || e.button !== 0 || isLocked()) return;
+    const b = e.target.closest('.blk.exam'); if (!b || e.button !== 0 || isLocked()) return;
     const id = b.dataset.id, ex = S.exams[id];
     let grabP = 0;
     if (b.classList.contains('blk')) { const r = b.getBoundingClientRect(); grabP = Math.max(0, Math.min(ex.len - 1, Math.floor((e.clientX - r.left) / (r.width / ex.len)))); }
@@ -2991,17 +2896,13 @@ function bind() {
     window.addEventListener('pointercancel', onCancel);
   });
   tb.addEventListener('click', e => {
-    const dd = e.target.closest('[data-daydetail]');
-    if (dd) { focusStripDay(dd.dataset.daydetail); return; }
-    const sp = e.target.closest('#stripPrev, #stripNext');
-    if (sp) { const st = $('#board'), w = st.querySelector('.day')?.offsetWidth || 500; st.scrollBy({ left: (sp.id === 'stripNext' ? 1 : -1) * (w + 10), behavior: 'smooth' }); return; }
     if (e.target.closest('#btnKeepAll')) {
       if (isLocked()) return;
       const n = keepAllUnmoved(); changed();
       toast(`${n}과목을 '기존 시간표 수업 진행'으로 확정했어요.`); return;
     }
     if (e.target.closest('#rangeReset')) { if (isLocked()) return; delete S.range; changed(); return; }
-    const b = e.target.closest('.blk.exam, .wcard.exam');
+    const b = e.target.closest('.blk.exam');
     if (b && (e.detail === 0 || isLocked())) openDrawer(b.dataset.id);
   });
   tb.addEventListener('change', e => {
@@ -3029,7 +2930,6 @@ function bind() {
 
   bindDrawer();
   bindRange();
-  $('#board').addEventListener('scroll', () => { ui.focusDay = null; updateStripPos(); }, { passive: true });
   bindSetup();
   bindHistory();
   bindWizard();

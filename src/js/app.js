@@ -49,7 +49,7 @@ function bind() {
   // 날짜별 배치: 주차×요일 판(카드는 날짜 칸으로) + 펼친 날짜의 반×교시 시간표(블록은 교시까지)
   const tb = $('#tab-board');
   tb.addEventListener('pointerdown', e => {
-    const b = e.target.closest('.blk.exam, .wcard.exam'); if (!b || e.button !== 0 || isLocked()) return;
+    const b = e.target.closest('.blk.exam'); if (!b || e.button !== 0 || isLocked()) return;
     const id = b.dataset.id, ex = S.exams[id];
     let grabP = 0;
     if (b.classList.contains('blk')) { const r = b.getBoundingClientRect(); grabP = Math.max(0, Math.min(ex.len - 1, Math.floor((e.clientX - r.left) / (r.width / ex.len)))); }
@@ -60,17 +60,13 @@ function bind() {
     window.addEventListener('pointercancel', onCancel);
   });
   tb.addEventListener('click', e => {
-    const dd = e.target.closest('[data-daydetail]');
-    if (dd) { focusStripDay(dd.dataset.daydetail); return; }
-    const sp = e.target.closest('#stripPrev, #stripNext');
-    if (sp) { const st = $('#board'), w = st.querySelector('.day')?.offsetWidth || 500; st.scrollBy({ left: (sp.id === 'stripNext' ? 1 : -1) * (w + 10), behavior: 'smooth' }); return; }
     if (e.target.closest('#btnKeepAll')) {
       if (isLocked()) return;
       const n = keepAllUnmoved(); changed();
       toast(`${n}과목을 '기존 시간표 수업 진행'으로 확정했어요.`); return;
     }
     if (e.target.closest('#rangeReset')) { if (isLocked()) return; delete S.range; changed(); return; }
-    const b = e.target.closest('.blk.exam, .wcard.exam');
+    const b = e.target.closest('.blk.exam');
     if (b && (e.detail === 0 || isLocked())) openDrawer(b.dataset.id);
   });
   tb.addEventListener('change', e => {
@@ -98,7 +94,6 @@ function bind() {
 
   bindDrawer();
   bindRange();
-  $('#board').addEventListener('scroll', () => { ui.focusDay = null; updateStripPos(); }, { passive: true });
   bindSetup();
   bindHistory();
   bindWizard();

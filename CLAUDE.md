@@ -12,7 +12,7 @@
   5. 대상: 전공·교양·프로젝트 과목. 전공심화(4학년 야간) 제외 → 새 시험 만들 때 반 체크를 풀어서 뺀다.
   6. 결과물: 웹 도구 + 엑셀. 드래그 앤 드롭과 **"시험 일정 등록"** 폼 두 가지로 옮길 수 있어야 함.
   7. 학기별 시간표·수업일 현황 파일을 올려 중간/기말 시험을 만들고, **과거 기록을 남겨 두고 볼 수 있어야** 한다.
-  8. 위에서 **학년도·학기·중간/기말을 직접 고른다.** 날짜 범위를 정하면 **요일이 가로 줄, 1·2·3주차가 세로 칸**인 판에서 옮긴다.
+  8. 위에서 **학년도·학기·중간/기말을 직접 고른다.** '날짜 선택' 달력에서 날짜를 연속 또는 하나씩 고르면, 고른 날짜가 **주마다 한 줄(줄 안에서 가로)** 로 나오고 거기서 옮긴다. 달력의 8·15주차 날짜는 다른 색 + 'N주차' 표시.
   9. 옮기지 않는 과목은 **"기존 시간표 수업 진행"** 으로 확정한다.
   10. 시간표·요일별 수업일표·**보강** 양식을 넣으면 **알아서 인식**해서 적용한다. 카드마다 **몇 주차 수업인지** 보이게.
   11. 데이터는 GitHub(data 브랜치)에 저장. 사이트는 GitHub Pages(main, /(root), `.nojekyll`).
@@ -43,8 +43,8 @@ src/js/*.js           앱 코드. 번들러 없이 scripts/build.mjs 의 JS_ORDE
   store.js            localStorage · claude.ai db 저장
   github.js           GitHub 저장소(data 브랜치) 저장·불러오기·합치기, 기록 탭의 GitHub 카드
   excel.js            엑셀 내보내기 · 파일 저장
-  views.js            render(), 위쪽 선택칸, 요약, 날짜별 배치(주차×요일 판 + 반×교시 자세히), 과목 목록, 잠금
-  view-range.js       기간선택 칸 + 한 달 달력(#rangePop): 시작·끝 누르기/끌기, 오늘·취소·선택, 8·15주차 빨간색
+  views.js            render(), 위쪽 선택칸, 요약, 날짜별 시간표(고른 날짜를 주마다 한 줄, 날짜마다 반×교시), 과목 목록, 잠금
+  view-range.js       '날짜 선택' 버튼 + 한 달 달력(#rangePop): 하나씩 누르기·끌어서 연속·Shift 이어서, 8·15주차 색·라벨, 오늘·N주차 날짜 모두·모두 해제·취소·선택
   view-setup.js       설정 탭(지금 시험 하나): 자료 다시 넣기(자동 인식), 보강 목록·직접 추가
   view-history.js     학기별 기록 탭, 백업/복원, switchPlan()
   wizard.js           자료 넣기 화면(고른 시험이 없을 때 #createPanel): 파일 여러 개 → 자동 인식 → 만들기
@@ -66,7 +66,7 @@ tests/helpers.mjs     vm 로더, 테스트용 xlsx/PDF/한글(makeHwp) 생성, �
 - `Plan` (시험 하나): `{v:2, id:"2027-1-mid", termYear, term(1|2), kind('mid'|'final'), title, dept, year, examWeek, calendar:{cols, weeks}, classes:[...], exams:{[classId]: {method, date(YYYY-MM-DD), start, len, room, note, done}}, extraDates, locked, sources:{timetable, calendar, makeups}, makeups:[...], range:{from,to}, createdAt, updatedAt, rev}`
   - exam에 `keep: true` = **기존 시간표 수업 진행** 확정(done도 true). 옮기면 풀린다(`isKept(c)` = keep && !isMoved). 방식(필기·시험 없음 등)은 따로 고를 수 있어 "원래 시간에 시험"과 "시험 없이 수업" 둘 다 표현. 엑셀은 `methodLabel(c)`.
   - makeup: `{id, classId, from(결강일|''), to(보강일), start, end, room, note}`.
-  - range: 날짜별 배치 판의 기간 `{from, to}` 또는 특정일 `{from, to, days:[…]}`(판에서 그 날짜만 진하게). 없으면 `defaultRange()` = 시험 주차 날짜들이 들어가는 주(월~토). 읽을 때는 `boardRange()`.
+  - range: 날짜별 시간표에 보일 날짜. 달력에서 고르면 `{from, to, days:[…]}`. 없으면 `defaultRange()` = 시험 주차 날짜들이 들어가는 주(월~토). 읽을 때는 `boardRange()` / `stripDates()`.
   - 계획마다 시간표·수업일을 **복사본으로** 들고 있다 → 새 학기 업로드가 지난 기록을 바꾸지 않는다.
   - `S` = 지금 보는 계획(= `Store.plans[Store.currentId]`), `D` = `derive()`가 계산한 값. 계획 바꾸기는 `switchPlan(id)` / 테스트에선 `usePlan(p)`.
   - `KINDS = {mid:{label:'중간고사', week:8}, final:{label:'기말고사', week:15}}`. 주차는 설정 탭에서 계획별로 바꿀 수 있다.
@@ -111,7 +111,7 @@ tests/helpers.mjs     vm 로더, 테스트용 xlsx/PDF/한글(makeHwp) 생성, �
 
 - 상단 `#selYear #selTerm #selKind` → `selectExam()`: 있으면 `switchPlan`, 없으면 `ui.missing` + `#createPanel`(탭·본문은 숨김, `body.missing`).
 - 탭: `#board`(날짜별 배치) `#courses`(과목 목록) `#history`(학기별 기록) `#setup`(설정, 지금 시험만)
-- 날짜별 배치: `#rangeBtn`(기간선택 칸) → 달력에서 '선택'해야 `S.range` 저장. `#board.daystrip` = 기간의 날짜(일요일 제외)마다 작은 반×교시 `.day[data-day]`를 가로로(스크롤 위치는 다시 그려도 유지, 끌 때 좌우 가장자리 자동 넘김·snap 끔). 그 아래 `#weekGrid`(주차×요일 한눈에, `.wcard.exam`을 날짜 칸으로 끌면 같은 교시로 이동, 날짜를 누르면 `focusStripDay`). `#btnKeepAll` = 옮기지 않고 겹침 없는 과목 모두 keep. 화면 폭 `.wrap` 최대 1880px.
+- 날짜별 배치: `#rangeBtn`('날짜 선택') → 달력에서 '선택'해야 `S.range = {from,to,days}` 저장(처음 열면 빈 상태, 고른 적 있으면 그 날짜로). `#board.dayrows` = `stripDates()`(일요일 제외)를 `mondayOf`로 묶어 `.weekrow`마다 `.weekdays`(가로, 넘치면 스크롤, 다시 그려도 줄별 스크롤 유지) 안에 작은 반×교시 `.day[data-day]`. 블록은 다른 날짜·줄로 교시까지 드래그, 끄는 중 줄의 좌우 가장자리 자동 넘김(drag.js autoScroll). `#btnKeepAll` = 옮기지 않고 겹침 없는 과목 모두 keep. 화면 폭 `.wrap` 최대 1880px. (예전 '주차×요일 판'은 이 화면으로 대체해 삭제)
 - 블록 클릭 → `openDrawer(id)` 편집 서랍(즉시 반영). 상단 "시험 일정 등록" → `openRegister()` 폼(미리보기 후 `saveRegister()`로 반영).
 - 보관(잠금)된 계획: `isLocked()`. 모든 수정 진입점이 막혀 있고 `lockControls()`가 입력 칸을 끈다. `changed()`도 잠금이면 저장하지 않는다.
 - 다시 그리면서(innerHTML) 포커스된 칸이 지워지면 change 이벤트가 또 렌더를 부를 수 있다 → 마법사는 `renderWizard()` 재진입 가드 사용.
