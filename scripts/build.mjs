@@ -18,6 +18,7 @@ export const JS_ORDER = [
   'github.js',      // GitHub 저장소(data 브랜치)에 저장·불러오기
   'excel.js',       // 엑셀 내보내기 · 파일 저장
   'views.js',       // 요약·배치·목록·교수님 화면
+  'view-range.js',  // 날짜별 배치 기간 고르기 달력
   'view-setup.js',  // 설정 탭
   'view-history.js',// 학기별 기록 탭
   'wizard.js',      // 새 시험 만들기

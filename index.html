@@ -306,6 +306,44 @@ body.dragging .wcard{pointer-events:none}
 .wcard.fixed{grid-template-columns:auto auto auto 1fr;padding:2px 6px;font-size:11.5px;align-items:center}
 .wcard.fixed .wk{font-size:10.5px}
 .wcard.fixed.mk{background:var(--warn-bg);border-color:var(--warn);color:var(--warn)}
+
+/* 기간 고르기 달력 */
+.rlabel{font-weight:600;color:var(--muted)}
+.rangebtn{font-weight:600}
+.rangebtn::after{content:" ▾";color:var(--muted)}
+.rangebtn[aria-expanded="true"]::after{content:" ▴"}
+.rangepop{background:var(--surface);border:1px solid var(--accent);border-radius:12px;padding:12px 14px;margin:0 0 14px;display:flex;flex-direction:column;gap:8px;box-shadow:0 6px 20px rgba(0,0,0,.08)}
+.rangepop[hidden]{display:none}
+.rtool{display:flex;flex-wrap:wrap;gap:8px 14px;align-items:center;justify-content:space-between}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden}
+.seg button{border:0;background:var(--surface);padding:6px 12px;font-weight:600;color:var(--muted)}
+.seg button[aria-checked="true"]{background:var(--accent);color:var(--accent-ink)}
+.rmonths{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:18px}
+.rmonth h4{margin:0 0 6px;font-size:14px}
+.rgrid{display:grid;grid-template-columns:44px repeat(7,minmax(0,1fr));gap:2px;user-select:none;-webkit-user-select:none;touch-action:none}
+.rhd{font-size:11.5px;color:var(--muted);text-align:center;padding:2px 0}
+.rwk{border:0;background:none;font-size:11px;color:var(--muted);border-radius:6px;padding:0 2px}
+.rwk:hover{background:var(--bg);color:var(--ink)}
+.rday{position:relative;border:1px solid transparent;background:var(--bg);border-radius:6px;min-height:40px;padding:2px 0;display:flex;flex-direction:column;align-items:center;justify-content:center;line-height:1.15;cursor:pointer}
+.rday:hover{border-color:var(--accent)}
+.rday.blank{background:none;cursor:default}
+.rday .dn{font-weight:600;font-size:13px}
+.rday .dl{font-size:10px;color:var(--muted)}
+.rday.sun .dn{color:var(--bad);opacity:.6}
+.rday.nc{background:none;color:var(--muted)}
+.rday.ex{box-shadow:inset 0 -3px 0 var(--accent)}
+.rday.sh .dl{color:var(--warn);font-weight:700}
+.rday.mk::after{content:"";position:absolute;top:4px;right:5px;width:6px;height:6px;border-radius:50%;background:var(--warn)}
+.rday.inr{background:var(--y2)}
+.rday.rs,.rday.re,.rday.pick{background:var(--accent);color:var(--accent-ink)}
+.rday.rs .dl,.rday.re .dl,.rday.pick .dl{color:var(--accent-ink)}
+.rlegend{display:flex;flex-wrap:wrap;gap:12px;font-size:12px}
+.rsw{display:inline-block;width:14px;height:12px;border-radius:3px;vertical-align:-1px;margin-right:4px;background:var(--bg)}
+.rsw.ex{box-shadow:inset 0 -3px 0 var(--accent)} .rsw.sh{background:var(--warn-bg);border:1px solid var(--warn)} .rsw.mk{background:var(--warn);border-radius:50%;width:8px;height:8px} .rsw.nc{background:none;border:1px dashed var(--line)}
+.rdirect input[type="date"]{border:1px solid var(--line);background:var(--surface);border-radius:7px;padding:4px 7px}
+.planpick label{white-space:nowrap}
+.rangebtn{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.rwk{white-space:nowrap}
 </style>
 </head>
 <body>
@@ -340,13 +378,14 @@ body.dragging .wcard{pointer-events:none}
     <section id="tab-board" class="tabpanel" role="tabpanel">
       <div class="boardbar">
         <div class="rangebar">
-          <label for="rangeFrom">기간</label>
-          <input type="date" id="rangeFrom"> <span>~</span> <input type="date" id="rangeTo">
+          <span class="rlabel">기간</span>
+          <button type="button" class="btn small rangebtn" id="rangeBtn" aria-expanded="false" aria-controls="rangePop"></button>
           <button type="button" class="btn small" id="rangeReset">시험 주차에 맞추기</button>
           <label class="chkline"><input type="checkbox" id="showFixed" checked> 다른 주차 수업·보강도 보기</label>
         </div>
         <button type="button" class="btn small" id="btnKeepAll"></button>
       </div>
+      <section id="rangePop" class="rangepop" hidden aria-label="기간 고르기 달력"></section>
       <p class="hint" style="margin-bottom:8px">시험 주차 수업 카드를 다른 날짜 칸으로 끌어서 옮기세요 (같은 교시로 옮겨져요). 카드를 누르면 교시·방식을 바꾸거나 '기존 시간표 수업 진행'으로 확정할 수 있고, 날짜를 누르면 반×교시 시간표가 아래에 펼쳐져요.</p>
       <div class="legend" style="margin-bottom:10px">
         <span><i class="sw y1"></i>1학년</span><span><i class="sw y2"></i>2학년</span><span><i class="sw y3"></i>3학년</span>
@@ -1693,7 +1732,7 @@ function render() {
 }
 /** 보관(잠금)된 계획: 입력 칸을 모두 막는다. 탭 이동·필터·복사·내보내기는 그대로 */
 function lockControls() {
-  $$('#listTable input, #listTable select, #drawer input, #drawer select, #drawer textarea, #drawer .slotbtn, #drawer #dReset, #drawer #dToReg, #setupGrid .editable, #profGrid [data-markdone], #btnKeepAll, #createPanel button')
+  $$('#listTable input, #listTable select, #drawer input, #drawer select, #drawer textarea, #drawer .slotbtn, #drawer #dReset, #drawer #dToReg, #setupGrid .editable, #profGrid [data-markdone], #btnKeepAll, #rangeBtn, #rangeReset, #createPanel button')
     .forEach(el => { el.disabled = true; });
 }
 /* 위쪽 학년도·학기·시험 선택칸. 없는 조합을 고르면 ui.missing → 자료 넣기 화면 */
@@ -1740,11 +1779,14 @@ function defaultRange() {
   ds.sort();
   return { from: mondayOf(ds[0]), to: addDays(mondayOf(ds[ds.length - 1]), 5) };
 }
+/** 지금 판의 기간 → { from, to, days? }. days가 있으면 '특정일' 모드(그 날짜만 진하게) */
 function boardRange() {
   const r = S.range;
-  if (r && r.from && r.to && r.from <= r.to) return r;
+  if (r && Array.isArray(r.days) && r.days.length) { const ds = r.days.slice().sort(); return { from: ds[0], to: ds[ds.length - 1], days: ds }; }
+  if (r && r.from && r.to && r.from <= r.to) return { from: r.from, to: r.to };
   return defaultRange();
 }
+const inBoardRange = (r, d) => (r.days ? r.days.includes(d) : d >= r.from && d <= r.to);
 const WEEK_ROWS = ['월', '화', '수', '목', '금', '토'];
 function weekBadge(it) {
   if (it.kind === 'makeup') return `<span class="wk wk-mk" title="${esc(it.from ? `${fmt(it.from)} 결강한 수업의 보강` : '보강')}">보강${it.week ? ` · ${it.week}주차분` : ''}</span>`;
@@ -1769,7 +1811,7 @@ function weekCard(it, st) {
 }
 function renderWeekGrid(statusCache) {
   const r = boardRange();
-  $('#rangeFrom').value = r.from; $('#rangeTo').value = r.to;
+  $('#rangeBtn').textContent = rangeLabel(r);
   const showFixed = ui.showFixed !== false;
   $('#showFixed').checked = showFixed;
   const weeks = [];
@@ -1792,7 +1834,7 @@ function renderWeekGrid(statusCache) {
         const txt = info.col !== real ? `${info.col}요일 ${info.week}주차 수업일` : `${info.week}주차`;
         tag = `<span class="tag ${ex ? '' : info.col !== real ? 'alt' : ''}">${esc(txt)}${ex ? ' · 시험 주차' : ''}</span>`;
       }
-      const cls = ['wcell', d < r.from || d > r.to ? 'out' : '', info && info.week === S.examWeek ? 'examday' : '', (ui.days || []).includes(d) ? 'sel' : ''].filter(Boolean).join(' ');
+      const cls = ['wcell', inBoardRange(r, d) ? '' : 'out', info && info.week === S.examWeek ? 'examday' : '', (ui.days || []).includes(d) ? 'sel' : ''].filter(Boolean).join(' ');
       html += `<div class="${cls}" data-date="${d}"><div class="wdate"><button type="button" class="linkbtn" data-daydetail="${d}" title="반×교시 자세히 보기">${esc(fmt(d))}</button>${tag}</div>${items.map(it => weekCard(it, statusCache[it.c.id])).join('')}</div>`;
     }
   }
@@ -1836,6 +1878,7 @@ function renderBoard() {
   const statusCache = {};
   for (const c of S.classes) statusCache[c.id] = statusOf(c);
   renderWeekGrid(statusCache);
+  renderRangePop();
   const keepable = S.classes.filter(c => { const st = statusCache[c.id]; return !st.noslot && !st.moved && !st.keep && !st.bad.length; }).length;
   const kb = $('#btnKeepAll');
   kb.textContent = `옮기지 않은 과목 모두 '기존 시간표 수업 진행' 확정 (${keepable})`;
@@ -1937,6 +1980,184 @@ function renderProfs() {
       <div class="row"><button type="button" class="btn small" data-copy="${esc(p)}">문구 복사</button>
       <button type="button" class="btn small" data-markdone="${esc(p)}">이 교수님 과목 모두 확정</button></div></article>`;
   }).join('');
+}
+
+/* ===== src/js/view-range.js ===== */
+/* ---------- 날짜별 배치의 기간 고르기 (달력) ----------
+   '기간' 버튼 → 아래에 달력 두 달이 펼쳐진다(#rangePop). 날짜 칸에는 학기 주차·대체 수업일·보강·시험 주차가 작게 보인다.
+   - 기간 모드: 날짜를 끌어서 범위, 또는 시작일·끝일을 차례로 누르기. 줄 왼쪽 주차 칸 = 그 주 월~토.
+   - 날짜 골라 담기 모드: 날짜를 눌러 넣고 빼기, 끌면 지나간 날짜를 한꺼번에(첫 칸이 담겨 있었으면 빼기).
+   고르면 바로 S.range에 저장된다: { from, to } 또는 { from, to, days:[…] } */
+
+const ymOf = iso => iso.slice(0, 7);
+const addMonths = (ym, n) => { const [y, m] = ym.split('-').map(Number); return new Date(Date.UTC(y, m - 1 + n, 1)).toISOString().slice(0, 7); };
+/** 한 달을 월요일부터 시작하는 주 줄들로: [[iso×7], …] (일요일까지) */
+function monthWeeks(ym) {
+  const first = `${ym}-01`, last = addDays(`${addMonths(ym, 1)}-01`, -1), rows = [];
+  for (let m = mondayOf(first); m <= last; m = addDays(m, 7)) rows.push(range(0, 6).map(k => addDays(m, k)));
+  return rows;
+}
+const datesBetween = (a, b) => { const [x, y] = a <= b ? [a, b] : [b, a], out = []; for (let d = x; d <= y; d = addDays(d, 1)) out.push(d); return out; };
+function rangeLabel(r) {
+  if (r.days) return `특정일 ${r.days.length}일 · ${r.days.slice(0, 4).map(d => fmt(d)).join(', ')}${r.days.length > 4 ? ' …' : ''}`;
+  const weeks = Math.round((Date.parse(mondayOf(r.to)) - Date.parse(mondayOf(r.from))) / 6048e5) + 1;
+  return `${fmt(r.from)} ~ ${fmt(r.to)} · ${weeks}주`;
+}
+
+/** 끄는 중이면 그 결과를 미리 보여 준다 */
+function rangePreview() {
+  const rp = ui.rp, cur = boardRange();
+  if (rp.mode === 'range') {
+    const a = rp.drag ? rp.drag.start : rp.anchor;
+    if (a && rp.hover) { const [from, to] = a <= rp.hover ? [a, rp.hover] : [rp.hover, a]; return { from, to }; }
+    if (a) return { from: a, to: a };
+    return cur.days ? { from: cur.from, to: cur.to } : cur;
+  }
+  const set = new Set(cur.days || []);
+  if (rp.drag) for (const d of rp.drag.swept) rp.drag.paint === 'add' ? set.add(d) : set.delete(d);
+  return { days: [...set].sort() };
+}
+
+function renderRangePop() {
+  const pop = $('#rangePop'), rp = ui.rp;
+  const open = !!(rp && rp.open) && !isLocked();
+  pop.hidden = !open;
+  $('#rangeBtn').setAttribute('aria-expanded', String(open));
+  if (!open) return;
+  const sel = rangePreview();
+  const picked = new Set(sel.days || []);
+  const mkTo = new Set((D.makeups || []).map(m => m.to));
+  const month = ym => {
+    const [y, m] = ym.split('-');
+    const rows = monthWeeks(ym).map(row => {
+      const sem = [...new Set(row.map(d => D.dateMap[d]?.week).filter(Boolean))].sort((a, b) => a - b);
+      const wk = `<button type="button" class="rwk" data-wk="${row[0]}" title="이 주 월~토 ${rp.mode === 'range' ? '고르기' : '담기/빼기'}">${sem.length ? `${sem[0]}${sem.length > 1 ? `~${sem[sem.length - 1]}` : ''}주` : '–'}</button>`;
+      return wk + row.map(d => {
+        if (ymOf(d) !== ym) return '<span class="rday blank"></span>';
+        const info = D.dateMap[d], real = DOW[dowOf(d)];
+        const shifted = info && info.col !== real;
+        const cls = ['rday', dowOf(d) === 0 ? 'sun' : '', info ? '' : 'nc', info && info.week === S.examWeek ? 'ex' : '', shifted ? 'sh' : '', mkTo.has(d) ? 'mk' : ''];
+        if (sel.days) { if (picked.has(d)) cls.push('pick'); }
+        else if (d >= sel.from && d <= sel.to) cls.push('inr', d === sel.from ? 'rs' : '', d === sel.to ? 're' : '');
+        const tip = [fmt(d), info ? `${info.col}요일 시간표 ${info.week}주차${shifted ? ` (${real}요일에 ${info.col}요일 수업)` : ''}` : '수업일 현황에 없는 날',
+          info && info.week === S.examWeek ? '시험 주차' : '', mkTo.has(d) ? '보강 있음' : ''].filter(Boolean).join(' · ');
+        const lab = info ? (shifted ? `${info.col}${info.week}` : `${info.week}주`) : '';
+        return `<button type="button" class="${cls.filter(Boolean).join(' ')}" data-d="${d}" title="${esc(tip)}"><span class="dn">${+d.slice(8)}</span><span class="dl">${esc(lab)}</span></button>`;
+      }).join('');
+    }).join('');
+    return `<div class="rmonth"><h4>${y}년 ${+m}월</h4><div class="rgrid"><span class="rhd">주차</span>${['월', '화', '수', '목', '금', '토', '일'].map(x => `<span class="rhd">${x}</span>`).join('')}${rows}</div></div>`;
+  };
+  const r = boardRange();
+  const hint = rp.mode === 'range'
+    ? (rp.anchor ? `${fmt(rp.anchor)}부터 — 끝 날짜를 누르세요.` : '날짜를 끌어서 기간을 잡거나, 시작일과 끝일을 차례로 누르세요. 왼쪽 주차 칸을 누르면 그 주(월~토)가 잡혀요.')
+    : '보고 싶은 날짜만 눌러서 담으세요. 끌면 지나간 날짜를 한꺼번에 담거나 빼요. 판에는 담은 날짜만 진하게 보여요.';
+  pop.innerHTML = `
+    <div class="rtool">
+      <div class="seg" role="radiogroup" aria-label="고르는 방법">
+        <button type="button" role="radio" aria-checked="${rp.mode === 'range'}" data-mode="range">기간</button>
+        <button type="button" role="radio" aria-checked="${rp.mode === 'days'}" data-mode="days">날짜 골라 담기</button>
+      </div>
+      <div class="row">
+        <button type="button" class="btn small" data-nav="-1" aria-label="이전 달">‹</button>
+        <button type="button" class="btn small" data-nav="1" aria-label="다음 달">›</button>
+        <button type="button" class="btn small" data-preset="exam">시험 주차에 맞추기</button>
+        <button type="button" class="btn small" data-preset="widen">앞뒤 1주 넓히기</button>
+        ${r.days ? '<button type="button" class="btn small" data-preset="clear">담은 날짜 모두 빼기</button>' : ''}
+        <button type="button" class="btn small primary" data-close>닫기</button>
+      </div>
+    </div>
+    <p class="hint">${esc(hint)}</p>
+    <div class="rmonths">${month(rp.month)}${month(addMonths(rp.month, 1))}</div>
+    <div class="rlegend hint"><span><i class="rsw ex"></i>시험 주차</span><span><i class="rsw sh"></i>다른 요일 수업일(대체)</span><span><i class="rsw mk"></i>보강 있음</span><span><i class="rsw nc"></i>수업일 아님</span></div>
+    ${rp.mode === 'range' ? `<div class="row rdirect"><span class="hint">직접 입력</span><input type="date" id="rangeFrom" value="${esc(r.from)}"> ~ <input type="date" id="rangeTo" value="${esc(r.to)}"></div>` : ''}`;
+}
+
+function openRangePop() {
+  const r = boardRange();
+  ui.rp = { open: true, mode: r.days ? 'days' : 'range', month: ymOf(r.from), anchor: null, hover: null, drag: null };
+  renderRangePop();
+}
+function closeRangePop() { if (ui.rp) ui.rp.open = false; ui.rp && (ui.rp.anchor = ui.rp.drag = null); renderRangePop(); }
+function commitRange(a, b) {
+  const [from, to] = a <= b ? [a, b] : [b, a];
+  S.range = { from, to }; changed();
+}
+function commitDays(days) {
+  const ds = [...new Set(days)].sort();
+  if (!ds.length) delete S.range; else S.range = { from: ds[0], to: ds[ds.length - 1], days: ds };
+  changed();
+}
+
+function bindRange() {
+  $('#rangeBtn').addEventListener('click', () => { if (isLocked()) return; ui.rp?.open ? closeRangePop() : openRangePop(); });
+  const pop = $('#rangePop');
+  const dayAt = (x, y) => { const el = document.elementFromPoint(x, y); const b = el && el.closest ? el.closest('#rangePop .rday[data-d]') : null; return b ? b.dataset.d : null; };
+  const onMove = e => {
+    const rp = ui.rp; if (!rp?.drag) return;
+    const d = dayAt(e.clientX, e.clientY);
+    if (!d || d === rp.hover) return;
+    rp.hover = d; rp.drag.moved = true;
+    if (rp.mode === 'days') rp.drag.swept = datesBetween(rp.drag.start, d).filter(x => dowOf(x) !== 0);
+    renderRangePop();
+  };
+  const onUp = () => {
+    window.removeEventListener('pointermove', onMove); window.removeEventListener('pointerup', onUp);
+    const rp = ui.rp; if (!rp?.drag) return;
+    const dr = rp.drag; rp.drag = null;
+    if (rp.mode === 'range') {
+      if (dr.moved) { rp.anchor = null; commitRange(dr.start, rp.hover); }
+      else { rp.anchor = dr.start; rp.hover = null; renderRangePop(); }   // 끝 날짜를 기다림
+      return;
+    }
+    const cur = new Set(boardRange().days || []);
+    for (const d of dr.swept) dr.paint === 'add' ? cur.add(d) : cur.delete(d);
+    rp.hover = null;
+    commitDays([...cur]);
+  };
+  pop.addEventListener('pointerdown', e => {
+    const b = e.target.closest('.rday[data-d]'); if (!b || e.button !== 0 || isLocked()) return;
+    e.preventDefault();
+    const rp = ui.rp, d = b.dataset.d;
+    if (rp.mode === 'range' && rp.anchor) { const a = rp.anchor; rp.anchor = null; rp.hover = null; commitRange(a, d); return; }
+    const picked = (boardRange().days || []).includes(d);
+    rp.drag = { start: d, moved: false, paint: picked ? 'remove' : 'add', swept: [d] };
+    rp.hover = d;
+    renderRangePop();
+    window.addEventListener('pointermove', onMove);
+    window.addEventListener('pointerup', onUp);
+  });
+  pop.addEventListener('click', e => {
+    const rp = ui.rp; if (!rp || isLocked()) return;
+    const t = e.target;
+    if (t.closest('[data-close]')) { closeRangePop(); return; }
+    const md = t.closest('[data-mode]');
+    if (md) { rp.mode = md.dataset.mode; rp.anchor = null; renderRangePop(); return; }
+    const nv = t.closest('[data-nav]');
+    if (nv) { rp.month = addMonths(rp.month, +nv.dataset.nav); renderRangePop(); return; }
+    const ps = t.closest('[data-preset]');
+    if (ps) {
+      const p = ps.dataset.preset;
+      if (p === 'exam') { delete S.range; rp.mode = 'range'; changed(); rp.month = ymOf(boardRange().from); renderRangePop(); }
+      else if (p === 'widen') { const r = boardRange(); commitRange(addDays(mondayOf(r.from), -7), addDays(mondayOf(r.to), 12)); rp.mode = 'range'; renderRangePop(); }
+      else if (p === 'clear') commitDays([]);
+      return;
+    }
+    const wk = t.closest('[data-wk]');
+    if (wk) {
+      const days = range(0, 5).map(k => addDays(wk.dataset.wk, k));
+      if (rp.mode === 'range') { rp.anchor = null; commitRange(days[0], days[5]); return; }
+      const cur = new Set(boardRange().days || []);
+      const all = days.every(d => cur.has(d));
+      days.forEach(d => all ? cur.delete(d) : cur.add(d));
+      commitDays([...cur]);
+    }
+  });
+  pop.addEventListener('change', e => {
+    if (e.target.id !== 'rangeFrom' && e.target.id !== 'rangeTo') return;
+    const from = $('#rangeFrom').value, to = $('#rangeTo').value;
+    if (!from || !to || isLocked()) return;
+    commitRange(from, to);
+  });
 }
 
 /* ===== src/js/view-setup.js ===== */
@@ -2165,7 +2386,7 @@ function applyRestore(st) {
 function switchPlan(id) {
   const p = Store.plans[id]; if (!p) return;
   Store.currentId = id; usePlan(p);
-  ui.pending = {}; ui.filter = { group: '', prof: '', status: '', q: '' }; ui.days = []; ui.missing = null; ui.wiz = null;
+  ui.pending = {}; ui.filter = { group: '', prof: '', status: '', q: '' }; ui.days = []; ui.rp = null; ui.missing = null; ui.wiz = null;
   closeDrawer(); refreshRoomList(); persistLocal(); render();
 }
 
@@ -2778,17 +2999,10 @@ function bind() {
   });
   tb.addEventListener('change', e => {
     if (e.target.id === 'showFixed') { ui.showFixed = e.target.checked; renderBoard(); return; }
-    if (e.target.id === 'rangeFrom' || e.target.id === 'rangeTo') {
-      const from = $('#rangeFrom').value, to = $('#rangeTo').value;
-      if (!from || !to) return;
-      if (from > to) { toast('기간의 시작이 끝보다 늦어요.'); renderBoard(); return; }
-      if (isLocked()) { renderBoard(); return; }
-      S.range = { from, to }; changed();
-    }
   });
   document.addEventListener('keydown', e => {
     if (e.key !== 'Escape') return;
-    if (drag) endDrag(e, true); else if (ui.drawerId || ui.reg) closeDrawer();
+    if (drag) endDrag(e, true); else if (ui.rp?.open) closeRangePop(); else if (ui.drawerId || ui.reg) closeDrawer();
   });
 
   const lt = $('#listTable');
@@ -2812,6 +3026,7 @@ function bind() {
   });
 
   bindDrawer();
+  bindRange();
   bindSetup();
   bindHistory();
   bindWizard();

@@ -40,8 +40,7 @@ test('주차×요일 판 · 등록 폼 · 드래그 · 기존 시간표 확정 �
   assert.deepEqual([await page.inputValue('#selYear'), await page.inputValue('#selTerm'), await page.inputValue('#selKind')], ['2026', '2', 'final']);
 
   // 판: 기간 12/7~12/26 (15주차 날짜가 세 주에 흩어져 있음), 12/15(화)는 금요일 14주차 수업일
-  assert.equal(await page.inputValue('#rangeFrom'), '2026-12-07');
-  assert.equal(await page.inputValue('#rangeTo'), '2026-12-26');
+  assert.equal(await page.textContent('#rangeBtn'), '12/7(월) ~ 12/26(토) · 3주');
   assert.equal(await page.locator('.wh').count(), 3);
   assert.match(await page.innerText('.wcell[data-date="2026-12-15"] .wdate'), /금요일 14주차 수업일/);
   assert.match(await page.innerText('.wcell[data-date="2026-12-08"]'), /15주차/);
@@ -189,6 +188,66 @@ test('설정 탭에서 보강 파일 넣기 → 시험 주차 수업이 보강�
   // 보강 지우면 원래 15주차 날짜로 돌아감
   await page.click('[data-delmk]');
   assert.equal((await examOf(page, '화-2B-2')).date, '2026-12-08');
+  assert.deepEqual(errors, []);
+  await ctx.close();
+});
+
+test('기간 고르기 달력: 끌기 · 두 번 누르기 · 주차 칸 · 날짜 골라 담기 · 빠른 버튼', async () => {
+  const { ctx, page, errors } = await openApp(browser);
+  const range = () => page.evaluate(() => window.__planner.state.range || null);
+  const day = d => page.locator(`#rangePop .rday[data-d="${d}"]`);
+  await page.click('#rangeBtn');
+  assert.ok(await page.isVisible('#rangePop'));
+  assert.match(await page.innerText('#rangePop'), /2026년 12월[\s\S]*2027년 1월/);
+  // 날짜 칸 표시: 12/15는 금요일 14주차 수업일(대체), 12/8은 시험 주차
+  assert.match(await day('2026-12-15').getAttribute('class'), /\bsh\b/);
+  assert.equal(await day('2026-12-15').innerText(), '15\n금14');
+  assert.match(await day('2026-12-08').getAttribute('class'), /\bex\b/);
+
+  // 1) 끌어서 기간: 12/14 → 12/19
+  await dragTo(page, day('2026-12-14'), day('2026-12-19'));
+  assert.deepEqual(await range(), { from: '2026-12-14', to: '2026-12-19' });
+  assert.equal(await page.locator('.wh').count(), 1);
+  assert.equal(await page.textContent('#rangeBtn'), '12/14(월) ~ 12/19(토) · 1주');
+
+  // 2) 두 번 누르기: 12/7 누르고 12/22 누르기
+  await day('2026-12-07').click();
+  assert.match(await page.innerText('#rangePop'), /12\/7\(월\)부터 — 끝 날짜를 누르세요/);
+  await day('2026-12-22').click();
+  assert.deepEqual(await range(), { from: '2026-12-07', to: '2026-12-22' });
+  assert.equal(await page.locator('.wh').count(), 3);
+
+  // 3) 주차 칸: 12/21이 있는 줄 → 그 주 월~토
+  await page.click('#rangePop .rwk[data-wk="2026-12-21"]');
+  assert.deepEqual(await range(), { from: '2026-12-21', to: '2026-12-26' });
+
+  // 4) 날짜 골라 담기: 15주차 날짜 3개만
+  await page.click('#rangePop [data-mode="days"]');
+  for (const d of ['2026-12-08', '2026-12-16', '2026-12-21']) await day(d).click();
+  const r = await range();
+  assert.deepEqual(r.days, ['2026-12-08', '2026-12-16', '2026-12-21']);
+  assert.match(await page.textContent('#rangeBtn'), /^특정일 3일/);
+  assert.equal(await page.locator('.wh').count(), 3);
+  assert.match(await page.locator('.wcell[data-date="2026-12-15"]').getAttribute('class'), /\bout\b/);
+  assert.doesNotMatch(await page.locator('.wcell[data-date="2026-12-16"]').getAttribute('class'), /\bout\b/);
+  // 다시 누르면 빠짐, 끌면 여러 날 한꺼번에 담기
+  await day('2026-12-16').click();
+  assert.deepEqual((await range()).days, ['2026-12-08', '2026-12-21']);
+  await dragTo(page, day('2026-12-14'), day('2026-12-17'));
+  assert.deepEqual((await range()).days, ['2026-12-08', '2026-12-14', '2026-12-15', '2026-12-16', '2026-12-17', '2026-12-21']);
+
+  // 5) 빠른 버튼: 시험 주차에 맞추기 → 앞뒤 1주 넓히기
+  await page.click('#rangePop [data-preset="exam"]');
+  assert.equal(await range(), null);
+  assert.equal(await page.textContent('#rangeBtn'), '12/7(월) ~ 12/26(토) · 3주');
+  await page.click('#rangePop [data-preset="widen"]');
+  assert.deepEqual(await range(), { from: '2026-11-30', to: '2027-01-02' });
+  assert.equal(await page.locator('.wh').count(), 5);
+  // 다음 달로 넘기기, 닫기(Esc)
+  await page.click('#rangePop [data-nav="1"]');
+  assert.match(await page.innerText('#rangePop'), /2027년 1월[\s\S]*2027년 2월/);
+  await page.keyboard.press('Escape');
+  assert.ok(!(await page.isVisible('#rangePop')));
   assert.deepEqual(errors, []);
   await ctx.close();
 });

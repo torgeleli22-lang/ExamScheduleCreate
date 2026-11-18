@@ -43,13 +43,14 @@
     <section id="tab-board" class="tabpanel" role="tabpanel">
       <div class="boardbar">
         <div class="rangebar">
-          <label for="rangeFrom">기간</label>
-          <input type="date" id="rangeFrom"> <span>~</span> <input type="date" id="rangeTo">
+          <span class="rlabel">기간</span>
+          <button type="button" class="btn small rangebtn" id="rangeBtn" aria-expanded="false" aria-controls="rangePop"></button>
           <button type="button" class="btn small" id="rangeReset">시험 주차에 맞추기</button>
           <label class="chkline"><input type="checkbox" id="showFixed" checked> 다른 주차 수업·보강도 보기</label>
         </div>
         <button type="button" class="btn small" id="btnKeepAll"></button>
       </div>
+      <section id="rangePop" class="rangepop" hidden aria-label="기간 고르기 달력"></section>
       <p class="hint" style="margin-bottom:8px">시험 주차 수업 카드를 다른 날짜 칸으로 끌어서 옮기세요 (같은 교시로 옮겨져요). 카드를 누르면 교시·방식을 바꾸거나 '기존 시간표 수업 진행'으로 확정할 수 있고, 날짜를 누르면 반×교시 시간표가 아래에 펼쳐져요.</p>
       <div class="legend" style="margin-bottom:10px">
         <span><i class="sw y1"></i>1학년</span><span><i class="sw y2"></i>2학년</span><span><i class="sw y3"></i>3학년</span>

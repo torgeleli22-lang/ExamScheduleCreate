@@ -30,7 +30,7 @@ function render() {
 }
 /** 보관(잠금)된 계획: 입력 칸을 모두 막는다. 탭 이동·필터·복사·내보내기는 그대로 */
 function lockControls() {
-  $$('#listTable input, #listTable select, #drawer input, #drawer select, #drawer textarea, #drawer .slotbtn, #drawer #dReset, #drawer #dToReg, #setupGrid .editable, #profGrid [data-markdone], #btnKeepAll, #createPanel button')
+  $$('#listTable input, #listTable select, #drawer input, #drawer select, #drawer textarea, #drawer .slotbtn, #drawer #dReset, #drawer #dToReg, #setupGrid .editable, #profGrid [data-markdone], #btnKeepAll, #rangeBtn, #rangeReset, #createPanel button')
     .forEach(el => { el.disabled = true; });
 }
 /* 위쪽 학년도·학기·시험 선택칸. 없는 조합을 고르면 ui.missing → 자료 넣기 화면 */
@@ -77,11 +77,14 @@ function defaultRange() {
   ds.sort();
   return { from: mondayOf(ds[0]), to: addDays(mondayOf(ds[ds.length - 1]), 5) };
 }
+/** 지금 판의 기간 → { from, to, days? }. days가 있으면 '특정일' 모드(그 날짜만 진하게) */
 function boardRange() {
   const r = S.range;
-  if (r && r.from && r.to && r.from <= r.to) return r;
+  if (r && Array.isArray(r.days) && r.days.length) { const ds = r.days.slice().sort(); return { from: ds[0], to: ds[ds.length - 1], days: ds }; }
+  if (r && r.from && r.to && r.from <= r.to) return { from: r.from, to: r.to };
   return defaultRange();
 }
+const inBoardRange = (r, d) => (r.days ? r.days.includes(d) : d >= r.from && d <= r.to);
 const WEEK_ROWS = ['월', '화', '수', '목', '금', '토'];
 function weekBadge(it) {
   if (it.kind === 'makeup') return `<span class="wk wk-mk" title="${esc(it.from ? `${fmt(it.from)} 결강한 수업의 보강` : '보강')}">보강${it.week ? ` · ${it.week}주차분` : ''}</span>`;
@@ -106,7 +109,7 @@ function weekCard(it, st) {
 }
 function renderWeekGrid(statusCache) {
   const r = boardRange();
-  $('#rangeFrom').value = r.from; $('#rangeTo').value = r.to;
+  $('#rangeBtn').textContent = rangeLabel(r);
   const showFixed = ui.showFixed !== false;
   $('#showFixed').checked = showFixed;
   const weeks = [];
@@ -129,7 +132,7 @@ function renderWeekGrid(statusCache) {
         const txt = info.col !== real ? `${info.col}요일 ${info.week}주차 수업일` : `${info.week}주차`;
         tag = `<span class="tag ${ex ? '' : info.col !== real ? 'alt' : ''}">${esc(txt)}${ex ? ' · 시험 주차' : ''}</span>`;
       }
-      const cls = ['wcell', d < r.from || d > r.to ? 'out' : '', info && info.week === S.examWeek ? 'examday' : '', (ui.days || []).includes(d) ? 'sel' : ''].filter(Boolean).join(' ');
+      const cls = ['wcell', inBoardRange(r, d) ? '' : 'out', info && info.week === S.examWeek ? 'examday' : '', (ui.days || []).includes(d) ? 'sel' : ''].filter(Boolean).join(' ');
       html += `<div class="${cls}" data-date="${d}"><div class="wdate"><button type="button" class="linkbtn" data-daydetail="${d}" title="반×교시 자세히 보기">${esc(fmt(d))}</button>${tag}</div>${items.map(it => weekCard(it, statusCache[it.c.id])).join('')}</div>`;
     }
   }
@@ -173,6 +176,7 @@ function renderBoard() {
   const statusCache = {};
   for (const c of S.classes) statusCache[c.id] = statusOf(c);
   renderWeekGrid(statusCache);
+  renderRangePop();
   const keepable = S.classes.filter(c => { const st = statusCache[c.id]; return !st.noslot && !st.moved && !st.keep && !st.bad.length; }).length;
   const kb = $('#btnKeepAll');
   kb.textContent = `옮기지 않은 과목 모두 '기존 시간표 수업 진행' 확정 (${keepable})`;

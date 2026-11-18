@@ -44,6 +44,7 @@ src/js/*.js           앱 코드. 번들러 없이 scripts/build.mjs 의 JS_ORDE
   github.js           GitHub 저장소(data 브랜치) 저장·불러오기·합치기, 기록 탭의 GitHub 카드
   excel.js            엑셀 내보내기 · 파일 저장
   views.js            render(), 위쪽 선택칸, 요약, 날짜별 배치(주차×요일 판 + 반×교시 자세히), 목록·교수님, 잠금
+  view-range.js       날짜별 배치 기간 고르기 달력(#rangePop): 기간(끌기·두 번 누르기·주차 칸) / 날짜 골라 담기(S.range.days)
   view-setup.js       설정 탭(지금 시험 하나): 자료 다시 넣기(자동 인식), 보강 목록·직접 추가
   view-history.js     학기별 기록 탭, 백업/복원, switchPlan()
   wizard.js           자료 넣기 화면(고른 시험이 없을 때 #createPanel): 파일 여러 개 → 자동 인식 → 만들기
@@ -65,7 +66,7 @@ tests/helpers.mjs     vm 로더, 테스트용 xlsx/PDF/한글(makeHwp) 생성, �
 - `Plan` (시험 하나): `{v:2, id:"2027-1-mid", termYear, term(1|2), kind('mid'|'final'), title, dept, year, examWeek, calendar:{cols, weeks}, classes:[...], exams:{[classId]: {method, date(YYYY-MM-DD), start, len, room, note, done}}, extraDates, locked, sources:{timetable, calendar, makeups}, makeups:[...], range:{from,to}, createdAt, updatedAt, rev}`
   - exam에 `keep: true` = **기존 시간표 수업 진행** 확정(done도 true). 옮기면 풀린다(`isKept(c)` = keep && !isMoved). 방식(필기·시험 없음 등)은 따로 고를 수 있어 "원래 시간에 시험"과 "시험 없이 수업" 둘 다 표현. 엑셀·문구는 `methodLabel(c)`.
   - makeup: `{id, classId, from(결강일|''), to(보강일), start, end, room, note}`.
-  - range: 날짜별 배치 판의 기간. 없으면 `defaultRange()` = 시험 주차 날짜들이 들어가는 주(월~토).
+  - range: 날짜별 배치 판의 기간 `{from, to}` 또는 특정일 `{from, to, days:[…]}`(판에서 그 날짜만 진하게). 없으면 `defaultRange()` = 시험 주차 날짜들이 들어가는 주(월~토). 읽을 때는 `boardRange()`.
   - 계획마다 시간표·수업일을 **복사본으로** 들고 있다 → 새 학기 업로드가 지난 기록을 바꾸지 않는다.
   - `S` = 지금 보는 계획(= `Store.plans[Store.currentId]`), `D` = `derive()`가 계산한 값. 계획 바꾸기는 `switchPlan(id)` / 테스트에선 `usePlan(p)`.
   - `KINDS = {mid:{label:'중간고사', week:8}, final:{label:'기말고사', week:15}}`. 주차는 설정 탭에서 계획별로 바꿀 수 있다.

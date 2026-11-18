@@ -81,17 +81,10 @@ function bind() {
   });
   tb.addEventListener('change', e => {
     if (e.target.id === 'showFixed') { ui.showFixed = e.target.checked; renderBoard(); return; }
-    if (e.target.id === 'rangeFrom' || e.target.id === 'rangeTo') {
-      const from = $('#rangeFrom').value, to = $('#rangeTo').value;
-      if (!from || !to) return;
-      if (from > to) { toast('기간의 시작이 끝보다 늦어요.'); renderBoard(); return; }
-      if (isLocked()) { renderBoard(); return; }
-      S.range = { from, to }; changed();
-    }
   });
   document.addEventListener('keydown', e => {
     if (e.key !== 'Escape') return;
-    if (drag) endDrag(e, true); else if (ui.drawerId || ui.reg) closeDrawer();
+    if (drag) endDrag(e, true); else if (ui.rp?.open) closeRangePop(); else if (ui.drawerId || ui.reg) closeDrawer();
   });
 
   const lt = $('#listTable');
@@ -115,6 +108,7 @@ function bind() {
   });
 
   bindDrawer();
+  bindRange();
   bindSetup();
   bindHistory();
   bindWizard();
