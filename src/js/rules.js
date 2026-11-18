@@ -17,7 +17,7 @@ function itemsOn(iso, excludeId) {
     const examWeekDay = info.week === S.examWeek;
     for (const c of S.classes) {
       if (c.day !== info.col) continue;
-      if (examWeekDay && hasSlot(S.exams[c.id])) continue;
+      if (examWeekDay && hasSlot(S.exams[c.id]) && !D.examPushed?.has(c.id)) continue;   // 시험이 보강으로 밀렸으면 원래 시험 주차 수업은 평소 수업
       if (D.cancelled?.has(`${c.id}|${iso}`)) continue;
       out.push({ kind: 'fixed', c, s: c.start, e: c.end, room: c.room, week: info.week });
     }
@@ -62,6 +62,10 @@ function warningsOf(c, p) {
   if (pv && p.date <= pv) w.push(`${S.examWeek - 1}주차 수업(${fmt(pv)})보다 이르거나 같은 날이에요`);
   if (p.start <= LUNCH && p.start + p.len - 1 >= LUNCH) w.push('점심시간(5교시)이 끼어 있어요');
   if (p.start + p.len - 1 > NP) w.push('10교시를 넘어가요');
+  for (const m of D.makeups || []) {
+    if (m.classId !== c.id || D.examMakeup?.[c.id] === m) continue;
+    if (m.to > p.date) w.push(`보강(${fmt(m.to)} ${pRange(m.start, m.end - m.start + 1)})이 시험보다 뒤에 있어요`);
+  }
   return w;
 }
 function describeConflict(x) {
@@ -86,6 +90,13 @@ function freeSlots(c, len, room) {
     if (starts.length) out.push({ d, starts });
   }
   return out;
+}
+/** 보강 때문에 시험 주차 수업(기본 시험 시간)이 다른 날로 옮겨진 과목들 */
+function shiftedByMakeup() {
+  return S.classes.filter(c => D.examMakeup?.[c.id]).map(c => {
+    const m = D.examMakeup[c.id];
+    return { c, m, ew: D.colDates[c.day]?.[S.examWeek - 1], to: m.to, pushed: D.examPushed.has(c.id) };
+  }).sort((a, b) => a.to.localeCompare(b.to) || groupOf(a.c).localeCompare(groupOf(b.c)));
 }
 function counts() {
   let total = 0, bad = 0, warn = 0, moved = 0, und = 0, done = 0, noslot = 0, keep = 0;

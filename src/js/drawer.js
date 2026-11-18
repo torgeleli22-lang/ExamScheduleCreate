@@ -7,7 +7,7 @@ function openDrawer(id) {
   const dr = $('#drawer');
   dr.innerHTML = `
     <div class="dhead"><div><h2>${esc(c.course)}</h2><p>${esc(groupOf(c))} · ${esc(c.prof)} · 원래 ${esc(c.day)} ${pRange(c.start, lenOf(c))} ${tRange(c.start, lenOf(c))}, ${esc(roomLabel(c.room))}</p>
-      <p><span class="wk wk-exam">${S.examWeek}주차 수업</span> ${fmt(defaultDate(c))} ${pRange(defaultStart(c), defaultLen(c))}${D.examMakeup[c.id] ? ` (보강, 원래 ${fmt(D.examMakeup[c.id].from)})` : ''} · ${S.examWeek - 1}주차 수업 ${fmt(prevDate(c))}</p>
+      <p><span class="wk wk-exam">${S.examWeek}주차 수업</span> ${fmt(defaultDate(c))} ${pRange(defaultStart(c), defaultLen(c))}${D.examMakeup[c.id] ? (D.examPushed.has(c.id) ? ` (보강으로 밀림, 원래 ${fmt(D.colDates[c.day]?.[S.examWeek - 1])})` : ` (보강, 원래 ${fmt(D.examMakeup[c.id].from)})`) : ''} · ${S.examWeek - 1}주차 수업 ${fmt(prevDate(c))}</p>
       ${isMoved(c) ? `<p class="mvnote">↪ ${S.examWeek}주차 수업을 ${fmt(ex.date)} ${pRange(ex.start, ex.len)}(으)로 옮겼어요</p>` : ''}</div>
       <button type="button" class="btn small" id="dClose" aria-label="닫기">닫기</button></div>
     <div class="dbody">

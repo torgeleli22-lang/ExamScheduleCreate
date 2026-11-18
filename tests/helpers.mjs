@@ -160,6 +160,7 @@ export async function openApp(browser, { viewport = { width: 1440, height: 2400 
   await page.route('https://cdn.jsdelivr.net/**', r => {
     const u = r.request().url();
     const body = u.includes('exceljs') ? lib('exceljs/dist/exceljs.min.js')
+      : u.includes('/xlsx@') ? lib('xlsx/dist/xlsx.full.min.js')
       : u.includes('pdf.worker') ? lib('pdfjs-dist/build/pdf.worker.min.js')
       : u.includes('pdfjs-dist') ? lib('pdfjs-dist/build/pdf.min.js') : null;
     return body ? r.fulfill({ body, contentType: 'application/javascript', headers: { 'access-control-allow-origin': '*' } }) : r.abort();
@@ -234,3 +235,12 @@ export function makeHwp(rows, { before = [], compressed = false } = {}) {
 }
 /** 학교 보강결과보고서 모양의 행 (과목코드, 과목명, 학년, 결강일, 요일, 교시, 보강일, 요일, 교시, 교수, 확인, 제출) */
 export const MAKEUP_HEAD = ['과목코드', '과목명', '학년', '일자', '요일', '시간', '일자', '요일', '시간', '담당교수', '확인', '제출'];
+
+/** 테스트용 옛 엑셀(.xls, BIFF8): 학교 '보강 신청 목록' 모양 (학과명|과목코드|과목명|분반|학년|결강일|보강일|담당교수|사유구분) */
+export function makeMakeupXls(rows) {
+  const XLSX = require('xlsx');
+  const aoa = [['FALSE', '학과명', '과목코드', '과목명', '분반', '학년', '결강일', '보강일', '담당교수', '사유구분'], ...rows.map(r => ['', ...r])];
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(aoa), 'sheet');
+  return Buffer.from(XLSX.write(wb, { type: 'buffer', bookType: 'xls' }));
+}

@@ -342,6 +342,12 @@ body.missing .summary,body.missing .tabs,body.missing main,body.missing #btnRegi
 .callegend i{display:inline-block;width:12px;height:12px;border-radius:3px;vertical-align:-1px}
 .callegend i.sw8{background:#fde8d4;border:1px solid #a14a00} .callegend i.sw15{background:var(--bad-bg);border:1px solid var(--bad)}
 .calhelp{margin:2px;font-size:11.5px;color:var(--muted)}
+
+.mknotice{border:1px solid var(--warn);background:var(--warn-bg);color:var(--ink);border-radius:9px;padding:9px 13px;margin:0 0 12px;font-size:13px}
+.mknotice[hidden]{display:none}
+.mknotice b{color:var(--warn)}
+.mknotice ul{margin:6px 0 0;padding-left:18px}
+.mknotice li b{color:var(--ink)}
 </style>
 </head>
 <body>
@@ -385,6 +391,7 @@ body.missing .summary,body.missing .tabs,body.missing main,body.missing #btnRegi
         </div>
         <button type="button" class="btn small" id="btnKeepAll"></button>
       </div>
+      <div id="mkNotice" class="mknotice" hidden></div>
       <div class="striphead"><h3>날짜별 시간표</h3><p class="hint">고른 날짜를 주마다 한 줄씩 보여 줘요. 시험 블록을 다른 날짜·교시로 끌어서 옮기세요(같은 반 줄 안에서). 끄는 중에 줄의 좌우 가장자리로 가면 자동으로 넘어가요. 블록을 누르면 방식·확정을 고를 수 있어요.</p></div>
       <div class="legend" style="margin-bottom:8px">
         <span><i class="sw y1"></i>1학년</span><span><i class="sw y2"></i>2학년</span><span><i class="sw y3"></i>3학년</span>
@@ -433,6 +440,8 @@ const NO_SLOT = new Set(['과제 대체','시험 없음']);
 /** 시험 종류. week = 기본 시험 주차 (계획마다 설정에서 바꿀 수 있음) */
 const KINDS = { mid: { label: '중간고사', week: 8 }, final: { label: '기말고사', week: 15 } };
 const EXCELJS_URL = 'https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js';
+// 옛 엑셀(.xls)만 SheetJS로 읽는다 (그 밖의 엑셀은 ExcelJS)
+const SHEETJS_URL = 'https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js';
 const PDFJS_URL = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js';
 const PDFJS_WORKER_URL = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.min.js';
 
@@ -607,14 +616,24 @@ function derive() {
 function usePlan(p) { S = p; derive(); return S; }
 
 /* 보강: 결강일의 원래 수업은 없어지고, 보강일·교시에 그 수업이 생긴다.
-   시험 주차 수업이 결강되고 보강됐다면 그 보강 시간이 기본 시험 시간이 된다. */
+   보강 때문에 시험(그 과목의 마지막 수업)이 옮겨지는 두 경우 → 그 보강 시간이 기본 시험 시간:
+   - 'replace': 시험 주차 수업 자체가 결강되고 보강됨 (예: 12/8 결강 → 12/22 보강)
+   - 'push'   : 시험 주차 날짜보다 뒤, 시험 주차 마지막 날까지 사이에 보강이 잡힘 → 15주가 밀림
+                (예: 화요일 15주차 12/8인데 9/22 결강분 보강이 12/15) — 이때 원래 12/8은 평소 수업
+   여러 개면 가장 늦은 보강. 시험 주차 마지막 날 뒤의 보강은 밀지 않는다(중간고사가 10주차 보강에 밀리지 않게). */
 function deriveMakeups() {
   D.makeups = (S.makeups || []).filter(m => D.byId[m.classId] && m.to);
   D.cancelled = new Set(D.makeups.filter(m => m.from).map(m => `${m.classId}|${m.from}`));
-  D.examMakeup = {};
+  D.examMakeup = {}; D.examPushed = new Set();
+  const ewDates = Object.values(D.colDates).map(ds => ds[S.examWeek - 1]).filter(Boolean).sort();
+  const lastEw = ewDates[ewDates.length - 1];
   for (const m of D.makeups) {
-    const c = D.byId[m.classId];
-    if (m.from && m.from === D.colDates[c.day]?.[S.examWeek - 1]) D.examMakeup[c.id] = m;
+    const c = D.byId[m.classId], ew = D.colDates[c.day]?.[S.examWeek - 1];
+    if (!ew) continue;
+    const replace = m.from && m.from === ew, push = !replace && m.to > ew && m.to <= lastEw;
+    if (!replace && !push) continue;
+    const cur = D.examMakeup[c.id];
+    if (!cur || m.to > cur.to) { D.examMakeup[c.id] = m; if (push) D.examPushed.add(c.id); else D.examPushed.delete(c.id); }
   }
 }
 /** 이 수업의 시험 주차 수업 날짜 (보강됐으면 보강일) */
@@ -670,7 +689,7 @@ function itemsOn(iso, excludeId) {
     const examWeekDay = info.week === S.examWeek;
     for (const c of S.classes) {
       if (c.day !== info.col) continue;
-      if (examWeekDay && hasSlot(S.exams[c.id])) continue;
+      if (examWeekDay && hasSlot(S.exams[c.id]) && !D.examPushed?.has(c.id)) continue;   // 시험이 보강으로 밀렸으면 원래 시험 주차 수업은 평소 수업
       if (D.cancelled?.has(`${c.id}|${iso}`)) continue;
       out.push({ kind: 'fixed', c, s: c.start, e: c.end, room: c.room, week: info.week });
     }
@@ -715,6 +734,10 @@ function warningsOf(c, p) {
   if (pv && p.date <= pv) w.push(`${S.examWeek - 1}주차 수업(${fmt(pv)})보다 이르거나 같은 날이에요`);
   if (p.start <= LUNCH && p.start + p.len - 1 >= LUNCH) w.push('점심시간(5교시)이 끼어 있어요');
   if (p.start + p.len - 1 > NP) w.push('10교시를 넘어가요');
+  for (const m of D.makeups || []) {
+    if (m.classId !== c.id || D.examMakeup?.[c.id] === m) continue;
+    if (m.to > p.date) w.push(`보강(${fmt(m.to)} ${pRange(m.start, m.end - m.start + 1)})이 시험보다 뒤에 있어요`);
+  }
   return w;
 }
 function describeConflict(x) {
@@ -739,6 +762,13 @@ function freeSlots(c, len, room) {
     if (starts.length) out.push({ d, starts });
   }
   return out;
+}
+/** 보강 때문에 시험 주차 수업(기본 시험 시간)이 다른 날로 옮겨진 과목들 */
+function shiftedByMakeup() {
+  return S.classes.filter(c => D.examMakeup?.[c.id]).map(c => {
+    const m = D.examMakeup[c.id];
+    return { c, m, ew: D.colDates[c.day]?.[S.examWeek - 1], to: m.to, pushed: D.examPushed.has(c.id) };
+  }).sort((a, b) => a.to.localeCompare(b.to) || groupOf(a.c).localeCompare(groupOf(b.c)));
 }
 function counts() {
   let total = 0, bad = 0, warn = 0, moved = 0, und = 0, done = 0, noslot = 0, keep = 0;
@@ -780,6 +810,17 @@ function loadScript(url, globalName, failMsg) {
   return libP[url];
 }
 const loadExcelJS = () => loadScript(EXCELJS_URL, 'ExcelJS', '엑셀 기능을 불러오지 못했어요.');
+const loadSheetJS = () => loadScript(SHEETJS_URL, 'XLSX', '옛 엑셀(.xls) 읽기 기능을 불러오지 못했어요.');
+
+/** 옛 엑셀(.xls, BIFF) → { xlsx: 같은 내용의 .xlsx 바이트(병합 칸 유지), text: 행은 줄·칸은 탭 } */
+async function xlsToXlsx(buf) {
+  const XLSX = await loadSheetJS();
+  const wb = XLSX.read(new Uint8Array(buf), { type: 'array', cellDates: false });
+  const text = wb.SheetNames.map(n => XLSX.utils.sheet_to_json(wb.Sheets[n], { header: 1, raw: false, defval: '' })
+    .map(r => r.map(v => String(v ?? '').replace(/\s*\n\s*/g, ' ').trim()).join('\t')).filter(l => l.replace(/\t/g, '').trim()).join('\n')).join('\n');
+  const xlsx = XLSX.write(wb, { type: 'array', bookType: 'xlsx' });
+  return { xlsx, text };
+}
 async function loadPdfJs() {
   const lib = await loadScript(PDFJS_URL, 'pdfjsLib', 'PDF 읽기 기능을 불러오지 못했어요.');
   if (!lib.GlobalWorkerOptions.workerSrc) lib.GlobalWorkerOptions.workerSrc = PDFJS_WORKER_URL;
@@ -922,7 +963,7 @@ async function xlsxToText(buf) {
  * → { name, type: 'timetable' | 'calendar' | 'makeups' | 'unknown', classes?, sheet?, calendar?, text?, msg }
  *   timetable: 학과 강의시간표 (xlsx, '요일·학년·반·1~10교시' 머리글)
  *   calendar:  요일별 수업일 현황 (pdf · hwp · xlsx · 글자)
- *   makeups:   보강결과보고서·보강 계획 (hwp · xlsx · pdf · 글자). 수업과 짝짓기는 적용할 때 parseMakeups()로.
+ *   makeups:   보강결과보고서·보강 신청 목록 (hwp · xls · xlsx · pdf · 글자). 수업과 짝짓기는 적용할 때 parseMakeups()로.
  */
 async function recognizeFile(file) {
   const name = file.name || '파일';
@@ -936,8 +977,13 @@ async function recognizeFile(file) {
     } else if (ext === 'pdf') text = await pdfToText(buf);
     else if (ext === 'hwp') text = await hwpToText(new Uint8Array(buf));
     else if (['txt', 'csv', 'tsv', 'json'].includes(ext) || !ext) text = new TextDecoder().decode(buf);
-    else if (ext === 'xls' || ext === 'hwpx') return { name, type: 'unknown', msg: `.${ext}는 아직 못 읽어요. 엑셀은 .xlsx로, 한글은 .hwp로 다시 저장해 주세요.` };
-    else return { name, type: 'unknown', msg: '읽을 수 없는 파일 형식이에요 (.xlsx, .pdf, .hwp, .txt).' };
+    else if (ext === 'xls') {
+      const conv = await xlsToXlsx(buf);
+      try { const tt = await parseTimetableXlsx(conv.xlsx); return { name, type: 'timetable', classes: tt.classes, sheet: tt.sheet, msg: `강의시간표 · '${tt.sheet}' 시트에서 수업 ${tt.classes.length}개` }; } catch {}
+      text = conv.text;
+    }
+    else if (ext === 'hwpx') return { name, type: 'unknown', msg: '.hwpx는 아직 못 읽어요. 한글에서 .hwp로 다시 저장해 주세요.' };
+    else return { name, type: 'unknown', msg: '읽을 수 없는 파일 형식이에요 (.xlsx, .xls, .pdf, .hwp, .txt).' };
   } catch (err) { return { name, type: 'unknown', msg: err.message || '파일을 읽지 못했어요.' }; }
   const kind = classifyText(text);
   if (kind === 'calendar') { const cal = parseCalendarText(text); return { name, type: 'calendar', calendar: cal.data, text: calendarText(cal.data), msg: `요일별 수업일 현황 · ${cal.msg}` }; }
@@ -1088,6 +1134,10 @@ async function hwpToText(bytes) {
      35382-101  JAVA프로그래밍응용  2  2026/09/22 화 6~8  2026/12/15 화 6~8  양숙희
      과목코드     과목명            학년  결강 일자·요일·교시   보강 일자·요일·교시    담당교수
    - 반 칸이 없다 → 과목코드 끝 3자리(101=A, 102=B, 103=C)와 결강 요일·교시로 시간표 수업을 찾는다.
+   보강 신청 목록(.xls) 한 줄 예:
+     컴퓨터소프트웨어과  35382  JAVA프로그래밍응용  101  2  2026/09/22(화) 6~8  2026/12/15(화) 6~8  양숙희  기타
+     학과명           과목코드  과목명          분반  학년  결강일(+교시)       보강일(+교시)        교수    사유
+   - 분반 칸 101=A, 102=B …
    - 날짜가 둘이면 첫째가 결강(원래 수업일), 둘째가 보강일. 하나면 보강일만.
    - 교시는 "2~4", "2~4교시", "13:35~15:20" 모두 읽는다.
    plan.makeups = [{ id, classId, from(결강일|''), to(보강일), start, end, room, note }] */
@@ -1138,6 +1188,7 @@ function parseMakeups(text, classes, calendar, year) {
     const periods = linePeriods(line);
     const code = line.match(/\d{5}-(\d{3})/);
     if (!code && !periods.length) continue;      // 제출일 같은 날짜만 있는 줄
+    if (/^\s*(학과명|과목코드|과목명)(\s|$)/.test(line)) continue;   // 머리글 줄
     const nl = normName(line);
     let cands = byName.filter(x => nl.includes(x.n));
     if (!cands.length) { unmatched.push({ line, why: '시간표에서 이 과목을 찾지 못했어요' }); continue; }
@@ -1148,11 +1199,14 @@ function parseMakeups(text, classes, calendar, year) {
     const grp = g ? `${g[1] || g[3]}${(g[2] || g[4]).toUpperCase()}` : null;
     const cells = line.split('\t').map(t => t.trim());
     const yearTok = cells.find(t => /^[1-4](학년)?$/.test(t));
+    // 분반 칸(보강 신청 목록 .xls): 101=A, 102=B … / 과목코드에 붙은 경우(35382-101)는 위 banFromCode
+    const secTok = cells.find(t => /^1\d\d$/.test(t));
+    const banFromSec = secTok ? String.fromCharCode(64 + (+secTok % 100)) : null;
     const from = dates.length >= 2 ? dates[0] : '';
     const to = dates[dates.length - 1];
     const fromCol = from && dateMap[from] ? dateMap[from].col : (from ? DOW[dowOf(from)] : null);
     const fromP = dates.length >= 2 ? periods[0] : null;
-    const score = c => (grp && groupOf(c) === grp ? 8 : 0) + (banFromCode && c.ban === banFromCode ? 4 : 0)
+    const score = c => (grp && groupOf(c) === grp ? 8 : 0) + ((banFromCode || banFromSec) && c.ban === (banFromCode || banFromSec) ? 4 : 0)
       + (yearTok && c.year === +yearTok[0] ? 2 : 0) + (fromCol && c.day === fromCol ? 3 : 0)
       + (fromP && c.start === fromP[0] ? 2 : 0) + (c.prof && line.includes(c.prof) ? 2 : 0);
     cands.sort((a, b) => score(b) - score(a));
@@ -1822,7 +1876,16 @@ function renderBoard() {
   const kb = $('#btnKeepAll');
   kb.textContent = `옮기지 않은 과목 모두 '기존 시간표 수업 진행' 확정 (${keepable})`;
   kb.disabled = !keepable || isLocked();
+  renderMakeupNotice();
   renderDayRows(statusCache);
+}
+/** 보강 때문에 시험 주차 수업이 밀린(또는 당겨진) 과목 알림 */
+function renderMakeupNotice() {
+  const box = $('#mkNotice'), list = shiftedByMakeup();
+  box.hidden = !list.length;
+  if (!list.length) { box.innerHTML = ''; return; }
+  box.innerHTML = `<b>보강 때문에 ${S.examWeek}주차(시험)가 옮겨진 과목 ${list.length}개</b> <span class="hint">기본 시험 시간을 보강 시간으로 옮겼어요. 원래 ${S.examWeek}주차 날짜에는 평소 수업이 있는 것으로 봐요.</span>
+    <ul>${list.map(x => `<li><span class="gtag">${esc(groupOf(x.c))}</span> ${esc(x.c.course)} (${esc(x.c.prof)}) : ${S.examWeek}주차 ${esc(fmt(x.ew))} ${pRange(x.c.start, lenOf(x.c))} → <b>${esc(fmt(x.to))} ${pRange(x.m.start, x.m.end - x.m.start + 1)}</b> ${x.pushed ? `(밀림 · ${x.m.from ? `${esc(fmt(x.m.from))} 결강분 ` : ''}보강이 ${S.examWeek}주차 뒤)` : `(${S.examWeek}주차 수업 결강 → 보강)`}</li>`).join('')}</ul>`;
 }
 /** 고른 날짜들 (일요일 제외). 고른 적이 없으면 시험 주차 날짜들이 들어가는 주의 월~토 */
 function stripDates() {
@@ -2564,7 +2627,7 @@ function openDrawer(id) {
   const dr = $('#drawer');
   dr.innerHTML = `
     <div class="dhead"><div><h2>${esc(c.course)}</h2><p>${esc(groupOf(c))} · ${esc(c.prof)} · 원래 ${esc(c.day)} ${pRange(c.start, lenOf(c))} ${tRange(c.start, lenOf(c))}, ${esc(roomLabel(c.room))}</p>
-      <p><span class="wk wk-exam">${S.examWeek}주차 수업</span> ${fmt(defaultDate(c))} ${pRange(defaultStart(c), defaultLen(c))}${D.examMakeup[c.id] ? ` (보강, 원래 ${fmt(D.examMakeup[c.id].from)})` : ''} · ${S.examWeek - 1}주차 수업 ${fmt(prevDate(c))}</p>
+      <p><span class="wk wk-exam">${S.examWeek}주차 수업</span> ${fmt(defaultDate(c))} ${pRange(defaultStart(c), defaultLen(c))}${D.examMakeup[c.id] ? (D.examPushed.has(c.id) ? ` (보강으로 밀림, 원래 ${fmt(D.colDates[c.day]?.[S.examWeek - 1])})` : ` (보강, 원래 ${fmt(D.examMakeup[c.id].from)})`) : ''} · ${S.examWeek - 1}주차 수업 ${fmt(prevDate(c))}</p>
       ${isMoved(c) ? `<p class="mvnote">↪ ${S.examWeek}주차 수업을 ${fmt(ex.date)} ${pRange(ex.start, ex.len)}(으)로 옮겼어요</p>` : ''}</div>
       <button type="button" class="btn small" id="dClose" aria-label="닫기">닫기</button></div>
     <div class="dbody">

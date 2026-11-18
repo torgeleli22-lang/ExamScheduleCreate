@@ -45,14 +45,24 @@ function derive() {
 function usePlan(p) { S = p; derive(); return S; }
 
 /* 보강: 결강일의 원래 수업은 없어지고, 보강일·교시에 그 수업이 생긴다.
-   시험 주차 수업이 결강되고 보강됐다면 그 보강 시간이 기본 시험 시간이 된다. */
+   보강 때문에 시험(그 과목의 마지막 수업)이 옮겨지는 두 경우 → 그 보강 시간이 기본 시험 시간:
+   - 'replace': 시험 주차 수업 자체가 결강되고 보강됨 (예: 12/8 결강 → 12/22 보강)
+   - 'push'   : 시험 주차 날짜보다 뒤, 시험 주차 마지막 날까지 사이에 보강이 잡힘 → 15주가 밀림
+                (예: 화요일 15주차 12/8인데 9/22 결강분 보강이 12/15) — 이때 원래 12/8은 평소 수업
+   여러 개면 가장 늦은 보강. 시험 주차 마지막 날 뒤의 보강은 밀지 않는다(중간고사가 10주차 보강에 밀리지 않게). */
 function deriveMakeups() {
   D.makeups = (S.makeups || []).filter(m => D.byId[m.classId] && m.to);
   D.cancelled = new Set(D.makeups.filter(m => m.from).map(m => `${m.classId}|${m.from}`));
-  D.examMakeup = {};
+  D.examMakeup = {}; D.examPushed = new Set();
+  const ewDates = Object.values(D.colDates).map(ds => ds[S.examWeek - 1]).filter(Boolean).sort();
+  const lastEw = ewDates[ewDates.length - 1];
   for (const m of D.makeups) {
-    const c = D.byId[m.classId];
-    if (m.from && m.from === D.colDates[c.day]?.[S.examWeek - 1]) D.examMakeup[c.id] = m;
+    const c = D.byId[m.classId], ew = D.colDates[c.day]?.[S.examWeek - 1];
+    if (!ew) continue;
+    const replace = m.from && m.from === ew, push = !replace && m.to > ew && m.to <= lastEw;
+    if (!replace && !push) continue;
+    const cur = D.examMakeup[c.id];
+    if (!cur || m.to > cur.to) { D.examMakeup[c.id] = m; if (push) D.examPushed.add(c.id); else D.examPushed.delete(c.id); }
   }
 }
 /** 이 수업의 시험 주차 수업 날짜 (보강됐으면 보강일) */

@@ -126,7 +126,16 @@ function renderBoard() {
   const kb = $('#btnKeepAll');
   kb.textContent = `옮기지 않은 과목 모두 '기존 시간표 수업 진행' 확정 (${keepable})`;
   kb.disabled = !keepable || isLocked();
+  renderMakeupNotice();
   renderDayRows(statusCache);
+}
+/** 보강 때문에 시험 주차 수업이 밀린(또는 당겨진) 과목 알림 */
+function renderMakeupNotice() {
+  const box = $('#mkNotice'), list = shiftedByMakeup();
+  box.hidden = !list.length;
+  if (!list.length) { box.innerHTML = ''; return; }
+  box.innerHTML = `<b>보강 때문에 ${S.examWeek}주차(시험)가 옮겨진 과목 ${list.length}개</b> <span class="hint">기본 시험 시간을 보강 시간으로 옮겼어요. 원래 ${S.examWeek}주차 날짜에는 평소 수업이 있는 것으로 봐요.</span>
+    <ul>${list.map(x => `<li><span class="gtag">${esc(groupOf(x.c))}</span> ${esc(x.c.course)} (${esc(x.c.prof)}) : ${S.examWeek}주차 ${esc(fmt(x.ew))} ${pRange(x.c.start, lenOf(x.c))} → <b>${esc(fmt(x.to))} ${pRange(x.m.start, x.m.end - x.m.start + 1)}</b> ${x.pushed ? `(밀림 · ${x.m.from ? `${esc(fmt(x.m.from))} 결강분 ` : ''}보강이 ${S.examWeek}주차 뒤)` : `(${S.examWeek}주차 수업 결강 → 보강)`}</li>`).join('')}</ul>`;
 }
 /** 고른 날짜들 (일요일 제외). 고른 적이 없으면 시험 주차 날짜들이 들어가는 주의 월~토 */
 function stripDates() {

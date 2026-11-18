@@ -181,9 +181,20 @@ test('보강 반영: 보강일엔 수업이 생기고 결강일엔 없어짐, �
   p.makeups = core.parseMakeups(MK_ROWS.map(r => r.join('\t')).join('\n'), SEED.classes, SEED.calendar, 2026).makeups;
   core.usePlan(p);
   const on = d => Array.from(core.itemsOn(d, null)).map(it => `${it.kind}:${it.c.id}`);
-  assert.ok(on('2026-12-15').includes('makeup:화-2A-6'));
+  // 결강일(9/22)엔 원래 수업이 없어짐, 다른 반은 그대로
   assert.ok(!on('2026-09-22').includes('fixed:화-2A-6'));
   assert.ok(on('2026-09-22').includes('fixed:화-1A-2'));
+  // 2A JAVA: 9/22 결강분 보강이 12/15 = 15주차(12/8)보다 뒤 → 15주가 밀림: 시험은 12/15, 12/8은 평소 수업
+  const a2 = SEED.classes.find(x => x.id === '화-2A-6');
+  assert.equal(core.defaultDate(a2), '2026-12-15');
+  assert.ok(on('2026-12-15').includes('exam:화-2A-6'));
+  assert.ok(!on('2026-12-15').includes('makeup:화-2A-6'));
+  assert.ok(on('2026-12-08').includes('fixed:화-2A-6'));
+  assert.ok(core.get('D.examPushed').has('화-2A-6'));
+  // 2C 커리어디자인: 11/26 결강 → 12/10 보강(14주차, 15주차 12/17보다 앞) → 밀지 않음, 그날 보강 수업으로
+  const c2 = SEED.classes.find(x => x.id === '목-2C-3');
+  assert.equal(core.defaultDate(c2), '2026-12-17');
+  assert.ok(on('2026-12-10').includes('makeup:목-2C-3'));
   // 2B JAVA의 15주차(12/8) 수업이 12/22로 보강됨 → 기본 시험일 12/22, 옮긴 것으로 보지 않음
   const c = SEED.classes.find(x => x.id === '화-2B-2');
   assert.equal(core.defaultDate(c), '2026-12-22');
@@ -204,4 +215,37 @@ test("'기존 시간표 수업 진행' 확정은 옮기면 풀린다", () => {
   ex.start = ex.start + 1;
   assert.equal(core.statusOf(c).keep, false);
   assert.equal(core.methodLabel(c), '미정');
+});
+
+test('보강이 시험 주차 마지막 날 뒤면 시험을 밀지 않고, 시험 뒤 보강은 경고', () => {
+  const core = loadCore();
+  const p = seedPlan(core, 'mid');                                 // 중간고사 8주차
+  // 화-2A-6: 8주차 화요일 10/20. 9/22 결강분 보강을 11/24(11주차)에 → 8주차 마지막 날(11/7) 뒤라서 밀지 않음
+  p.makeups = [{ id: 'x', classId: '화-2A-6', from: '2026-09-22', to: '2026-11-24', start: 6, end: 8, room: '413', note: '' }];
+  core.usePlan(p);
+  const c = SEED.classes.find(x => x.id === '화-2A-6');
+  assert.equal(core.defaultDate(c), '2026-10-20');
+  assert.ok(!core.get('D.examPushed').has(c.id));
+  assert.match(core.statusOf(c).warn.join(' '), /보강\(11\/24\(화\) 6~8교시\)이 시험보다 뒤에 있어요/);
+  // 8주차 안(10/30)이면 밀림
+  p.makeups[0].to = '2026-10-30';
+  core.usePlan(p);
+  assert.equal(core.defaultDate(c), '2026-10-30');
+  assert.equal(core.shiftedByMakeup().length, 1);
+});
+
+test('보강 신청 목록(.xls 모양): 분반 칸 101·102·103 → 반', () => {
+  const core = loadCore();
+  const text = ['FALSE\t학과명\t과목코드\t과목명\t분반\t학년\t결강일\t보강일\t담당교수\t사유구분',
+    '\t컴퓨터소프트웨어과\t35382\tJAVA프로그래밍응용\t101\t2\t2026/09/22(화) 6~8\t2026/12/15(화) 6~8\t양숙희\t기타',
+    '\t컴퓨터소프트웨어과\t35382\tJAVA프로그래밍응용\t103\t2\t2026/10/23(금) 2~4\t2026/10/26(월) 2~4\t한성훈\t출장',
+    '\t컴퓨터소프트웨어과\t35579\t커리어디자인(취창업성공전략)\t102\t2\t2026/12/10(목) 3~4\t2026/12/10(목) 1~2\t박신성\tHIGH-5 합반 및 특강'].join('\n');
+  assert.equal(core.classifyText(text), 'makeups');
+  const r = core.parseMakeups(text, SEED.classes, SEED.calendar, 2026);
+  assert.deepEqual(Array.from(r.unmatched), []);
+  assert.deepEqual(JSON.parse(JSON.stringify(r.makeups.map(m => [m.classId, m.from, m.to, m.start, m.end]))), [
+    ['화-2A-6', '2026-09-22', '2026-12-15', 6, 8],
+    ['금-2C-2', '2026-10-23', '2026-10-26', 2, 4],
+    ['목-2B-3', '2026-12-10', '2026-12-10', 1, 2],
+  ]);
 });

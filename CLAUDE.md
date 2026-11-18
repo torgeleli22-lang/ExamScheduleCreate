@@ -39,7 +39,7 @@ src/js/*.js           앱 코드. 번들러 없이 scripts/build.mjs 의 JS_ORDE
   rules.js            겹침·경고·빈 시간·요약 수치                      │
   importers.js        수업일 표 붙여넣기/PDF(pdf.js), 시간표 xlsx, recognizeFile(종류 알아보기)
   hwp.js              한글(.hwp 5.0) → 글자. CFB 직접 해석, 표는 한 행 = 한 줄(칸은 탭)       │
-  makeups.js          보강 양식 → plan.makeups (parseMakeups), classifyText                 ┘
+  makeups.js          보강 양식(.hwp 보고서·.xls 신청 목록) → plan.makeups (parseMakeups), classifyText ┘
   store.js            localStorage · claude.ai db 저장
   github.js           GitHub 저장소(data 브랜치) 저장·불러오기·합치기, 기록 탭의 GitHub 카드
   excel.js            엑셀 내보내기 · 파일 저장
@@ -78,7 +78,11 @@ tests/helpers.mjs     vm 로더, 테스트용 xlsx/PDF/한글(makeHwp) 생성, �
 ## 겹침 규칙 (`itemsOn`, `conflictsOf`, `warningsOf` in rules.js)
 
 - 어떤 날짜에 점유되는 것 = (a) 그날 열리는 고정 수업: 그 날짜의 주차가 시험주차가 아니거나, 시험주차여도 NO_SLOT 과목. 단 결강일(makeup.from)의 그 수업은 빠짐 / (b) 그날로 잡힌 보강(kind 'makeup', 원래 주차 표시) / (c) 그 날짜에 배치된 모든 시험.
-- 시험 주차 수업이 결강되고 보강됐으면(`D.examMakeup`) 그 보강 시간이 기본 시험 시간(`defaultDate/Start/Len/Room`). 수업일·보강이 바뀌면 `rebaseUnmoved()`로 옮기지 않은 시험이 따라감.
+- **보강으로 시험이 옮겨지는 경우**(`deriveMakeups` → `D.examMakeup`, 기본 시험 시간 `defaultDate/Start/Len/Room`이 보강 시간이 됨):
+  - replace: 시험 주차 수업 자체가 결강되고 보강됨.
+  - push(**15주가 밀림**, `D.examPushed`): 보강일이 그 과목의 시험 주차 날짜보다 뒤이고 시험 주차 마지막 날 이하. 이때 원래 시험 주차 날짜의 수업은 평소 수업(fixed)으로 본다. 여러 개면 가장 늦은 보강. 사용자 요구: "보강으로 인해 15주가 밀릴 수도 있다".
+  - 날짜별 배치 위 `#mkNotice`에 옮겨진 과목 목록(`shiftedByMakeup()`). 시험보다 뒤에 남은 보강은 경고.
+  - 수업일·보강이 바뀌면 `rebaseUnmoved()`로 옮기지 않은 시험이 따라감.
 - 겹침 = 교시 범위가 겹치면서 같은 반 OR 같은 교수 OR 같은 강의실(`normRoom`으로 공백·'호' 제거 후 비교).
 - 경고 = 주말, 수업일 현황에 없는 날, 학기 마지막 수업일 이후, (시험주차-1) 주차 수업일 이전·당일, 점심 포함, 10교시 초과.
 - `freeSlots`: 시험주차-2 이후 후보 날짜 중 (시험주차-1) 수업일 이후, 토요일 제외, 점심을 걸치지 않고 겹침 0인 시작 교시 목록.
@@ -89,7 +93,8 @@ tests/helpers.mjs     vm 로더, 테스트용 xlsx/PDF/한글(makeHwp) 생성, �
 - `recognizeFile(file)`: xlsx는 먼저 시간표로 읽어 보고, 아니면 글자로 바꿔(`xlsxToText`, `pdfToText`, `hwpToText`) `classifyText`로 수업일 현황(주차 줄 6개 이상)인지 보강(날짜 2개+교시 줄, '보강' 또는 과목코드)인지 판단.
 - 보강결과보고서(학교 양식, .hwp): 행 = `과목코드 | 과목명 | 학년 | 결강 일자·요일·시간 | 보강 일자·요일·시간 | 담당교수 | (인) | N`. **반 칸이 없다** → 과목코드 끝자리(101=A, 102=B, 103=C) + 학년 + 결강 요일(수업일 현황의 시간표 요일) + 결강 시작 교시 + 교수 이름으로 점수를 매겨 시간표 수업을 고른다. 과목명은 서로 포함 관계면 같다고 본다('커리어디자인' ↔ '커리어디자인(취창업성공전략)'). 시간 "2~4"는 교시.
 - 한글: CFB(섹터·FAT·미니 스트림) → FileHeader(압축·암호 비트) → BodyText/SectionN(압축이면 DecompressionStream('deflate-raw')) → 레코드. 표 칸 LIST_HEADER(tag 72)의 행 번호는 오프셋 10. 실제 양식은 행마다 1×12 표.
-- 알려진 실제 자료 문제(2026-2): 12/15(화)는 수업일 현황상 금요일 14주차인데 보강결과보고서는 화요일 수업 5건을 12/15에 넣어 1A·1B와 겹친다. 도구는 그대로 겹침으로 보여 준다.
+- 보강 신청 목록(학교 양식, **.xls**): `학과명 | 과목코드 | 과목명 | 분반 | 학년 | 결강일(+교시) | 보강일(+교시) | 담당교수 | 사유구분`. 분반 101=A, 102=B, 103=C. .xls는 SheetJS 0.18.5(jsDelivr, 필요할 때만, `xlsToXlsx`)로 읽어 글자로 바꾸거나 .xlsx로 바꿔 시간표 파서에 넣는다. (0.18.5는 npm 마지막 판: 신뢰하지 않는 파일엔 쓰지 말 것 — 학과 자체 파일만 넣는 용도)
+- 알려진 실제 자료 문제(2026-2): 12/15(화)는 수업일 현황상 금요일 14주차인데 보강 목록은 화요일 수업 5건을 12/15에 넣는다. 이 5과목은 보강이 15주차(12/8)보다 뒤라 시험이 12/15로 밀리고, 그날 금요일 시간표(1A·1B 자바스크립트기초, 413호)와 겹침 4건이 난다. 도구는 그대로 겹침으로 보여 준다.
 
 - 시간표 xlsx: '요일' 머리글 칸을 찾고 오른쪽으로 학년·반·1..N 교시. 칸 "과목명(교수)-강의실", 가로 병합 = 연속 교시. 첫 번째로 수업이 읽히는 시트를 쓴다.
 - 수업일 현황 PDF: pdf.js 3.11.174(UMD, jsDelivr)로 글자 조각을 읽어 `pdfItemsToLines()`(같은 높이끼리 묶기) → `parseCalendarText()`. 읽은 결과는 마법사의 텍스트 칸에 보여 주고 사용자가 고칠 수 있다(스캔 PDF 대비).

@@ -332,3 +332,9 @@ body.missing .summary,body.missing .tabs,body.missing main,body.missing #btnRegi
 .callegend i{display:inline-block;width:12px;height:12px;border-radius:3px;vertical-align:-1px}
 .callegend i.sw8{background:#fde8d4;border:1px solid #a14a00} .callegend i.sw15{background:var(--bad-bg);border:1px solid var(--bad)}
 .calhelp{margin:2px;font-size:11.5px;color:var(--muted)}
+
+.mknotice{border:1px solid var(--warn);background:var(--warn-bg);color:var(--ink);border-radius:9px;padding:9px 13px;margin:0 0 12px;font-size:13px}
+.mknotice[hidden]{display:none}
+.mknotice b{color:var(--warn)}
+.mknotice ul{margin:6px 0 0;padding-left:18px}
+.mknotice li b{color:var(--ink)}
