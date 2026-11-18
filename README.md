@@ -1,3 +1,5 @@
+# https://torgeleli22-lang.github.io/ExamScheduleCreate/#board
+
 # 시험 시간표 편성 도구
 
 컴퓨터소프트웨어과 중간고사·기말고사 시간표를 짜기 위한 단일 HTML 도구입니다.
