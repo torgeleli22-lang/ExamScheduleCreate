@@ -1,5 +1,5 @@
 /* ---------- 앱: 공용 UI 상태, 변경 알림, 이벤트 연결, 시작 ---------- */
-const TABS = ['board', 'courses', 'professors', 'history', 'setup'];
+const TABS = ['board', 'courses', 'history', 'setup'];
 const ui = { tab: 'board', filter: { group: '', prof: '', status: '', q: '' }, drawerId: null, reg: null, pending: {}, hist: {}, wiz: null };
 
 /** 지금 계획(S)을 고친 뒤 부른다: 저장 + 다시 그리기. 보관(잠금)된 계획은 저장하지 않는다. */
@@ -100,12 +100,7 @@ function bind() {
   $('#fQ').addEventListener('input', e => { ui.filter.q = e.target.value; renderList(); if (isLocked()) lockControls(); });
   $('#btnCopyTsv').addEventListener('click', () => copyText(listTsv()));
 
-  $('#profGrid').addEventListener('click', e => {
-    const cp = e.target.closest('[data-copy]');
-    if (cp) { copyText(profMessage(cp.dataset.copy), document.getElementById('msg-' + cp.dataset.copy)); return; }
-    const md = e.target.closest('[data-markdone]');
-    if (md && !isLocked()) { for (const c of S.classes) if (c.prof === md.dataset.markdone) S.exams[c.id].done = true; changed(); toast(`${md.dataset.markdone} 교수님 과목을 확정으로 표시했어요.`); }
-  });
+
 
   bindDrawer();
   bindRange();
@@ -138,5 +133,5 @@ function bind() {
 window.__planner = {
   openRegister, saveRegister, get reg() { return ui.reg; }, get state() { return S; }, get store() { return Store; },
   derive, render, conflictsOf, warningsOf, statusOf, counts, freeSlots, itemsOn, buildWorkbook, parseCalendarText, parseTimetableXlsx,
-  parseCalendarPdf, profMessage, openDrawer, changed, switchPlan, openWizard, gh, ghSync,
+  parseCalendarPdf, openDrawer, changed, switchPlan, openWizard, gh, ghSync,
 };

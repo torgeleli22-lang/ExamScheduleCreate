@@ -43,7 +43,7 @@ src/js/*.js           앱 코드. 번들러 없이 scripts/build.mjs 의 JS_ORDE
   store.js            localStorage · claude.ai db 저장
   github.js           GitHub 저장소(data 브랜치) 저장·불러오기·합치기, 기록 탭의 GitHub 카드
   excel.js            엑셀 내보내기 · 파일 저장
-  views.js            render(), 위쪽 선택칸, 요약, 날짜별 배치(주차×요일 판 + 반×교시 자세히), 목록·교수님, 잠금
+  views.js            render(), 위쪽 선택칸, 요약, 날짜별 배치(주차×요일 판 + 반×교시 자세히), 과목 목록, 잠금
   view-range.js       날짜별 배치 기간 고르기 달력(#rangePop): 기간(끌기·두 번 누르기·주차 칸) / 날짜 골라 담기(S.range.days)
   view-setup.js       설정 탭(지금 시험 하나): 자료 다시 넣기(자동 인식), 보강 목록·직접 추가
   view-history.js     학기별 기록 탭, 백업/복원, switchPlan()
@@ -64,7 +64,7 @@ tests/helpers.mjs     vm 로더, 테스트용 xlsx/PDF/한글(makeHwp) 생성, �
 
 - `Store` (저장 단위): `{v:2, plans:{[planId]: Plan}, currentId}`. localStorage 키 `exam-planner:v2`.
 - `Plan` (시험 하나): `{v:2, id:"2027-1-mid", termYear, term(1|2), kind('mid'|'final'), title, dept, year, examWeek, calendar:{cols, weeks}, classes:[...], exams:{[classId]: {method, date(YYYY-MM-DD), start, len, room, note, done}}, extraDates, locked, sources:{timetable, calendar, makeups}, makeups:[...], range:{from,to}, createdAt, updatedAt, rev}`
-  - exam에 `keep: true` = **기존 시간표 수업 진행** 확정(done도 true). 옮기면 풀린다(`isKept(c)` = keep && !isMoved). 방식(필기·시험 없음 등)은 따로 고를 수 있어 "원래 시간에 시험"과 "시험 없이 수업" 둘 다 표현. 엑셀·문구는 `methodLabel(c)`.
+  - exam에 `keep: true` = **기존 시간표 수업 진행** 확정(done도 true). 옮기면 풀린다(`isKept(c)` = keep && !isMoved). 방식(필기·시험 없음 등)은 따로 고를 수 있어 "원래 시간에 시험"과 "시험 없이 수업" 둘 다 표현. 엑셀은 `methodLabel(c)`.
   - makeup: `{id, classId, from(결강일|''), to(보강일), start, end, room, note}`.
   - range: 날짜별 배치 판의 기간 `{from, to}` 또는 특정일 `{from, to, days:[…]}`(판에서 그 날짜만 진하게). 없으면 `defaultRange()` = 시험 주차 날짜들이 들어가는 주(월~토). 읽을 때는 `boardRange()`.
   - 계획마다 시간표·수업일을 **복사본으로** 들고 있다 → 새 학기 업로드가 지난 기록을 바꾸지 않는다.
@@ -110,7 +110,7 @@ tests/helpers.mjs     vm 로더, 테스트용 xlsx/PDF/한글(makeHwp) 생성, �
 ## UI 진입점
 
 - 상단 `#selYear #selTerm #selKind` → `selectExam()`: 있으면 `switchPlan`, 없으면 `ui.missing` + `#createPanel`(탭·본문은 숨김, `body.missing`).
-- 탭: `#board`(날짜별 배치) `#courses`(과목 목록) `#professors`(교수님 확인) `#history`(학기별 기록) `#setup`(설정, 지금 시험만)
+- 탭: `#board`(날짜별 배치) `#courses`(과목 목록) `#history`(학기별 기록) `#setup`(설정, 지금 시험만)
 - 날짜별 배치: `#weekGrid`(`.wcell[data-date]` 안에 `.wcard`; 시험 카드만 `.exam`, 드래그하면 같은 교시로 날짜만 이동) + 날짜를 누르면 `ui.days`에 추가되어 `#board`에 반×교시 `.day[data-day]` 펼침(블록을 교시까지 드래그). `#btnKeepAll` = 옮기지 않고 겹침 없는 과목 모두 keep.
 - 블록 클릭 → `openDrawer(id)` 편집 서랍(즉시 반영). 상단 "시험 일정 등록" → `openRegister()` 폼(미리보기 후 `saveRegister()`로 반영).
 - 보관(잠금)된 계획: `isLocked()`. 모든 수정 진입점이 막혀 있고 `lockControls()`가 입력 칸을 끈다. `changed()`도 잠금이면 저장하지 않는다.
@@ -129,5 +129,6 @@ tests/helpers.mjs     vm 로더, 테스트용 xlsx/PDF/한글(makeHwp) 생성, �
 
 - 저장소 공개 범위 결정(지금 public → 저장한 일정·메모도 공개). private 전환 시 Pages는 GitHub Pro 필요
 - 반별 하루 시험 개수 경고, 교수님 회신 상태 관리
+- 교수님별 안내 문구 탭은 사용자 요청으로 삭제함(문구는 학과에서 직접 보냄). 엑셀 '교수님별' 시트는 유지
 - TypeScript로 옮기기: 지금 파일 경계(util/model/calendar/rules = 순수 로직)를 그대로 ES 모듈 + esbuild로 바꾸면 된다
 - 중간·기말 외 시험 종류(보강 주 등)가 필요하면 `KINDS`에 추가

@@ -35,7 +35,6 @@
   <nav class="tabs" role="tablist" aria-label="보기">
     <button type="button" role="tab" id="tab-btn-board" data-tab="board" aria-selected="true">날짜별 배치</button>
     <button type="button" role="tab" id="tab-btn-courses" data-tab="courses" aria-selected="false">과목 목록</button>
-    <button type="button" role="tab" id="tab-btn-professors" data-tab="professors" aria-selected="false">교수님 확인</button>
     <button type="button" role="tab" id="tab-btn-history" data-tab="history" aria-selected="false">학기별 기록</button>
     <button type="button" role="tab" id="tab-btn-setup" data-tab="setup" aria-selected="false">설정</button>
   </nav>
@@ -73,10 +72,6 @@
         <button type="button" class="btn small" id="btnCopyTsv">표 복사 (엑셀 붙여넣기용)</button>
       </div>
       <div class="tablebox"><table class="listtable" id="listTable"></table></div>
-    </section>
-    <section id="tab-professors" class="tabpanel" role="tabpanel" hidden>
-      <p class="hint" style="margin-bottom:12px">교수님별로 담당 과목 시험 일정을 모았어요. 문구를 복사해서 메일이나 메신저로 확인 요청을 보내세요.</p>
-      <div class="profgrid" id="profGrid"></div>
     </section>
     <section id="tab-history" class="tabpanel" role="tabpanel" hidden>
       <div id="historyBox"></div>

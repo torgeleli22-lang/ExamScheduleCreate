@@ -1,4 +1,4 @@
-/* ---------- 화면: 요약 · 날짜별 배치 · 과목 목록 · 교수님 확인 ---------- */
+/* ---------- 화면: 요약 · 날짜별 배치 · 과목 목록 ---------- */
 const isLocked = () => !!(S && S.locked);
 function render() {
   renderPlanPicker();
@@ -21,7 +21,6 @@ function render() {
   renderSummary();
   if (ui.tab === 'board') renderBoard();
   if (ui.tab === 'courses') renderList();
-  if (ui.tab === 'professors') renderProfs();
   if (ui.tab === 'history') renderHistory();
   if (ui.tab === 'setup') renderSetup();
   if (ui.drawerId) refreshDrawerChecks();
@@ -30,7 +29,7 @@ function render() {
 }
 /** 보관(잠금)된 계획: 입력 칸을 모두 막는다. 탭 이동·필터·복사·내보내기는 그대로 */
 function lockControls() {
-  $$('#listTable input, #listTable select, #drawer input, #drawer select, #drawer textarea, #drawer .slotbtn, #drawer #dReset, #drawer #dToReg, #setupGrid .editable, #profGrid [data-markdone], #btnKeepAll, #rangeBtn, #rangeReset, #createPanel button')
+  $$('#listTable input, #listTable select, #drawer input, #drawer select, #drawer textarea, #drawer .slotbtn, #drawer #dReset, #drawer #dToReg, #setupGrid .editable, #btnKeepAll, #rangeBtn, #rangeReset, #createPanel button')
     .forEach(el => { el.disabled = true; });
 }
 /* 위쪽 학년도·학기·시험 선택칸. 없는 조합을 고르면 ui.missing → 자료 넣기 화면 */
@@ -255,27 +254,4 @@ function renderList() {
   }).join('');
   $('#listTable').innerHTML = `<thead><tr><th>상태</th><th>반</th><th>과목 · 교수</th><th>원래 수업</th><th>방식</th><th>시험 날짜</th><th>시작</th><th>길이</th><th>강의실</th><th>요청사항·메모</th><th>확정</th></tr></thead>
     <tbody>${rows || `<tr><td colspan="11" class="hint">조건에 맞는 과목이 없어요.</td></tr>`}</tbody>`;
-}
-function profMessage(prof) {
-  const list = S.classes.filter(c => c.prof === prof).sort((a, b) => (S.exams[a.id].date || '').localeCompare(S.exams[b.id].date || '') || S.exams[a.id].start - S.exams[b.id].start);
-  const lines = [`[${S.title} 일정 확인]`, `${prof} 교수님, 안녕하세요. ${S.dept} 사무실입니다.`, '담당 과목 시험 일정을 아래와 같이 정리했습니다.', ''];
-  list.forEach((c, i) => {
-    const ex = S.exams[c.id];
-    if (!hasSlot(ex)) lines.push(`${i + 1}) ${c.course} (${groupOf(c)}): ${ex.method}`);
-    else lines.push(`${i + 1}) ${c.course} (${groupOf(c)}): ${fmt(ex.date)} ${pRange(ex.start, ex.len)} ${tRange(ex.start, ex.len)}, ${roomLabel(ex.room)}, ${methodLabel(c) === '미정' ? '시험 방식 미정' : methodLabel(c)}`);
-    if (ex.note) lines.push(`   메모: ${ex.note}`);
-  });
-  lines.push('', '시험 방식이나 시간을 바꾸셔야 하면 회신 부탁드립니다. 감사합니다.');
-  return lines.join('\n');
-}
-function renderProfs() {
-  $('#profGrid').innerHTML = D.profs.map(p => {
-    const list = S.classes.filter(c => c.prof === p);
-    const done = list.filter(c => S.exams[c.id].done).length;
-    const bad = list.filter(c => statusOf(c).bad.length).length;
-    return `<article class="card"><h3>${esc(p)} <small>${list.length}과목 · 확정 ${done}${bad ? ` · <span style="color:var(--bad)">겹침 ${bad}</span>` : ''}</small></h3>
-      <pre class="msg" id="msg-${esc(p)}">${esc(profMessage(p))}</pre>
-      <div class="row"><button type="button" class="btn small" data-copy="${esc(p)}">문구 복사</button>
-      <button type="button" class="btn small" data-markdone="${esc(p)}">이 교수님 과목 모두 확정</button></div></article>`;
-  }).join('');
 }
