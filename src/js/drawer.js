@@ -7,7 +7,8 @@ function openDrawer(id) {
   const dr = $('#drawer');
   dr.innerHTML = `
     <div class="dhead"><div><h2>${esc(c.course)}</h2><p>${esc(groupOf(c))} · ${esc(c.prof)} · 원래 ${esc(c.day)} ${pRange(c.start, lenOf(c))} ${tRange(c.start, lenOf(c))}, ${esc(roomLabel(c.room))}</p>
-      <p>${S.examWeek}주차 기본: ${fmt(defaultDate(c))} · ${S.examWeek - 1}주차 수업 ${fmt(prevDate(c))}</p></div>
+      <p><span class="wk wk-exam">${S.examWeek}주차 수업</span> ${fmt(defaultDate(c))} ${pRange(defaultStart(c), defaultLen(c))}${D.examMakeup[c.id] ? ` (보강, 원래 ${fmt(D.examMakeup[c.id].from)})` : ''} · ${S.examWeek - 1}주차 수업 ${fmt(prevDate(c))}</p>
+      ${isMoved(c) ? `<p class="mvnote">↪ ${S.examWeek}주차 수업을 ${fmt(ex.date)} ${pRange(ex.start, ex.len)}(으)로 옮겼어요</p>` : ''}</div>
       <button type="button" class="btn small" id="dClose" aria-label="닫기">닫기</button></div>
     <div class="dbody">
       <div class="fgrid">
@@ -21,6 +22,10 @@ function openDrawer(id) {
       </div>
       <div class="dsec"><h3>검사 결과</h3><div class="checks" id="dChecks"></div></div>
       <div class="dsec"><h3>겹치지 않는 시간 <span id="dSlotLen"></span></h3><div class="slots" id="dSlots"></div></div>
+      ${hasSlot(ex) ? `<div class="row">${isKept(c)
+        ? `<span class="keepnote">✓ 기존 시간표 수업 진행으로 확정됨</span> <button type="button" class="btn small" id="dKeep">확정 취소</button>`
+        : isMoved(c) ? `<span class="hint">옮긴 과목은 '기존 시간표 수업 진행'으로 확정할 수 없어요. 원래 시간으로 되돌리면 할 수 있어요.</span>`
+        : `<button type="button" class="btn small primary" id="dKeep">기존 시간표 수업 진행으로 확정</button>`}</div>` : ''}
       <div class="row"><button type="button" class="btn small" id="dToReg">시험 일정 등록 창으로</button> <button type="button" class="btn small" id="dReset">${S.examWeek}주차 원래 시간으로 되돌리기</button></div>
     </div>`;
   dr.hidden = false;
@@ -48,6 +53,7 @@ function refreshDrawerChecks() {
 }
 function setExamField(id, f, raw) {
   const ex = S.exams[id]; if (!ex) return;
+  if (f === 'date' || f === 'start') ex.keep = false;
   if (f === 'start' || f === 'len') ex[f] = Math.max(1, Math.min(NP, parseInt(raw, 10) || 1));
   else if (f === 'done') ex.done = !!raw;
   else if (f === 'room') ex.room = String(raw).replace(/호/g, '').trim();
@@ -70,7 +76,7 @@ function openRegister(preId) {
     <div class="dbody">
       <div class="fgrid">
         <label class="field full" for="rCourse"><span>과목</span><select id="rCourse" data-r="id"><option value="">과목 선택</option>${courseOpts}</select></label>
-        ${id ? `<p class="hint full">현재: ${hasSlot(S.exams[id]) ? `${fmt(S.exams[id].date)} ${pRange(S.exams[id].start, S.exams[id].len)} ${tRange(S.exams[id].start, S.exams[id].len)} · ${esc(roomLabel(S.exams[id].room))}` : esc(S.exams[id].method)} · ${S.examWeek}주차 기본 ${fmt(defaultDate(D.byId[id]))} ${pRange(D.byId[id].start, lenOf(D.byId[id]))}</p>` : ''}
+        ${id ? `<p class="hint full">현재: ${hasSlot(S.exams[id]) ? `${fmt(S.exams[id].date)} ${pRange(S.exams[id].start, S.exams[id].len)} ${tRange(S.exams[id].start, S.exams[id].len)} · ${esc(roomLabel(S.exams[id].room))}` : esc(S.exams[id].method)} · ${S.examWeek}주차 기본 ${fmt(defaultDate(D.byId[id]))} ${pRange(defaultStart(D.byId[id]), defaultLen(D.byId[id]))}</p>` : ''}
         <label class="field full" for="rMethod"><span>시험 방식</span><select id="rMethod" data-r="method"${id ? '' : ' disabled'}>${opts(METHODS, r.method || '미정')}</select></label>
         <label class="field full" for="rDate"><span>날짜</span><select id="rDate" data-r="date"${dis}>${dateOptions(r.date)}</select></label>
         <label class="field" for="rStart"><span>시작 교시</span><select id="rStart" data-r="start"${dis}>${opts(range(1, NP), r.start || 1, v => `${v}교시 (${PERIODS[v - 1][0]})`)}</select></label>
@@ -116,6 +122,7 @@ function saveRegister() {
   const c = D.byId[r.id], ex = S.exams[r.id];
   ex.method = r.method; ex.note = r.note || '';
   if (!NO_SLOT.has(r.method)) { ex.date = r.date; ex.start = +r.start; ex.len = +r.len; ex.room = cleanRoom(r.room); }
+  if (isMoved(c)) ex.keep = false;
   changed();
   const n = hasSlot(ex) ? conflictsOf(c, { date: ex.date, start: ex.start, len: ex.len, room: ex.room }).length : 0;
   toast(`${c.course}(${groupOf(c)}) 등록: ${hasSlot(ex) ? `${fmt(ex.date)} ${pRange(ex.start, ex.len)}` : ex.method}${n ? ` · 겹침 ${n}건` : ''}`);
@@ -154,11 +161,17 @@ function bindDrawer() {
     if (isLocked()) return;
     if (e.target.closest('#dToReg')) { openRegister(ui.drawerId); return; }
     if (e.target.closest('#rSave')) { saveRegister(); return; }
-    if (e.target.closest('#rDefault')) { const c = D.byId[ui.reg.id]; Object.assign(ui.reg, { date: defaultDate(c), start: c.start, len: lenOf(c), room: c.room }); openRegisterValues(); return; }
+    if (e.target.closest('#rDefault')) { const c = D.byId[ui.reg.id]; Object.assign(ui.reg, { date: defaultDate(c), start: defaultStart(c), len: defaultLen(c), room: defaultRoom(c) }); openRegisterValues(); return; }
     const rs = e.target.closest('[data-rslot]');
     if (rs) { const [d, st] = rs.dataset.rslot.split('|'); ui.reg.date = d; ui.reg.start = +st; openRegisterValues(); return; }
-    if (e.target.closest('#dReset')) { const c = D.byId[ui.drawerId], ex = S.exams[ui.drawerId]; ex.date = defaultDate(c); ex.start = c.start; ex.len = lenOf(c); ex.room = c.room; changed(); openDrawer(ui.drawerId); return; }
+    if (e.target.closest('#dReset')) { const c = D.byId[ui.drawerId], ex = S.exams[ui.drawerId]; ex.date = defaultDate(c); ex.start = defaultStart(c); ex.len = defaultLen(c); ex.room = defaultRoom(c); changed(); openDrawer(ui.drawerId); return; }
+    if (e.target.closest('#dKeep')) {
+      const c = D.byId[ui.drawerId], ex = S.exams[ui.drawerId];
+      if (isKept(c)) { ex.keep = false; ex.done = false; } else if (!isMoved(c)) { ex.keep = true; ex.done = true; }
+      changed(); openDrawer(ui.drawerId);
+      toast(ex.keep ? `${c.course}(${groupOf(c)}): 기존 시간표 수업 진행으로 확정했어요.` : `${c.course}(${groupOf(c)}) 확정을 취소했어요.`); return;
+    }
     const sb = e.target.closest('[data-slot]');
-    if (sb) { const [d, s] = sb.dataset.slot.split('|'); const ex = S.exams[ui.drawerId]; ex.date = d; ex.start = +s; changed(); openDrawer(ui.drawerId); }
+    if (sb) { const [d, s] = sb.dataset.slot.split('|'); const ex = S.exams[ui.drawerId]; ex.date = d; ex.start = +s; ex.keep = false; changed(); openDrawer(ui.drawerId); }
   });
 }

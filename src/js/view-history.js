@@ -64,7 +64,7 @@ function applyRestore(st) {
 function switchPlan(id) {
   const p = Store.plans[id]; if (!p) return;
   Store.currentId = id; usePlan(p);
-  ui.pending = {}; ui.filter = { group: '', prof: '', status: '', q: '' };
+  ui.pending = {}; ui.filter = { group: '', prof: '', status: '', q: '' }; ui.days = []; ui.rp = null; ui.missing = null; ui.wiz = null;
   closeDrawer(); refreshRoomList(); persistLocal(); render();
 }
 

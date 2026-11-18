@@ -239,3 +239,98 @@ body.locked .blk.exam{cursor:pointer}
 #ghCard code{font-size:12.5px;background:var(--bg);padding:1px 5px;border-radius:4px}
 #ghCard details ol{margin-top:6px}
 a.btn{text-decoration:none;color:inherit;display:inline-block}
+
+/* 시험 선택 · 자료 넣기 */
+.planpick label{display:flex;gap:6px;align-items:center}
+.planpick select{min-width:0}
+body.missing .summary,body.missing .tabs,body.missing main,body.missing #btnRegister,body.missing #btnExport,body.missing #lockBanner{display:none !important}
+.createpanel{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:18px;margin:6px 0 40px;display:flex;flex-direction:column;gap:14px}
+.createpanel[hidden]{display:none}
+.createpanel h2{font-size:19px}
+.dropzone{border:2px dashed var(--line);border-radius:10px;padding:18px;text-align:center;color:var(--muted);display:flex;flex-direction:column;gap:8px;align-items:center}
+.dropzone.over{border-color:var(--accent);background:var(--y2)}
+.filelist{display:flex;flex-direction:column;gap:6px;font-size:13px}
+.filelist .it{display:flex;gap:8px;align-items:baseline;flex-wrap:wrap;border-radius:7px;padding:7px 9px;background:var(--bg)}
+.filelist .it.ok{background:var(--ok-bg)} .filelist .it.bad{background:var(--bad-bg)}
+.filelist .ty{font-weight:700}
+.mklist{font-size:12.5px}
+.mklist td,.mklist th{padding:4px 7px}
+
+/* 주차 × 요일 판 */
+.rangebar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;font-size:13px}
+.rangebar input[type="date"]{border:1px solid var(--line);background:var(--surface);border-radius:7px;padding:4px 7px}
+.chkline{display:flex;gap:5px;align-items:center;color:var(--muted)}
+.weekgrid-wrap{overflow-x:auto;margin-bottom:16px}
+.weekgrid{display:grid;gap:6px;min-width:min-content}
+.wh{font-size:12.5px;color:var(--muted);padding:2px 4px}
+.wh b{color:var(--ink);font-size:14px;display:block}
+.wday{display:flex;align-items:flex-start;justify-content:center;font-weight:700;padding-top:8px}
+.wcell{background:var(--surface);border:1px solid var(--line);border-radius:9px;padding:6px;display:flex;flex-direction:column;gap:4px;min-height:70px;min-width:250px}
+.wcell.out{opacity:.45}
+.wcell.examday{border-color:var(--accent)}
+.wcell.ok{background:var(--ok-bg);box-shadow:inset 0 0 0 2px var(--ok)}
+.wcell.bad{background:var(--bad-bg);box-shadow:inset 0 0 0 2px var(--bad)}
+.wcell.sel{box-shadow:inset 0 0 0 2px var(--accent)}
+.wdate{display:flex;gap:6px;align-items:baseline;flex-wrap:wrap;font-size:12.5px}
+.wdate .linkbtn{font-size:14px}
+.wcard{display:grid;grid-template-columns:auto auto 1fr;gap:1px 6px;align-items:baseline;text-align:left;font-size:12px;line-height:1.35;border-radius:6px;padding:4px 6px;border:1px solid var(--line);background:var(--surface)}
+.wcard .g{font-weight:700}
+.wcard .p{color:var(--muted);white-space:nowrap}
+.wcard .t{font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.wcard .x{grid-column:1/-1;display:flex;flex-wrap:wrap;gap:3px 6px;align-items:center;color:var(--muted);font-size:11.5px}
+.wcard.exam{cursor:grab;touch-action:none;user-select:none;-webkit-user-select:none}
+.wcard.exam.y1{background:var(--y1);border-color:var(--y1s)} .wcard.exam.y2{background:var(--y2);border-color:var(--y2s)} .wcard.exam.y3{background:var(--y3);border-color:var(--y3s)}
+.wcard.exam.bad{border:2px solid var(--bad)}
+.wcard.fixed{background:repeating-linear-gradient(135deg,var(--fixed) 0 6px,transparent 6px 10px);color:var(--fixed-ink)}
+.wcard.fixed .t{font-weight:500}
+.wk{display:inline-block;font-size:11px;font-weight:700;border-radius:4px;padding:0 5px;background:var(--fixed);color:var(--muted);white-space:nowrap}
+.wk.wk-exam{background:var(--accent);color:var(--accent-ink)}
+.wk.wk-mk{background:var(--warn-bg);color:var(--warn);border:1px solid var(--warn)}
+.mvnote{color:var(--warn);font-weight:600}
+.keepnote{color:var(--ok);font-weight:600}
+.badnote{color:var(--bad);font-weight:700}
+body.dragging .wcard{pointer-events:none}
+.wcard.src{opacity:.35}
+.wcard.ghost{position:fixed}
+.daydetail-head{display:flex;gap:10px;align-items:center;justify-content:space-between;margin:4px 0 8px}
+.wcard.fixed{grid-template-columns:auto auto auto 1fr;padding:2px 6px;font-size:11.5px;align-items:center}
+.wcard.fixed .wk{font-size:10.5px}
+.wcard.fixed.mk{background:var(--warn-bg);border-color:var(--warn);color:var(--warn)}
+
+/* 기간 고르기 달력 */
+.rlabel{font-weight:600;color:var(--muted)}
+.rangebtn{font-weight:600}
+.rangebtn::after{content:" ▾";color:var(--muted)}
+.rangebtn[aria-expanded="true"]::after{content:" ▴"}
+.rangepop{background:var(--surface);border:1px solid var(--accent);border-radius:12px;padding:12px 14px;margin:0 0 14px;display:flex;flex-direction:column;gap:8px;box-shadow:0 6px 20px rgba(0,0,0,.08)}
+.rangepop[hidden]{display:none}
+.rtool{display:flex;flex-wrap:wrap;gap:8px 14px;align-items:center;justify-content:space-between}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden}
+.seg button{border:0;background:var(--surface);padding:6px 12px;font-weight:600;color:var(--muted)}
+.seg button[aria-checked="true"]{background:var(--accent);color:var(--accent-ink)}
+.rmonths{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:18px}
+.rmonth h4{margin:0 0 6px;font-size:14px}
+.rgrid{display:grid;grid-template-columns:44px repeat(7,minmax(0,1fr));gap:2px;user-select:none;-webkit-user-select:none;touch-action:none}
+.rhd{font-size:11.5px;color:var(--muted);text-align:center;padding:2px 0}
+.rwk{border:0;background:none;font-size:11px;color:var(--muted);border-radius:6px;padding:0 2px}
+.rwk:hover{background:var(--bg);color:var(--ink)}
+.rday{position:relative;border:1px solid transparent;background:var(--bg);border-radius:6px;min-height:40px;padding:2px 0;display:flex;flex-direction:column;align-items:center;justify-content:center;line-height:1.15;cursor:pointer}
+.rday:hover{border-color:var(--accent)}
+.rday.blank{background:none;cursor:default}
+.rday .dn{font-weight:600;font-size:13px}
+.rday .dl{font-size:10px;color:var(--muted)}
+.rday.sun .dn{color:var(--bad);opacity:.6}
+.rday.nc{background:none;color:var(--muted)}
+.rday.ex{box-shadow:inset 0 -3px 0 var(--accent)}
+.rday.sh .dl{color:var(--warn);font-weight:700}
+.rday.mk::after{content:"";position:absolute;top:4px;right:5px;width:6px;height:6px;border-radius:50%;background:var(--warn)}
+.rday.inr{background:var(--y2)}
+.rday.rs,.rday.re,.rday.pick{background:var(--accent);color:var(--accent-ink)}
+.rday.rs .dl,.rday.re .dl,.rday.pick .dl{color:var(--accent-ink)}
+.rlegend{display:flex;flex-wrap:wrap;gap:12px;font-size:12px}
+.rsw{display:inline-block;width:14px;height:12px;border-radius:3px;vertical-align:-1px;margin-right:4px;background:var(--bg)}
+.rsw.ex{box-shadow:inset 0 -3px 0 var(--accent)} .rsw.sh{background:var(--warn-bg);border:1px solid var(--warn)} .rsw.mk{background:var(--warn);border-radius:50%;width:8px;height:8px} .rsw.nc{background:none;border:1px dashed var(--line)}
+.rdirect input[type="date"]{border:1px solid var(--line);background:var(--surface);border-radius:7px;padding:4px 7px}
+.planpick label{white-space:nowrap}
+.rangebtn{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.rwk{white-space:nowrap}

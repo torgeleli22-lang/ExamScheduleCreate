@@ -1,9 +1,14 @@
 /* ---------- 겹침 · 경고 규칙 ---------- */
 const hasSlot = ex => !NO_SLOT.has(ex.method);
-const isMoved = c => { const ex = S.exams[c.id]; return hasSlot(ex) && (ex.date !== defaultDate(c) || ex.start !== c.start); };
+const isMoved = c => { const ex = S.exams[c.id]; return hasSlot(ex) && (ex.date !== defaultDate(c) || ex.start !== defaultStart(c)); };
+/** 공지·엑셀에 쓰는 방식 글자: '기존 시간표 수업 진행'으로 확정했으면 그것을 앞에 */
+const methodLabel = c => { const ex = S.exams[c.id]; return isKept(c) ? `기존 시간표 수업 진행${ex.method !== '미정' ? ` (${ex.method})` : ''}` : ex.method; };
+/** '기존 시간표 수업 진행'으로 확정했고 그 뒤로 옮기지 않았는지 */
+const isKept = c => !!(S.exams[c.id]?.keep && !isMoved(c));
 
 /* 어떤 날짜에 시간을 차지하는 것 전부.
    - fixed: 그날 열리는 정규 수업 (시험 주차가 아닌 주, 또는 시험 주차여도 시험 시간이 없는 과목은 정상 수업으로 본다)
+   - makeup: 그 날짜로 잡힌 보강 (결강일의 원래 수업은 fixed에서 빠진다)
    - exam:  그 날짜에 배치된 모든 시험 */
 function itemsOn(iso, excludeId) {
   const out = [];
@@ -13,8 +18,15 @@ function itemsOn(iso, excludeId) {
     for (const c of S.classes) {
       if (c.day !== info.col) continue;
       if (examWeekDay && hasSlot(S.exams[c.id])) continue;
+      if (D.cancelled?.has(`${c.id}|${iso}`)) continue;
       out.push({ kind: 'fixed', c, s: c.start, e: c.end, room: c.room, week: info.week });
     }
+  }
+  for (const m of D.makeups || []) {
+    if (m.to !== iso) continue;
+    const c = D.byId[m.classId];
+    if (D.examMakeup[c.id] === m && hasSlot(S.exams[c.id])) continue;   // 시험 주차 보강 = 시험 자리
+    out.push({ kind: 'makeup', c, s: m.start, e: m.end, room: m.room || c.room, week: m.from ? D.dateMap[m.from]?.week : null, from: m.from, m });
   }
   for (const c of S.classes) {
     if (c.id === excludeId) continue;
@@ -54,15 +66,15 @@ function warningsOf(c, p) {
 }
 function describeConflict(x) {
   const it = x.it, o = it.c;
-  const what = it.kind === 'exam' ? '시험' : `${it.week}주차 수업`;
+  const what = it.kind === 'exam' ? '시험' : it.kind === 'makeup' ? `보강(${it.from ? `${fmt(it.from)} 결강분` : '추가'})` : `${it.week}주차 수업`;
   const room = x.kinds.includes('강의실') ? ` · ${roomLabel(it.room)}` : '';
   return `${x.kinds.join('·')} 겹침: ${o.course}(${o.prof}, ${groupOf(o)}) ${what} ${pRange(it.s, it.e - it.s + 1)}${room}`;
 }
 function statusOf(c) {
   const ex = S.exams[c.id];
-  if (!hasSlot(ex)) return { bad: [], warn: [], moved: false, undecided: false, done: !!ex.done, noslot: true };
+  if (!hasSlot(ex)) return { bad: [], warn: [], moved: false, undecided: false, done: !!ex.done, noslot: true, keep: false };
   const p = { date: ex.date, start: ex.start, len: ex.len, room: ex.room };
-  return { bad: conflictsOf(c, p), warn: warningsOf(c, p), moved: isMoved(c), undecided: ex.method === '미정', done: !!ex.done, noslot: false };
+  return { bad: conflictsOf(c, p), warn: warningsOf(c, p), moved: isMoved(c), undecided: ex.method === '미정', done: !!ex.done, noslot: false, keep: isKept(c) };
 }
 /** 시험주차-2 이후 후보 날짜 중 (시험주차-1) 수업일 이후, 토요일 제외, 점심을 걸치지 않고 겹침 0인 시작 교시 */
 function freeSlots(c, len, room) {
@@ -76,7 +88,7 @@ function freeSlots(c, len, room) {
   return out;
 }
 function counts() {
-  let total = 0, bad = 0, warn = 0, moved = 0, und = 0, done = 0, noslot = 0;
+  let total = 0, bad = 0, warn = 0, moved = 0, und = 0, done = 0, noslot = 0, keep = 0;
   for (const c of S.classes) {
     const st = statusOf(c);
     if (st.noslot) { noslot++; if (st.done) done++; continue; }
@@ -86,8 +98,9 @@ function counts() {
     if (st.moved) moved++;
     if (st.undecided) und++;
     if (st.done) done++;
+    if (st.keep) keep++;
   }
-  return { total, bad, warn, moved, und, done, noslot, all: S.classes.length };
+  return { total, bad, warn, moved, und, done, noslot, keep, all: S.classes.length };
 }
 /** 다른 계획의 요약 (기록 탭). 잠깐 S를 바꿔 계산하고 되돌린다. */
 function countsOfPlan(p) {

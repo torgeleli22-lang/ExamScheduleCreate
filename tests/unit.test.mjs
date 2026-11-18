@@ -1,7 +1,7 @@
 // 핵심 규칙 단위 테스트 (브라우저 없음). 실행: npm run test:unit
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { loadCore, SEED } from './helpers.mjs';
+import { loadCore, SEED, makeHwp, MAKEUP_HEAD } from './helpers.mjs';
 
 function seedPlan(core, kind = 'final') {
   return core.makePlan({ termYear: SEED.year, term: 2, kind, dept: SEED.dept, calendar: SEED.calendar, classes: SEED.classes, taken: {} });
@@ -138,4 +138,70 @@ test('GitHub에 올리는 내용에서 브라우저별 값(보던 시험, writer
   assert.equal(out.currentId, undefined);
   assert.equal(out.plans['2026-2-final'].writer, undefined);
   assert.deepEqual(core.toStore(JSON.parse(JSON.stringify(out))).plans['2026-2-final'].classes.length, 50);
+});
+
+// ----- 보강 · 한글 문서 -----
+const MK_ROWS = [
+  ['35382-101', 'JAVA프로그래밍응용', '2', '2026/09/22', '화', '6~8', '2026/12/15', '화', '6~8', '양숙희', '(인)', 'N'],
+  ['35579-103', '커리어디자인(취창업성공전략)', '2', '2026/11/26', '목', '3~4', '2026/12/10', '목', '1~2', '이성욱', '(인)', 'N'],
+  ['35382-102', 'JAVA프로그래밍응용', '2', '2026/12/08', '화', '2~4', '2026/12/22', '화', '2~4', '양숙희', '(인)', 'N'],
+];
+
+test('한글(.hwp) 표를 한 행씩 읽는다 (압축 안 함 / 압축)', async () => {
+  const core = loadCore();
+  for (const compressed of [false, true]) {
+    const buf = makeHwp([MAKEUP_HEAD, ...MK_ROWS], { before: ['보 강 결 과 보 고 서', '2026학년도 2학기 실시한 보강'], compressed });
+    const text = await core.hwpToText(new Uint8Array(buf));
+    const lines = text.split('\n');
+    assert.equal(lines[0], '보 강 결 과 보 고 서');
+    assert.equal(lines[3], MK_ROWS[0].join('\t'));
+    assert.equal(core.classifyText(text), 'makeups');
+  }
+  await assert.rejects(() => core.hwpToText(new Uint8Array(100)), /한글/);
+});
+
+test('보강 짝짓기: 과목코드 끝자리 → 반, 결강 요일·교시로 시간표 수업 찾기', () => {
+  const core = loadCore();
+  const text = MK_ROWS.map(r => r.join('\t')).join('\n') + '\n제출일 2026-11-17';
+  const r = core.parseMakeups(text, SEED.classes, SEED.calendar, 2026);
+  assert.deepEqual(Array.from(r.unmatched), []);
+  const got = r.makeups.map(m => [m.classId, m.from, m.to, m.start, m.end]);
+  assert.deepEqual(JSON.parse(JSON.stringify(got)), [
+    ['화-2A-6', '2026-09-22', '2026-12-15', 6, 8],
+    ['목-2C-3', '2026-11-26', '2026-12-10', 1, 2],      // 시간표 이름 '커리어디자인'과 양식 이름이 달라도
+    ['화-2B-2', '2026-12-08', '2026-12-22', 2, 4],
+  ]);
+  const un = core.parseMakeups('35999-101\t없는과목\t2\t2026/09/22\t화\t6~8\t2026/12/15\t화\t6~8', SEED.classes, SEED.calendar, 2026);
+  assert.equal(un.makeups.length, 0); assert.equal(un.unmatched.length, 1);
+});
+
+test('보강 반영: 보강일엔 수업이 생기고 결강일엔 없어짐, 시험 주차 보강은 기본 시험 시간이 된다', () => {
+  const core = loadCore();
+  const p = seedPlan(core);
+  p.makeups = core.parseMakeups(MK_ROWS.map(r => r.join('\t')).join('\n'), SEED.classes, SEED.calendar, 2026).makeups;
+  core.usePlan(p);
+  const on = d => Array.from(core.itemsOn(d, null)).map(it => `${it.kind}:${it.c.id}`);
+  assert.ok(on('2026-12-15').includes('makeup:화-2A-6'));
+  assert.ok(!on('2026-09-22').includes('fixed:화-2A-6'));
+  assert.ok(on('2026-09-22').includes('fixed:화-1A-2'));
+  // 2B JAVA의 15주차(12/8) 수업이 12/22로 보강됨 → 기본 시험일 12/22, 옮긴 것으로 보지 않음
+  const c = SEED.classes.find(x => x.id === '화-2B-2');
+  assert.equal(core.defaultDate(c), '2026-12-22');
+  assert.equal(p.exams[c.id].date, '2026-12-22');
+  assert.equal(core.statusOf(c).moved, false);
+  assert.ok(!on('2026-12-22').includes('makeup:화-2B-2'));   // 시험 자리라서 고정 보강으로 겹치지 않음
+  assert.ok(on('2026-12-22').includes('exam:화-2B-2'));
+});
+
+test("'기존 시간표 수업 진행' 확정은 옮기면 풀린다", () => {
+  const core = loadCore();
+  core.usePlan(seedPlan(core));
+  const c = SEED.classes[0], ex = core.get('S').exams[c.id];
+  ex.keep = true; ex.done = true;
+  assert.equal(core.statusOf(c).keep, true);
+  assert.equal(core.counts().keep, 1);
+  assert.match(core.methodLabel(c), /^기존 시간표 수업 진행/);
+  ex.start = ex.start + 1;
+  assert.equal(core.statusOf(c).keep, false);
+  assert.equal(core.methodLabel(c), '미정');
 });

@@ -131,3 +131,51 @@ async function parseTimetableXlsx(buf) {
   }
   throw new Error('강의시간표 형식을 찾지 못했어요. "요일·학년·반·교시" 머리글이 있는 시트인지 확인해 주세요.');
 }
+
+/** xlsx 모든 시트 → 글자 (행은 줄, 칸은 탭). 날짜 칸은 "월/일"로 */
+async function xlsxToText(buf) {
+  const ExcelJS = await loadExcelJS();
+  const wb = new ExcelJS.Workbook();
+  await wb.xlsx.load(buf);
+  const cellText = v => {
+    if (v == null) return '';
+    if (v instanceof Date) return `${v.getUTCFullYear()}/${v.getUTCMonth() + 1}/${v.getUTCDate()}`;
+    if (typeof v === 'object') { if (v.richText) return v.richText.map(r => r.text).join(''); if ('result' in v) return cellText(v.result); if (v.text) return String(v.text); return ''; }
+    return String(v);
+  };
+  const lines = [];
+  for (const ws of wb.worksheets) ws.eachRow({ includeEmpty: false }, row => {
+    const vals = []; row.eachCell({ includeEmpty: true }, cell => vals.push(cellText(cell.value).replace(/\s*\n\s*/g, ' ').trim()));
+    if (vals.some(Boolean)) lines.push(vals.join('\t'));
+  });
+  return lines.join('\n');
+}
+
+/**
+ * 파일 하나가 무슨 자료인지 알아낸다.
+ * → { name, type: 'timetable' | 'calendar' | 'makeups' | 'unknown', classes?, sheet?, calendar?, text?, msg }
+ *   timetable: 학과 강의시간표 (xlsx, '요일·학년·반·1~10교시' 머리글)
+ *   calendar:  요일별 수업일 현황 (pdf · hwp · xlsx · 글자)
+ *   makeups:   보강결과보고서·보강 계획 (hwp · xlsx · pdf · 글자). 수업과 짝짓기는 적용할 때 parseMakeups()로.
+ */
+async function recognizeFile(file) {
+  const name = file.name || '파일';
+  const ext = (name.match(/\.([^.]+)$/) || [])[1]?.toLowerCase() || '';
+  const buf = await file.arrayBuffer();
+  let text = '';
+  try {
+    if (ext === 'xlsx' || ext === 'xlsm') {
+      try { const tt = await parseTimetableXlsx(buf); return { name, type: 'timetable', classes: tt.classes, sheet: tt.sheet, msg: `강의시간표 · '${tt.sheet}' 시트에서 수업 ${tt.classes.length}개` }; } catch {}
+      text = await xlsxToText(buf);
+    } else if (ext === 'pdf') text = await pdfToText(buf);
+    else if (ext === 'hwp') text = await hwpToText(new Uint8Array(buf));
+    else if (['txt', 'csv', 'tsv', 'json'].includes(ext) || !ext) text = new TextDecoder().decode(buf);
+    else if (ext === 'xls' || ext === 'hwpx') return { name, type: 'unknown', msg: `.${ext}는 아직 못 읽어요. 엑셀은 .xlsx로, 한글은 .hwp로 다시 저장해 주세요.` };
+    else return { name, type: 'unknown', msg: '읽을 수 없는 파일 형식이에요 (.xlsx, .pdf, .hwp, .txt).' };
+  } catch (err) { return { name, type: 'unknown', msg: err.message || '파일을 읽지 못했어요.' }; }
+  const kind = classifyText(text);
+  if (kind === 'calendar') { const cal = parseCalendarText(text); return { name, type: 'calendar', calendar: cal.data, text: calendarText(cal.data), msg: `요일별 수업일 현황 · ${cal.msg}` }; }
+  if (kind === 'makeups') { const n = text.split(/\r?\n/).filter(l => (l.match(DATE_RE) || []).length >= 1 && (linePeriods(l).length || /\d{5}-\d{3}/.test(l))).length; return { name, type: 'makeups', text, msg: `보강 자료 · ${n}줄` }; }
+  return { name, type: 'unknown', text, msg: text.trim() ? '시간표·수업일 현황·보강 중 어느 것인지 알아보지 못했어요.' : '파일에서 글자를 찾지 못했어요 (스캔한 이미지일 수 있어요).' };
+}
+const TYPE_LABEL = { timetable: '강의시간표', calendar: '요일별 수업일 현황', makeups: '보강', unknown: '알 수 없음' };

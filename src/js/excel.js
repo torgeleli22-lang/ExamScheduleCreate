@@ -48,7 +48,7 @@ async function buildWorkbook() {
       for (const c of blocks) {
         const ex = S.exams[c.id];
         const s = Math.max(1, ex.start), e = Math.min(NP, ex.start + ex.len - 1);
-        const text = `${c.course}(${c.prof})\n${roomLabel(ex.room)}${ex.method !== '미정' ? ' · ' + ex.method : ''}`;
+        const text = `${c.course}(${c.prof})\n${roomLabel(ex.room)}${methodLabel(c) !== '미정' ? ' · ' + methodLabel(c) : ''}`;
         const clashAt = range(s, e).find(p => used[p]);
         if (clashAt) {
           const mc = ws.getCell(r, 4 + used[clashAt]);
@@ -90,7 +90,7 @@ async function buildWorkbook() {
     const row = ls.addRow({
       date: ok && ex.date ? `${+ex.date.split('-')[1]}/${+ex.date.split('-')[2]}` : '', dow: ok && ex.date ? DOW[dowOf(ex.date)] : '',
       per: ok ? pRange(ex.start, ex.len) : '', time: ok ? tRange(ex.start, ex.len) : '', year: c.year, ban: c.ban, course: c.course, prof: c.prof,
-      room: ok ? roomLabel(ex.room) : '', method: ex.method, orig: `${fmt(defaultDate(c))} ${pRange(c.start, lenOf(c))}`,
+      room: ok ? roomLabel(ex.room) : '', method: methodLabel(c), orig: `${fmt(defaultDate(c))} ${pRange(defaultStart(c), defaultLen(c))}`,
       moved: st.moved ? 'O' : '', done: ex.done ? 'O' : '', issues: [...st.bad.map(describeConflict), ...st.warn].join('\n'), note: ex.note });
     row.alignment = { vertical: 'middle', wrapText: true };
     if (st.bad.length) row.getCell('issues').font = F({ color: { argb: 'FFC42B2B' } });
@@ -108,7 +108,7 @@ async function buildWorkbook() {
   for (const c of byProf) {
     const ex = S.exams[c.id], ok = hasSlot(ex);
     ps.addRow({ prof: c.prof, course: c.course, grp: groupOf(c), date: ok ? fmt(ex.date) : '', per: ok ? pRange(ex.start, ex.len) : '', time: ok ? tRange(ex.start, ex.len) : '',
-      room: ok ? roomLabel(ex.room) : '', method: ex.method, done: ex.done ? 'O' : '', note: ex.note }).alignment = { vertical: 'middle', wrapText: true };
+      room: ok ? roomLabel(ex.room) : '', method: methodLabel(c), done: ex.done ? 'O' : '', note: ex.note }).alignment = { vertical: 'middle', wrapText: true };
   }
   ps.getRow(1).font = F({ bold: true }); ps.getRow(1).fill = fill('FFE5E8EE');
   ps.eachRow(row => row.eachCell(cell => { cell.border = border; if (!cell.font || !cell.font.name) cell.font = F(cell.font || {}); }));

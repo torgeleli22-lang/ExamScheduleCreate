@@ -37,16 +37,39 @@ function derive() {
   D.profs = [...new Set(S.classes.map(c => c.prof).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'ko'));
   D.rooms = [...new Set(S.classes.map(c => c.room).filter(Boolean))].sort();
   D.candDates = D.allDates.filter(d => D.dateMap[d].week >= S.examWeek - 2 && dowOf(d) !== 0);
+  deriveMakeups();
   for (const c of S.classes) if (!S.exams[c.id]) S.exams[c.id] = defaultExam(c);
   for (const id of Object.keys(S.exams)) if (!D.byId[id]) delete S.exams[id];
 }
 /** 지금 볼 계획을 정하고 파생값을 다시 계산 */
 function usePlan(p) { S = p; derive(); return S; }
 
-const defaultDate = c => D.colDates[c.day]?.[S.examWeek - 1] || '';
+/* 보강: 결강일의 원래 수업은 없어지고, 보강일·교시에 그 수업이 생긴다.
+   시험 주차 수업이 결강되고 보강됐다면 그 보강 시간이 기본 시험 시간이 된다. */
+function deriveMakeups() {
+  D.makeups = (S.makeups || []).filter(m => D.byId[m.classId] && m.to);
+  D.cancelled = new Set(D.makeups.filter(m => m.from).map(m => `${m.classId}|${m.from}`));
+  D.examMakeup = {};
+  for (const m of D.makeups) {
+    const c = D.byId[m.classId];
+    if (m.from && m.from === D.colDates[c.day]?.[S.examWeek - 1]) D.examMakeup[c.id] = m;
+  }
+}
+/** 이 수업의 시험 주차 수업 날짜 (보강됐으면 보강일) */
+const defaultDate = c => D.examMakeup?.[c.id]?.to || D.colDates[c.day]?.[S.examWeek - 1] || '';
+const defaultStart = c => D.examMakeup?.[c.id]?.start ?? c.start;
+const defaultLen = c => { const m = D.examMakeup?.[c.id]; return m ? m.end - m.start + 1 : lenOf(c); };
+const defaultRoom = c => D.examMakeup?.[c.id]?.room || c.room;
 const prevDate = c => D.colDates[c.day]?.[S.examWeek - 2] || '';
 function defaultExam(c) {
-  return { method: '미정', date: defaultDate(c), start: c.start, len: lenOf(c), room: c.room, note: '', done: false };
+  return { method: '미정', date: defaultDate(c), start: defaultStart(c), len: defaultLen(c), room: defaultRoom(c), note: '', done: false };
+}
+/** 수업일·보강이 바뀐 뒤: 옮기지 않았던 시험은 새 기본 시간으로 따라가게 한다 */
+function rebaseUnmoved(change) {
+  const unmoved = new Set(S.classes.filter(c => S.exams[c.id] && !isMoved(c)).map(c => c.id));
+  change();
+  derive();
+  for (const c of S.classes) if (unmoved.has(c.id)) Object.assign(S.exams[c.id], { date: defaultDate(c), start: defaultStart(c), len: defaultLen(c), room: defaultRoom(c) });
 }
 function dayInfoLabel(iso) {
   const info = D.dateMap[iso];
