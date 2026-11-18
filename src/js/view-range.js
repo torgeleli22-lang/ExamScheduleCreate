@@ -1,36 +1,33 @@
-/* ---------- 날짜별 배치의 기간 고르기 (달력) ----------
-   '기간' 버튼 → 아래에 달력 두 달이 펼쳐진다(#rangePop). 날짜 칸에는 학기 주차·대체 수업일·보강·시험 주차가 작게 보인다.
-   - 기간 모드: 날짜를 끌어서 범위, 또는 시작일·끝일을 차례로 누르기. 줄 왼쪽 주차 칸 = 그 주 월~토.
-   - 날짜 골라 담기 모드: 날짜를 눌러 넣고 빼기, 끌면 지나간 날짜를 한꺼번에(첫 칸이 담겨 있었으면 빼기).
-   고르면 바로 S.range에 저장된다: { from, to } 또는 { from, to, days:[…] } */
+/* ---------- 날짜 선택 달력 (날짜별 배치) ----------
+   '날짜 선택' 버튼 → 한 달 달력(#rangePop).
+   - 8·15주차(시험 주차) 날짜는 다른 색 + 칸 안에 "8주차"/"15주차"
+   - 고르기: 날짜를 누르면 하나씩 넣고 빼기, 끌면 연속으로(첫 칸이 이미 골라져 있었으면 연속으로 빼기),
+     Shift+누르기 = 마지막으로 누른 날부터 여기까지 연속
+   - 아래: [오늘] [시험 주차 날짜] [모두 해제]   [취소] [선택] — '선택'을 눌러야 S.range = {from, to, days}에 저장
+   고른 날짜는 아래 '날짜별 시간표'에 주(월~토)마다 한 줄씩 가로로 나온다. */
 
 const ymOf = iso => iso.slice(0, 7);
 const addMonths = (ym, n) => { const [y, m] = ym.split('-').map(Number); return new Date(Date.UTC(y, m - 1 + n, 1)).toISOString().slice(0, 7); };
-/** 한 달을 월요일부터 시작하는 주 줄들로: [[iso×7], …] (일요일까지) */
-function monthWeeks(ym) {
-  const first = `${ym}-01`, last = addDays(`${addMonths(ym, 1)}-01`, -1), rows = [];
-  for (let m = mondayOf(first); m <= last; m = addDays(m, 7)) rows.push(range(0, 6).map(k => addDays(m, k)));
-  return rows;
-}
+const todayIso = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
 const datesBetween = (a, b) => { const [x, y] = a <= b ? [a, b] : [b, a], out = []; for (let d = x; d <= y; d = addDays(d, 1)) out.push(d); return out; };
-function rangeLabel(r) {
-  if (r.days) return `특정일 ${r.days.length}일 · ${r.days.slice(0, 4).map(d => fmt(d)).join(', ')}${r.days.length > 4 ? ' …' : ''}`;
-  const weeks = Math.round((Date.parse(mondayOf(r.to)) - Date.parse(mondayOf(r.from))) / 6048e5) + 1;
-  return `${fmt(r.from)} ~ ${fmt(r.to)} · ${weeks}주`;
+/** 달력 한 장: 1일이 든 주의 일요일부터 6주(42칸) */
+function calendarCells(ym) {
+  const first = `${ym}-01`;
+  const start = addDays(first, -dowOf(first));
+  return range(0, 41).map(k => addDays(start, k));
 }
-
-/** 끄는 중이면 그 결과를 미리 보여 준다 */
-function rangePreview() {
-  const rp = ui.rp, cur = boardRange();
-  if (rp.mode === 'range') {
-    const a = rp.drag ? rp.drag.start : rp.anchor;
-    if (a && rp.hover) { const [from, to] = a <= rp.hover ? [a, rp.hover] : [rp.hover, a]; return { from, to }; }
-    if (a) return { from: a, to: a };
-    return cur.days ? { from: cur.from, to: cur.to } : cur;
-  }
-  const set = new Set(cur.days || []);
-  if (rp.drag) for (const d of rp.drag.swept) rp.drag.paint === 'add' ? set.add(d) : set.delete(d);
-  return { days: [...set].sort() };
+/** 시험 주차(중간 8주차·기말 15주차, 바꾼 시험 주차 포함) 날짜 → 주차 */
+function examWeekDates() {
+  const weeks = new Set([KINDS.mid.week, KINDS.final.week, S.examWeek]);
+  return new Map(Object.entries(D.dateMap).filter(([, x]) => weeks.has(x.week)).map(([d, x]) => [d, x.week]));
+}
+/** 고른 날짜 요약: 이어진 날은 묶어서 "11/18(수)~11/21(토), 11/23(월) · 5일" */
+function daysLabel(days) {
+  if (!days.length) return '날짜를 골라 주세요';
+  const runs = [];
+  for (const d of days) { const r = runs[runs.length - 1]; if (r && addDays(r[1], 1) === d) r[1] = d; else runs.push([d, d]); }
+  const txt = runs.slice(0, 3).map(([a, b]) => (a === b ? fmt(a) : `${fmt(a)}~${fmt(b)}`)).join(', ');
+  return `${txt}${runs.length > 3 ? ' …' : ''} · ${days.length}일`;
 }
 
 function renderRangePop() {
@@ -39,138 +36,118 @@ function renderRangePop() {
   pop.hidden = !open;
   $('#rangeBtn').setAttribute('aria-expanded', String(open));
   if (!open) return;
-  const sel = rangePreview();
-  const picked = new Set(sel.days || []);
-  const mkTo = new Set((D.makeups || []).map(m => m.to));
-  const month = ym => {
-    const [y, m] = ym.split('-');
-    const rows = monthWeeks(ym).map(row => {
-      const sem = [...new Set(row.map(d => D.dateMap[d]?.week).filter(Boolean))].sort((a, b) => a - b);
-      const wk = `<button type="button" class="rwk" data-wk="${row[0]}" title="이 주 월~토 ${rp.mode === 'range' ? '고르기' : '담기/빼기'}">${sem.length ? `${sem[0]}${sem.length > 1 ? `~${sem[sem.length - 1]}` : ''}주` : '–'}</button>`;
-      return wk + row.map(d => {
-        if (ymOf(d) !== ym) return '<span class="rday blank"></span>';
-        const info = D.dateMap[d], real = DOW[dowOf(d)];
-        const shifted = info && info.col !== real;
-        const cls = ['rday', dowOf(d) === 0 ? 'sun' : '', info ? '' : 'nc', info && info.week === S.examWeek ? 'ex' : '', shifted ? 'sh' : '', mkTo.has(d) ? 'mk' : ''];
-        if (sel.days) { if (picked.has(d)) cls.push('pick'); }
-        else if (d >= sel.from && d <= sel.to) cls.push('inr', d === sel.from ? 'rs' : '', d === sel.to ? 're' : '');
-        const tip = [fmt(d), info ? `${info.col}요일 시간표 ${info.week}주차${shifted ? ` (${real}요일에 ${info.col}요일 수업)` : ''}` : '수업일 현황에 없는 날',
-          info && info.week === S.examWeek ? '시험 주차' : '', mkTo.has(d) ? '보강 있음' : ''].filter(Boolean).join(' · ');
-        const lab = info ? (shifted ? `${info.col}${info.week}` : `${info.week}주`) : '';
-        return `<button type="button" class="${cls.filter(Boolean).join(' ')}" data-d="${d}" title="${esc(tip)}"><span class="dn">${+d.slice(8)}</span><span class="dl">${esc(lab)}</span></button>`;
-      }).join('');
-    }).join('');
-    return `<div class="rmonth"><h4>${y}년 ${+m}월</h4><div class="rgrid"><span class="rhd">주차</span>${['월', '화', '수', '목', '금', '토', '일'].map(x => `<span class="rhd">${x}</span>`).join('')}${rows}</div></div>`;
-  };
-  const r = boardRange();
-  const hint = rp.mode === 'range'
-    ? (rp.anchor ? `${fmt(rp.anchor)}부터 — 끝 날짜를 누르세요.` : '날짜를 끌어서 기간을 잡거나, 시작일과 끝일을 차례로 누르세요. 왼쪽 주차 칸을 누르면 그 주(월~토)가 잡혀요.')
-    : '보고 싶은 날짜만 눌러서 담으세요. 끌면 지나간 날짜를 한꺼번에 담거나 빼요. 판에는 담은 날짜만 진하게 보여요.';
+  const sel = new Set(rp.days);
+  if (rp.drag && rp.drag.moved) for (const d of rp.drag.swept) rp.drag.paint === 'add' ? sel.add(d) : sel.delete(d);
+  const ex = examWeekDates(), today = todayIso(), mk = new Set((D.makeups || []).map(m => m.to));
+  const [y, m] = rp.month.split('-').map(Number);
+  const years = range(Math.min(y, S.year) - 1, Math.max(y, S.year) + 1);
+  const cells = calendarCells(rp.month);
+  const html = cells.map((d, i) => {
+    const info = D.dateMap[d], real = DOW[dowOf(d)];
+    const cls = ['cday'];
+    if (ymOf(d) !== rp.month) cls.push('other');
+    if (ex.has(d)) cls.push('exam', `w${ex.get(d)}`);
+    if (d === today) cls.push('today');
+    if (mk.has(d)) cls.push('mk');
+    if (sel.has(d)) {
+      cls.push('pick');
+      if (i % 7 && sel.has(cells[i - 1])) cls.push('jl');          // 왼쪽 날도 골랐으면 띠로 잇기
+      if (i % 7 !== 6 && sel.has(cells[i + 1])) cls.push('jr');
+    }
+    const tip = [fmt(d), info ? `${info.col}요일 시간표 ${info.week}주차${info.col !== real ? ` (${real}요일에 ${info.col}요일 수업)` : ''}` : '수업일 아님',
+      mk.has(d) ? '보강 있음' : '', d === today ? '오늘' : ''].filter(Boolean).join(' · ');
+    return `<button type="button" class="${cls.join(' ')}" data-d="${d}" title="${esc(tip)}"><span class="n">${+d.slice(8)}</span>${ex.has(d) ? `<span class="wkl">${ex.get(d)}주차</span>` : ''}</button>`;
+  }).join('');
+  const days = [...sel].sort();
   pop.innerHTML = `
-    <div class="rtool">
-      <div class="seg" role="radiogroup" aria-label="고르는 방법">
-        <button type="button" role="radio" aria-checked="${rp.mode === 'range'}" data-mode="range">기간</button>
-        <button type="button" role="radio" aria-checked="${rp.mode === 'days'}" data-mode="days">날짜 골라 담기</button>
+    <div class="calhead">
+      <button type="button" class="calnav" data-nav="-1" aria-label="이전 달">‹</button>
+      <div class="calym">
+        <select id="calYear" aria-label="연도">${years.map(v => `<option value="${v}"${v === y ? ' selected' : ''}>${v}년</option>`).join('')}</select>
+        <select id="calMonth" aria-label="월">${range(1, 12).map(v => `<option value="${v}"${v === m ? ' selected' : ''}>${v}월</option>`).join('')}</select>
       </div>
-      <div class="row">
-        <button type="button" class="btn small" data-nav="-1" aria-label="이전 달">‹</button>
-        <button type="button" class="btn small" data-nav="1" aria-label="다음 달">›</button>
-        <button type="button" class="btn small" data-preset="exam">시험 주차에 맞추기</button>
-        <button type="button" class="btn small" data-preset="widen">앞뒤 1주 넓히기</button>
-        ${r.days ? '<button type="button" class="btn small" data-preset="clear">담은 날짜 모두 빼기</button>' : ''}
-        <button type="button" class="btn small primary" data-close>닫기</button>
-      </div>
+      <button type="button" class="calnav" data-nav="1" aria-label="다음 달">›</button>
     </div>
-    <p class="hint">${esc(hint)}</p>
-    <div class="rmonths">${month(rp.month)}${month(addMonths(rp.month, 1))}</div>
-    <div class="rlegend hint"><span><i class="rsw ex"></i>시험 주차</span><span><i class="rsw sh"></i>다른 요일 수업일(대체)</span><span><i class="rsw mk"></i>보강 있음</span><span><i class="rsw nc"></i>수업일 아님</span></div>
-    ${rp.mode === 'range' ? `<div class="row rdirect"><span class="hint">직접 입력</span><input type="date" id="rangeFrom" value="${esc(r.from)}"> ~ <input type="date" id="rangeTo" value="${esc(r.to)}"></div>` : ''}`;
+    <div class="calgrid">
+      ${['일', '월', '화', '수', '목', '금', '토'].map(x => `<span class="cdow">${x}</span>`).join('')}
+      ${html}
+    </div>
+    <p class="calsel">${esc(daysLabel(days))}</p>
+    <p class="callegend"><span><i class="sw8"></i> 8주차</span><span><i class="sw15"></i> 15주차</span><span>(시험 주차)</span></p>
+    <p class="calhelp">누르면 하나씩 · 끌면 연속 · Shift+누르기 = 이어서</p>
+    <div class="calquick"><button type="button" class="linkbtn" data-today>오늘</button><button type="button" class="linkbtn" data-examdays>${S.examWeek}주차 날짜 모두</button><button type="button" class="linkbtn" data-clear>모두 해제</button></div>
+    <div class="calfoot">
+      <span class="hint">${days.length}일 골랐어요</span>
+      <span class="row"><button type="button" class="btn small" data-cancel>취소</button><button type="button" class="btn small primary" data-apply${days.length ? '' : ' disabled'}>선택</button></span>
+    </div>`;
 }
 
 function openRangePop() {
   const r = boardRange();
-  ui.rp = { open: true, mode: r.days ? 'days' : 'range', month: ymOf(r.from), anchor: null, hover: null, drag: null };
+  // 직접 고른 적이 있으면 그 날짜들을 이어서 고치고, 처음이면 빈 상태로 (시험 주차 달이 보이게)
+  ui.rp = { open: true, month: ymOf(r.days ? r.days[0] : r.from), days: S.range ? stripDates() : [], last: null, drag: null };
   renderRangePop();
 }
-function closeRangePop() { if (ui.rp) ui.rp.open = false; ui.rp && (ui.rp.anchor = ui.rp.drag = null); renderRangePop(); }
-function commitRange(a, b) {
-  const [from, to] = a <= b ? [a, b] : [b, a];
-  S.range = { from, to }; changed();
-}
-function commitDays(days) {
-  const ds = [...new Set(days)].sort();
-  if (!ds.length) delete S.range; else S.range = { from: ds[0], to: ds[ds.length - 1], days: ds };
+function closeRangePop() { if (ui.rp) ui.rp.open = false; renderRangePop(); }
+function applyRangePop() {
+  const rp = ui.rp; if (!rp?.days.length) return;
+  const ds = [...new Set(rp.days)].sort();
+  rp.open = false;
+  S.range = { from: ds[0], to: ds[ds.length - 1], days: ds };
   changed();
 }
 
 function bindRange() {
   $('#rangeBtn').addEventListener('click', () => { if (isLocked()) return; ui.rp?.open ? closeRangePop() : openRangePop(); });
   const pop = $('#rangePop');
-  const dayAt = (x, y) => { const el = document.elementFromPoint(x, y); const b = el && el.closest ? el.closest('#rangePop .rday[data-d]') : null; return b ? b.dataset.d : null; };
+  document.addEventListener('pointerdown', e => {   // 바깥을 누르면 취소하고 닫기
+    if (!ui.rp?.open || e.target.closest('#rangePop, #rangeBtn')) return;
+    closeRangePop();
+  });
+  const dayAt = (x, y) => { const el = document.elementFromPoint(x, y); const b = el && el.closest ? el.closest('#rangePop .cday[data-d]') : null; return b ? b.dataset.d : null; };
   const onMove = e => {
     const rp = ui.rp; if (!rp?.drag) return;
     const d = dayAt(e.clientX, e.clientY);
-    if (!d || d === rp.hover) return;
-    rp.hover = d; rp.drag.moved = true;
-    if (rp.mode === 'days') rp.drag.swept = datesBetween(rp.drag.start, d).filter(x => dowOf(x) !== 0);
+    if (!d || d === rp.drag.cur) return;
+    rp.drag.cur = d; rp.drag.moved = true;
+    rp.drag.swept = datesBetween(rp.drag.from, d).filter(x => dowOf(x) !== 0);
     renderRangePop();
   };
   const onUp = () => {
     window.removeEventListener('pointermove', onMove); window.removeEventListener('pointerup', onUp);
     const rp = ui.rp; if (!rp?.drag) return;
     const dr = rp.drag; rp.drag = null;
-    if (rp.mode === 'range') {
-      if (dr.moved) { rp.anchor = null; commitRange(dr.start, rp.hover); }
-      else { rp.anchor = dr.start; rp.hover = null; renderRangePop(); }   // 끝 날짜를 기다림
-      return;
-    }
-    const cur = new Set(boardRange().days || []);
-    for (const d of dr.swept) dr.paint === 'add' ? cur.add(d) : cur.delete(d);
-    rp.hover = null;
-    commitDays([...cur]);
+    const set = new Set(rp.days);
+    if (dr.moved) for (const d of dr.swept) dr.paint === 'add' ? set.add(d) : set.delete(d);
+    else if (dr.shift && rp.last) for (const d of datesBetween(rp.last, dr.from).filter(x => dowOf(x) !== 0)) set.add(d);
+    else set.has(dr.from) ? set.delete(dr.from) : set.add(dr.from);
+    rp.days = [...set].sort();
+    rp.last = dr.cur;
+    renderRangePop();
   };
   pop.addEventListener('pointerdown', e => {
-    const b = e.target.closest('.rday[data-d]'); if (!b || e.button !== 0 || isLocked()) return;
+    const b = e.target.closest('.cday[data-d]'); if (!b || e.button !== 0) return;
     e.preventDefault();
     const rp = ui.rp, d = b.dataset.d;
-    if (rp.mode === 'range' && rp.anchor) { const a = rp.anchor; rp.anchor = null; rp.hover = null; commitRange(a, d); return; }
-    const picked = (boardRange().days || []).includes(d);
-    rp.drag = { start: d, moved: false, paint: picked ? 'remove' : 'add', swept: [d] };
-    rp.hover = d;
-    renderRangePop();
+    rp.drag = { from: d, cur: d, moved: false, shift: e.shiftKey, swept: [d], paint: rp.days.includes(d) ? 'remove' : 'add' };
     window.addEventListener('pointermove', onMove);
     window.addEventListener('pointerup', onUp);
   });
   pop.addEventListener('click', e => {
-    const rp = ui.rp; if (!rp || isLocked()) return;
-    const t = e.target;
-    if (t.closest('[data-close]')) { closeRangePop(); return; }
-    const md = t.closest('[data-mode]');
-    if (md) { rp.mode = md.dataset.mode; rp.anchor = null; renderRangePop(); return; }
-    const nv = t.closest('[data-nav]');
-    if (nv) { rp.month = addMonths(rp.month, +nv.dataset.nav); renderRangePop(); return; }
-    const ps = t.closest('[data-preset]');
-    if (ps) {
-      const p = ps.dataset.preset;
-      if (p === 'exam') { delete S.range; rp.mode = 'range'; changed(); rp.month = ymOf(boardRange().from); renderRangePop(); }
-      else if (p === 'widen') { const r = boardRange(); commitRange(addDays(mondayOf(r.from), -7), addDays(mondayOf(r.to), 12)); rp.mode = 'range'; renderRangePop(); }
-      else if (p === 'clear') commitDays([]);
-      return;
+    const rp = ui.rp; if (!rp) return;
+    if (e.target.closest('[data-cancel]')) { closeRangePop(); return; }
+    if (e.target.closest('[data-apply]')) { applyRangePop(); return; }
+    if (e.target.closest('[data-clear]')) { rp.days = []; renderRangePop(); return; }
+    if (e.target.closest('[data-today]')) { const t = todayIso(); rp.month = ymOf(t); if (!rp.days.includes(t) && dowOf(t) !== 0) rp.days = [...rp.days, t].sort(); renderRangePop(); return; }
+    if (e.target.closest('[data-examdays]')) {
+      const ds = Object.entries(D.dateMap).filter(([, x]) => x.week === S.examWeek).map(([d]) => d).sort();
+      rp.days = [...new Set([...rp.days, ...ds])].sort(); if (ds[0]) rp.month = ymOf(ds[0]); renderRangePop(); return;
     }
-    const wk = t.closest('[data-wk]');
-    if (wk) {
-      const days = range(0, 5).map(k => addDays(wk.dataset.wk, k));
-      if (rp.mode === 'range') { rp.anchor = null; commitRange(days[0], days[5]); return; }
-      const cur = new Set(boardRange().days || []);
-      const all = days.every(d => cur.has(d));
-      days.forEach(d => all ? cur.delete(d) : cur.add(d));
-      commitDays([...cur]);
-    }
+    const nv = e.target.closest('[data-nav]');
+    if (nv) { rp.month = addMonths(rp.month, +nv.dataset.nav); renderRangePop(); }
   });
   pop.addEventListener('change', e => {
-    if (e.target.id !== 'rangeFrom' && e.target.id !== 'rangeTo') return;
-    const from = $('#rangeFrom').value, to = $('#rangeTo').value;
-    if (!from || !to || isLocked()) return;
-    commitRange(from, to);
+    const rp = ui.rp; if (!rp) return;
+    if (e.target.id === 'calYear' || e.target.id === 'calMonth') { rp.month = `${$('#calYear').value}-${String($('#calMonth').value).padStart(2, '0')}`; renderRangePop(); }
   });
 }

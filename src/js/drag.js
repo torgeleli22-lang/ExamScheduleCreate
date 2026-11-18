@@ -1,12 +1,10 @@
-/* ---------- 날짜별 배치 화면 드래그 (pointer 이벤트, 같은 반 줄 안에서만, 가장자리 자동 스크롤) ---------- */
+/* ---------- 날짜별 시간표 드래그 (pointer 이벤트, 같은 반 줄 안에서만, 위아래·좌우 가장자리 자동 스크롤) ---------- */
 let drag = null;
-function clearHighlight() { $$('.cell.ok,.cell.bad,.wcell.ok,.wcell.bad').forEach(el => el.classList.remove('ok', 'bad')); }
+function clearHighlight() { $$('.cell.ok,.cell.bad').forEach(el => el.classList.remove('ok', 'bad')); }
 function dragTarget(x, y) {
   const el = document.elementFromPoint(x, y);
   const cell = el && el.closest ? el.closest('.cell') : null;
   if (cell) return { date: cell.dataset.date, group: cell.dataset.group, p: +cell.dataset.p, track: cell.parentElement };
-  const wc = el && el.closest ? el.closest('.wcell') : null;   // 주차×요일 판의 날짜 칸: 같은 교시 그대로 날짜만 옮김
-  if (wc) return { date: wc.dataset.date, whole: true, el: wc };
   return null;
 }
 function onDragMove(e) {
@@ -35,6 +33,15 @@ function autoScroll() {
   let dy = 0;
   if (y < edge) dy = -Math.ceil((edge - y) / 3); else if (y > window.innerHeight - edge) dy = Math.ceil((y - (window.innerHeight - edge)) / 3);
   if (dy) { const before = window.scrollY; window.scrollBy(0, dy); if (window.scrollY !== before) updateTarget(drag.lastX, drag.lastY); }
+  // 날짜별 시간표의 주 줄(가로): 좌우 가장자리로 끌면 옆 날짜로 넘어감
+  const strip = [...document.querySelectorAll('#board .weekdays')].find(el => { const r = el.getBoundingClientRect(); return y >= r.top && y <= r.bottom; });
+  const sr = strip && strip.getBoundingClientRect();
+  if (sr) {
+    const x = drag.lastX, hedge = 70;
+    let dx = 0;
+    if (x < sr.left + hedge) dx = -Math.ceil((sr.left + hedge - x) / 6); else if (x > sr.right - hedge) dx = Math.ceil((x - (sr.right - hedge)) / 6);
+    if (dx) { const b = strip.scrollLeft; strip.scrollLeft += dx; if (strip.scrollLeft !== b) updateTarget(drag.lastX, drag.lastY); }
+  }
   drag.raf = requestAnimationFrame(autoScroll);
 }
 function updateTarget(x, y) {
@@ -45,14 +52,7 @@ function updateTarget(x, y) {
   const c = D.byId[drag.id], ex = S.exams[drag.id];
   drag.target = null;
   if (!t) { tip.hidden = true; return; }
-  if (t.whole) {
-    const place = { date: t.date, start: ex.start, len: ex.len, room: ex.room };
-    const cf = conflictsOf(c, place), wn = warningsOf(c, place);
-    t.el.classList.add(cf.length ? 'bad' : 'ok');
-    drag.target = place;
-    tip.hidden = false;
-    tip.textContent = `${fmt(t.date)} ${pRange(ex.start, ex.len)} ${tRange(ex.start, ex.len)}` + (cf.length ? '\n' + cf.map(describeConflict).join('\n') : ' · 겹침 없음') + (wn.length ? '\n' + wn.join('\n') : '');
-  } else if (t.group !== groupOf(c)) {
+  if (t.group !== groupOf(c)) {
     tip.hidden = false; tip.textContent = `${groupOf(c)} 줄 안에서만 옮길 수 있어요`;
   } else {
     const start = Math.max(1, Math.min(NP - ex.len + 1, t.p - drag.grabP));

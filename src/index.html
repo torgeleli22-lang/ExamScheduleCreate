@@ -35,7 +35,6 @@
   <nav class="tabs" role="tablist" aria-label="보기">
     <button type="button" role="tab" id="tab-btn-board" data-tab="board" aria-selected="true">날짜별 배치</button>
     <button type="button" role="tab" id="tab-btn-courses" data-tab="courses" aria-selected="false">과목 목록</button>
-    <button type="button" role="tab" id="tab-btn-professors" data-tab="professors" aria-selected="false">교수님 확인</button>
     <button type="button" role="tab" id="tab-btn-history" data-tab="history" aria-selected="false">학기별 기록</button>
     <button type="button" role="tab" id="tab-btn-setup" data-tab="setup" aria-selected="false">설정</button>
   </nav>
@@ -43,24 +42,25 @@
     <section id="tab-board" class="tabpanel" role="tabpanel">
       <div class="boardbar">
         <div class="rangebar">
-          <span class="rlabel">기간</span>
-          <button type="button" class="btn small rangebtn" id="rangeBtn" aria-expanded="false" aria-controls="rangePop"></button>
+          <div class="datefield-wrap">
+            <button type="button" class="btn primary datebtn" id="rangeBtn" aria-haspopup="dialog" aria-expanded="false" aria-controls="rangePop"><svg viewBox="0 0 24 24" width="17" height="17" aria-hidden="true"><rect x="3.5" y="5" width="17" height="15" rx="2" fill="none" stroke="currentColor" stroke-width="1.7"/><path d="M3.5 9.5h17M8 3v4M16 3v4" stroke="currentColor" stroke-width="1.7" fill="none" stroke-linecap="round"/></svg>날짜 선택</button>
+            <section id="rangePop" class="calpop" hidden role="dialog" aria-label="날짜 선택 달력"></section>
+          </div>
+          <span class="rangetext" id="rangeText"></span>
           <button type="button" class="btn small" id="rangeReset">시험 주차에 맞추기</button>
           <label class="chkline"><input type="checkbox" id="showFixed" checked> 다른 주차 수업·보강도 보기</label>
         </div>
         <button type="button" class="btn small" id="btnKeepAll"></button>
       </div>
-      <section id="rangePop" class="rangepop" hidden aria-label="기간 고르기 달력"></section>
-      <p class="hint" style="margin-bottom:8px">시험 주차 수업 카드를 다른 날짜 칸으로 끌어서 옮기세요 (같은 교시로 옮겨져요). 카드를 누르면 교시·방식을 바꾸거나 '기존 시간표 수업 진행'으로 확정할 수 있고, 날짜를 누르면 반×교시 시간표가 아래에 펼쳐져요.</p>
-      <div class="legend" style="margin-bottom:10px">
+      <div class="striphead"><h3>날짜별 시간표</h3><p class="hint">고른 날짜를 주마다 한 줄씩 보여 줘요. 시험 블록을 다른 날짜·교시로 끌어서 옮기세요(같은 반 줄 안에서). 끄는 중에 줄의 좌우 가장자리로 가면 자동으로 넘어가요. 블록을 누르면 방식·확정을 고를 수 있어요.</p></div>
+      <div class="legend" style="margin-bottom:8px">
         <span><i class="sw y1"></i>1학년</span><span><i class="sw y2"></i>2학년</span><span><i class="sw y3"></i>3학년</span>
         <span><span class="wk wk-exam">15주차</span> 시험 주차 수업(옮길 수 있음)</span>
         <span><span class="wk">14주차</span> 다른 주차 수업(고정)</span>
         <span><span class="wk wk-mk">보강</span> 보강 수업(고정)</span>
         <span><i class="sw bd"></i>겹침</span>
       </div>
-      <div class="weekgrid-wrap"><div id="weekGrid" class="weekgrid"></div></div>
-      <div class="board" id="board"></div>
+      <div class="dayrows" id="board"></div>
     </section>
     <section id="tab-courses" class="tabpanel" role="tabpanel" hidden>
       <div class="filters">
@@ -73,10 +73,6 @@
         <button type="button" class="btn small" id="btnCopyTsv">표 복사 (엑셀 붙여넣기용)</button>
       </div>
       <div class="tablebox"><table class="listtable" id="listTable"></table></div>
-    </section>
-    <section id="tab-professors" class="tabpanel" role="tabpanel" hidden>
-      <p class="hint" style="margin-bottom:12px">교수님별로 담당 과목 시험 일정을 모았어요. 문구를 복사해서 메일이나 메신저로 확인 요청을 보내세요.</p>
-      <div class="profgrid" id="profGrid"></div>
     </section>
     <section id="tab-history" class="tabpanel" role="tabpanel" hidden>
       <div id="historyBox"></div>
