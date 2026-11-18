@@ -8,6 +8,8 @@ const NO_SLOT = new Set(['과제 대체','시험 없음']);
 /** 시험 종류. week = 기본 시험 주차 (계획마다 설정에서 바꿀 수 있음) */
 const KINDS = { mid: { label: '중간고사', week: 8 }, final: { label: '기말고사', week: 15 } };
 const EXCELJS_URL = 'https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js';
+// 옛 엑셀(.xls)만 SheetJS로 읽는다 (그 밖의 엑셀은 ExcelJS)
+const SHEETJS_URL = 'https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js';
 const PDFJS_URL = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js';
 const PDFJS_WORKER_URL = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.min.js';
 

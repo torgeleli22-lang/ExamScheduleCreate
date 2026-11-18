@@ -14,6 +14,17 @@ function loadScript(url, globalName, failMsg) {
   return libP[url];
 }
 const loadExcelJS = () => loadScript(EXCELJS_URL, 'ExcelJS', '엑셀 기능을 불러오지 못했어요.');
+const loadSheetJS = () => loadScript(SHEETJS_URL, 'XLSX', '옛 엑셀(.xls) 읽기 기능을 불러오지 못했어요.');
+
+/** 옛 엑셀(.xls, BIFF) → { xlsx: 같은 내용의 .xlsx 바이트(병합 칸 유지), text: 행은 줄·칸은 탭 } */
+async function xlsToXlsx(buf) {
+  const XLSX = await loadSheetJS();
+  const wb = XLSX.read(new Uint8Array(buf), { type: 'array', cellDates: false });
+  const text = wb.SheetNames.map(n => XLSX.utils.sheet_to_json(wb.Sheets[n], { header: 1, raw: false, defval: '' })
+    .map(r => r.map(v => String(v ?? '').replace(/\s*\n\s*/g, ' ').trim()).join('\t')).filter(l => l.replace(/\t/g, '').trim()).join('\n')).join('\n');
+  const xlsx = XLSX.write(wb, { type: 'array', bookType: 'xlsx' });
+  return { xlsx, text };
+}
 async function loadPdfJs() {
   const lib = await loadScript(PDFJS_URL, 'pdfjsLib', 'PDF 읽기 기능을 불러오지 못했어요.');
   if (!lib.GlobalWorkerOptions.workerSrc) lib.GlobalWorkerOptions.workerSrc = PDFJS_WORKER_URL;
@@ -156,7 +167,7 @@ async function xlsxToText(buf) {
  * → { name, type: 'timetable' | 'calendar' | 'makeups' | 'unknown', classes?, sheet?, calendar?, text?, msg }
  *   timetable: 학과 강의시간표 (xlsx, '요일·학년·반·1~10교시' 머리글)
  *   calendar:  요일별 수업일 현황 (pdf · hwp · xlsx · 글자)
- *   makeups:   보강결과보고서·보강 계획 (hwp · xlsx · pdf · 글자). 수업과 짝짓기는 적용할 때 parseMakeups()로.
+ *   makeups:   보강결과보고서·보강 신청 목록 (hwp · xls · xlsx · pdf · 글자). 수업과 짝짓기는 적용할 때 parseMakeups()로.
  */
 async function recognizeFile(file) {
   const name = file.name || '파일';
@@ -170,8 +181,13 @@ async function recognizeFile(file) {
     } else if (ext === 'pdf') text = await pdfToText(buf);
     else if (ext === 'hwp') text = await hwpToText(new Uint8Array(buf));
     else if (['txt', 'csv', 'tsv', 'json'].includes(ext) || !ext) text = new TextDecoder().decode(buf);
-    else if (ext === 'xls' || ext === 'hwpx') return { name, type: 'unknown', msg: `.${ext}는 아직 못 읽어요. 엑셀은 .xlsx로, 한글은 .hwp로 다시 저장해 주세요.` };
-    else return { name, type: 'unknown', msg: '읽을 수 없는 파일 형식이에요 (.xlsx, .pdf, .hwp, .txt).' };
+    else if (ext === 'xls') {
+      const conv = await xlsToXlsx(buf);
+      try { const tt = await parseTimetableXlsx(conv.xlsx); return { name, type: 'timetable', classes: tt.classes, sheet: tt.sheet, msg: `강의시간표 · '${tt.sheet}' 시트에서 수업 ${tt.classes.length}개` }; } catch {}
+      text = conv.text;
+    }
+    else if (ext === 'hwpx') return { name, type: 'unknown', msg: '.hwpx는 아직 못 읽어요. 한글에서 .hwp로 다시 저장해 주세요.' };
+    else return { name, type: 'unknown', msg: '읽을 수 없는 파일 형식이에요 (.xlsx, .xls, .pdf, .hwp, .txt).' };
   } catch (err) { return { name, type: 'unknown', msg: err.message || '파일을 읽지 못했어요.' }; }
   const kind = classifyText(text);
   if (kind === 'calendar') { const cal = parseCalendarText(text); return { name, type: 'calendar', calendar: cal.data, text: calendarText(cal.data), msg: `요일별 수업일 현황 · ${cal.msg}` }; }

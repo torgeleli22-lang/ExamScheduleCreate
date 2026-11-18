@@ -2,7 +2,7 @@
 // Chromium 경로를 지정하려면 CHROME=/path/to/chrome
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
-import { SEED, launch, openApp, makeTimetableXlsx, makeCalendarPdf, makeHwp, MAKEUP_HEAD, download, readXlsx } from './helpers.mjs';
+import { SEED, launch, openApp, makeTimetableXlsx, makeCalendarPdf, makeHwp, MAKEUP_HEAD, makeMakeupXls, download, readXlsx } from './helpers.mjs';
 
 let browser;
 before(async () => { browser = await launch(); });
@@ -152,8 +152,10 @@ test('새 학기: 학년도·학기·시험 고르기 → 파일 한꺼번에 �
   assert.deepEqual(st.ids, ['2026-2-final', '2027-1-final', '2027-1-mid']);
   assert.equal(st.cur, '2027-1-mid'); assert.equal(st.week, 8); assert.equal(st.n, 50); assert.equal(st.mk, 2);
   assert.equal((await p.counts()).bad, 0);
-  // 8주차 수요일 4/21 칸: 1A 데이터베이스기초 보강(4주차분), 8주차 시험(보강) 은 4/24 토요일
-  assert.ok(await page.locator('#board .day[data-day="2027-04-21"] .blk.fixed', { hasText: '보강(4주차분)' }).count() === 1);
+  // 1A 데이터베이스기초: 8주차(4/20 화)보다 뒤인 4/21(수)에 보강 → 8주가 밀려 시험도 4/21 9~10교시
+  assert.equal((await examOf(page, '화-1A-2')).date, '2027-04-21');
+  assert.match(await page.innerText('#mkNotice'), /1A\s*데이터베이스기초.*8주차 4\/20\(화\) 2~4교시 → 4\/21\(수\) 9~10교시.*밀림/);
+  assert.ok(await page.locator('#board .day[data-day="2027-04-20"] .blk.fixed', { hasText: '데이터베이스기초' }).count() >= 1);   // 원래 4/20은 평소 수업
   assert.equal((await examOf(page, '화-1B-6')).date, '2027-04-24');
   assert.match(await page.innerText('#board .day[data-day="2027-04-24"] .blk.exam[data-id="화-1B-6"]'), /8주차\(보강\)/);
 
@@ -273,6 +275,31 @@ test('날짜 선택 달력: 8·15주차 표시 · 연속(끌기)·하나씩·Shi
   // 시험 주차에 맞추기 → 처음 상태(세 주 18일)
   await page.click('#rangeReset');
   assert.equal(await page.locator('#board .day').count(), 18);
+  assert.deepEqual(errors, []);
+  await ctx.close();
+});
+
+test('보강 신청 목록(.xls) 넣기 → 분반으로 반 찾기, 15주차보다 뒤 보강이면 시험이 밀림', async () => {
+  const { ctx, page, errors } = await openApp(browser);
+  const xls = makeMakeupXls([
+    ['컴퓨터소프트웨어과', '35382', 'JAVA프로그래밍응용', '101', '2', '2026/09/22(화) 6~8', '2026/12/15(화) 6~8', '양숙희', '기타'],
+    ['컴퓨터소프트웨어과', '35579', '커리어디자인(취창업성공전략)', '103', '2', '2026/11/26(목) 3~4', '2026/12/10(목) 1~2', '이성욱', 'HIGH-5 합반 및 특강'],
+  ]);
+  await page.click('[data-tab="setup"]');
+  await page.setInputFiles('#sFiles', { name: '보강신청목록.xls', mimeType: 'application/vnd.ms-excel', buffer: xls });
+  await page.waitForSelector('[data-apply="0"]');
+  assert.match(await page.innerText('#setupGrid .filelist'), /보강\s*보강신청목록\.xls/);
+  await page.click('[data-apply="0"]');
+  assert.match(await page.innerText('#setupGrid'), /보강 2건/);
+  // 2A JAVA: 15주차 12/8(화) → 12/15(화) 보강이 뒤에 있으므로 시험이 12/15로 밀림
+  assert.equal((await examOf(page, '화-2A-6')).date, '2026-12-15');
+  await page.click('[data-tab="board"]');
+  assert.match(await page.innerText('#mkNotice'), /2A\s*JAVA프로그래밍응용.*15주차 12\/8\(화\) 6~8교시 → 12\/15\(화\) 6~8교시.*밀림/);
+  // 2C 커리어디자인: 12/10 보강(14주차) → 시험은 그대로 12/17, 12/10 시간표에 보강 블록
+  assert.equal((await examOf(page, '목-2C-3')).date, '2026-12-17');
+  await page.click('#rangeBtn'); await page.click('#rangePop [data-clear]');
+  await page.click('#rangePop .cday[data-d="2026-12-10"]'); await page.click('#rangePop [data-apply]');
+  assert.ok(await page.locator('#board .day[data-day="2026-12-10"] .blk.fixed', { hasText: '보강(12주차분)' }).count() === 1);
   assert.deepEqual(errors, []);
   await ctx.close();
 });

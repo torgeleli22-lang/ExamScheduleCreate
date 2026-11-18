@@ -3,6 +3,10 @@
      35382-101  JAVA프로그래밍응용  2  2026/09/22 화 6~8  2026/12/15 화 6~8  양숙희
      과목코드     과목명            학년  결강 일자·요일·교시   보강 일자·요일·교시    담당교수
    - 반 칸이 없다 → 과목코드 끝 3자리(101=A, 102=B, 103=C)와 결강 요일·교시로 시간표 수업을 찾는다.
+   보강 신청 목록(.xls) 한 줄 예:
+     컴퓨터소프트웨어과  35382  JAVA프로그래밍응용  101  2  2026/09/22(화) 6~8  2026/12/15(화) 6~8  양숙희  기타
+     학과명           과목코드  과목명          분반  학년  결강일(+교시)       보강일(+교시)        교수    사유
+   - 분반 칸 101=A, 102=B …
    - 날짜가 둘이면 첫째가 결강(원래 수업일), 둘째가 보강일. 하나면 보강일만.
    - 교시는 "2~4", "2~4교시", "13:35~15:20" 모두 읽는다.
    plan.makeups = [{ id, classId, from(결강일|''), to(보강일), start, end, room, note }] */
@@ -53,6 +57,7 @@ function parseMakeups(text, classes, calendar, year) {
     const periods = linePeriods(line);
     const code = line.match(/\d{5}-(\d{3})/);
     if (!code && !periods.length) continue;      // 제출일 같은 날짜만 있는 줄
+    if (/^\s*(학과명|과목코드|과목명)(\s|$)/.test(line)) continue;   // 머리글 줄
     const nl = normName(line);
     let cands = byName.filter(x => nl.includes(x.n));
     if (!cands.length) { unmatched.push({ line, why: '시간표에서 이 과목을 찾지 못했어요' }); continue; }
@@ -63,11 +68,14 @@ function parseMakeups(text, classes, calendar, year) {
     const grp = g ? `${g[1] || g[3]}${(g[2] || g[4]).toUpperCase()}` : null;
     const cells = line.split('\t').map(t => t.trim());
     const yearTok = cells.find(t => /^[1-4](학년)?$/.test(t));
+    // 분반 칸(보강 신청 목록 .xls): 101=A, 102=B … / 과목코드에 붙은 경우(35382-101)는 위 banFromCode
+    const secTok = cells.find(t => /^1\d\d$/.test(t));
+    const banFromSec = secTok ? String.fromCharCode(64 + (+secTok % 100)) : null;
     const from = dates.length >= 2 ? dates[0] : '';
     const to = dates[dates.length - 1];
     const fromCol = from && dateMap[from] ? dateMap[from].col : (from ? DOW[dowOf(from)] : null);
     const fromP = dates.length >= 2 ? periods[0] : null;
-    const score = c => (grp && groupOf(c) === grp ? 8 : 0) + (banFromCode && c.ban === banFromCode ? 4 : 0)
+    const score = c => (grp && groupOf(c) === grp ? 8 : 0) + ((banFromCode || banFromSec) && c.ban === (banFromCode || banFromSec) ? 4 : 0)
       + (yearTok && c.year === +yearTok[0] ? 2 : 0) + (fromCol && c.day === fromCol ? 3 : 0)
       + (fromP && c.start === fromP[0] ? 2 : 0) + (c.prof && line.includes(c.prof) ? 2 : 0);
     cands.sort((a, b) => score(b) - score(a));
