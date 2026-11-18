@@ -35,6 +35,14 @@ function autoScroll() {
   let dy = 0;
   if (y < edge) dy = -Math.ceil((edge - y) / 3); else if (y > window.innerHeight - edge) dy = Math.ceil((y - (window.innerHeight - edge)) / 3);
   if (dy) { const before = window.scrollY; window.scrollBy(0, dy); if (window.scrollY !== before) updateTarget(drag.lastX, drag.lastY); }
+  // 날짜별 시간표(가로로 넘기는 줄): 좌우 가장자리로 끌면 옆 날짜로 넘어감
+  const strip = $('#board'), sr = strip && strip.getBoundingClientRect();
+  if (sr && y >= sr.top && y <= sr.bottom) {
+    const x = drag.lastX, hedge = 70;
+    let dx = 0;
+    if (x < sr.left + hedge) dx = -Math.ceil((sr.left + hedge - x) / 6); else if (x > sr.right - hedge) dx = Math.ceil((x - (sr.right - hedge)) / 6);
+    if (dx) { const b = strip.scrollLeft; strip.scrollLeft += dx; if (strip.scrollLeft !== b) updateTarget(drag.lastX, drag.lastY); }
+  }
   drag.raf = requestAnimationFrame(autoScroll);
 }
 function updateTarget(x, y) {

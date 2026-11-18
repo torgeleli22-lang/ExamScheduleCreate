@@ -13,13 +13,15 @@ const P = page => ({
   state: fn => page.evaluate(fn),
 });
 async function dragTo(page, from, to) {
+  await from.scrollIntoViewIfNeeded();
   const bb = await from.boundingBox(), cb = await to.boundingBox();
   await page.mouse.move(bb.x + 8, bb.y + bb.height / 2); await page.mouse.down();
   await page.mouse.move(cb.x + cb.width / 2, cb.y + Math.min(cb.height / 2, 40), { steps: 14 }); await page.mouse.up();
 }
 /** 반×교시 자세히(날짜를 눌러 펼침)에서 블록을 다른 날짜·교시로 */
 async function dragBlock(page, fromDay, course, toDay, group, period) {
-  for (const d of [fromDay, toDay]) if (!(await page.locator(`.day[data-day="${d}"]`).count())) await page.click(`[data-daydetail="${d}"]`);
+  // 날짜별 시간표는 가로로 넘기는 줄: 출발 날짜를 맨 왼쪽으로 넘겨 두면 다음 날짜도 화면에 보인다
+  await page.evaluate(d => { const st = document.querySelector('#board'), el = st.querySelector(`.day[data-day="${d}"]`); st.scrollLeft = el.offsetLeft - st.offsetLeft; el.scrollIntoView({ block: 'nearest' }); }, fromDay);
   await dragTo(page, page.locator(`.day[data-day="${fromDay}"] .blk.exam`, { hasText: course }), page.locator(`.day[data-day="${toDay}"] .cell[data-group="${group}"][data-p="${period}"]`));
 }
 const examOf = (page, id) => page.evaluate(id => window.__planner.state.exams[id], id);
@@ -40,8 +42,10 @@ test('주차×요일 판 · 등록 폼 · 드래그 · 기존 시간표 확정 �
   assert.deepEqual([await page.inputValue('#selYear'), await page.inputValue('#selTerm'), await page.inputValue('#selKind')], ['2026', '2', 'final']);
 
   // 판: 기간 12/7~12/26 (15주차 날짜가 세 주에 흩어져 있음), 12/15(화)는 금요일 14주차 수업일
-  assert.equal(await page.textContent('#rangeBtn'), '12/7(월) ~ 12/26(토) · 3주');
+  assert.equal(await page.textContent('#rangeBtn'), '2026.12.07 – 2026.12.26');
   assert.equal(await page.locator('.wh').count(), 3);
+  // 날짜별 시간표: 기간의 월~토 18일이 가로로 나란히
+  assert.equal(await page.locator('#board .day').count(), 18);
   assert.match(await page.innerText('.wcell[data-date="2026-12-15"] .wdate'), /금요일 14주차 수업일/);
   assert.match(await page.innerText('.wcell[data-date="2026-12-08"]'), /15주차/);
   assert.equal(await page.locator('.wcell[data-date="2026-12-15"] .wcard.exam').count(), 0);
@@ -69,6 +73,20 @@ test('주차×요일 판 · 등록 폼 · 드래그 · 기존 시간표 확정 �
   await dragBlock(page, '2026-12-16', '웹자바프로그래밍입문', '2026-12-17', '2B', 6);
   k = await p.counts();
   assert.equal(k.bad, 2);
+
+  // 날짜별 시간표 가장자리로 끌면 옆으로 넘어가서 화면 밖 날짜에 놓을 수 있음 (12/8 → 오른쪽 날짜)
+  const strip = page.locator('#board');
+  await page.evaluate(() => { document.querySelector('#board').scrollLeft = 0; });
+  const pbl = page.locator('#board .day[data-day="2026-12-08"] .blk.exam[data-id="화-2A-1"]');
+  await pbl.scrollIntoViewIfNeeded();
+  const pb = await pbl.boundingBox(), sb = await strip.boundingBox();
+  await page.mouse.move(pb.x + 6, pb.y + pb.height / 2); await page.mouse.down();
+  await page.mouse.move(sb.x + sb.width - 15, pb.y + pb.height / 2, { steps: 10 });
+  await page.waitForTimeout(1200);
+  await page.mouse.move(sb.x + sb.width - 200, pb.y + pb.height / 2, { steps: 4 }); await page.mouse.up();
+  assert.ok(await page.evaluate(() => document.querySelector('#board').scrollLeft) > 300);
+  assert.ok((await examOf(page, '화-2A-1')).date > '2026-12-08');
+  await page.evaluate(() => window.__planner.openDrawer('화-2A-1')); await page.click('#dReset'); await page.click('#dClose');   // 원래대로
 
   // 옮기지 않은 과목 모두 '기존 시간표 수업 진행' 확정 (옮긴 3과목·겹침 과목은 빠짐)
   await page.click('#btnKeepAll');
@@ -192,62 +210,69 @@ test('설정 탭에서 보강 파일 넣기 → 시험 주차 수업이 보강�
   await ctx.close();
 });
 
-test('기간 고르기 달력: 끌기 · 두 번 누르기 · 주차 칸 · 날짜 골라 담기 · 빠른 버튼', async () => {
+test('기간선택 달력: 두 번 누르기 · 끌기 · 하루만 · 취소 · 오늘 · 연월 넘기기 · 8·15주차 빨간색', async () => {
   const { ctx, page, errors } = await openApp(browser);
   const range = () => page.evaluate(() => window.__planner.state.range || null);
-  const day = d => page.locator(`#rangePop .rday[data-d="${d}"]`);
+  const day = d => page.locator(`#rangePop .cday[data-d="${d}"]`);
   await page.click('#rangeBtn');
   assert.ok(await page.isVisible('#rangePop'));
-  assert.match(await page.innerText('#rangePop'), /2026년 12월[\s\S]*2027년 1월/);
-  // 날짜 칸 표시: 12/15는 금요일 14주차 수업일(대체), 12/8은 시험 주차
-  assert.match(await day('2026-12-15').getAttribute('class'), /\bsh\b/);
-  assert.equal(await day('2026-12-15').innerText(), '15\n금14');
-  assert.match(await day('2026-12-08').getAttribute('class'), /\bex\b/);
+  assert.equal(await page.inputValue('#calYear'), '2026'); assert.equal(await page.inputValue('#calMonth'), '12');
+  // 지금 기간이 띠로 보이고, 8·15주차 날짜는 빨간색(exam)
+  assert.match(await day('2026-12-07').getAttribute('class'), /\bstart\b/);
+  assert.match(await day('2026-12-26').getAttribute('class'), /\bend\b/);
+  for (const d of ['2026-12-08', '2026-12-16', '2026-12-21', '2026-12-22']) assert.match(await day(d).getAttribute('class'), /\bexam\b/);
+  assert.doesNotMatch(await day('2026-12-15').getAttribute('class'), /\bexam\b/);   // 12/15는 금요일 14주차
+  await page.selectOption('#calMonth', '10');
+  assert.match(await day('2026-10-20').getAttribute('class'), /\bexam\b/);           // 8주차 화요일 (10/20)
+  assert.doesNotMatch(await day('2026-10-26').getAttribute('class'), /\bexam\b/);    // 10/26은 7주차
+  await page.click('#rangePop [data-nav="1"]'); await page.click('#rangePop [data-nav="1"]');
+  assert.equal(await page.inputValue('#calMonth'), '12');
 
-  // 1) 끌어서 기간: 12/14 → 12/19
-  await dragTo(page, day('2026-12-14'), day('2026-12-19'));
-  assert.deepEqual(await range(), { from: '2026-12-14', to: '2026-12-19' });
-  assert.equal(await page.locator('.wh').count(), 1);
-  assert.equal(await page.textContent('#rangeBtn'), '12/14(월) ~ 12/19(토) · 1주');
-
-  // 2) 두 번 누르기: 12/7 누르고 12/22 누르기
-  await day('2026-12-07').click();
-  assert.match(await page.innerText('#rangePop'), /12\/7\(월\)부터 — 끝 날짜를 누르세요/);
-  await day('2026-12-22').click();
-  assert.deepEqual(await range(), { from: '2026-12-07', to: '2026-12-22' });
-  assert.equal(await page.locator('.wh').count(), 3);
-
-  // 3) 주차 칸: 12/21이 있는 줄 → 그 주 월~토
-  await page.click('#rangePop .rwk[data-wk="2026-12-21"]');
-  assert.deepEqual(await range(), { from: '2026-12-21', to: '2026-12-26' });
-
-  // 4) 날짜 골라 담기: 15주차 날짜 3개만
-  await page.click('#rangePop [data-mode="days"]');
-  for (const d of ['2026-12-08', '2026-12-16', '2026-12-21']) await day(d).click();
-  const r = await range();
-  assert.deepEqual(r.days, ['2026-12-08', '2026-12-16', '2026-12-21']);
-  assert.match(await page.textContent('#rangeBtn'), /^특정일 3일/);
-  assert.equal(await page.locator('.wh').count(), 3);
-  assert.match(await page.locator('.wcell[data-date="2026-12-15"]').getAttribute('class'), /\bout\b/);
-  assert.doesNotMatch(await page.locator('.wcell[data-date="2026-12-16"]').getAttribute('class'), /\bout\b/);
-  // 다시 누르면 빠짐, 끌면 여러 날 한꺼번에 담기
-  await day('2026-12-16').click();
-  assert.deepEqual((await range()).days, ['2026-12-08', '2026-12-21']);
-  await dragTo(page, day('2026-12-14'), day('2026-12-17'));
-  assert.deepEqual((await range()).days, ['2026-12-08', '2026-12-14', '2026-12-15', '2026-12-16', '2026-12-17', '2026-12-21']);
-
-  // 5) 빠른 버튼: 시험 주차에 맞추기 → 앞뒤 1주 넓히기
-  await page.click('#rangePop [data-preset="exam"]');
-  assert.equal(await range(), null);
-  assert.equal(await page.textContent('#rangeBtn'), '12/7(월) ~ 12/26(토) · 3주');
-  await page.click('#rangePop [data-preset="widen"]');
-  assert.deepEqual(await range(), { from: '2026-11-30', to: '2027-01-02' });
-  assert.equal(await page.locator('.wh').count(), 5);
-  // 다음 달로 넘기기, 닫기(Esc)
-  await page.click('#rangePop [data-nav="1"]');
-  assert.match(await page.innerText('#rangePop'), /2027년 1월[\s\S]*2027년 2월/);
-  await page.keyboard.press('Escape');
+  // 1) 두 번 누르기 → 선택: 12/14 ~ 12/19
+  await day('2026-12-14').click();
+  assert.match(await page.innerText('#rangePop .calsel'), /끝 날짜를 누르세요/);
+  await day('2026-12-19').click();
+  assert.equal(await range(), null);                                   // '선택'을 눌러야 저장
+  await page.click('#rangePop [data-apply]');
   assert.ok(!(await page.isVisible('#rangePop')));
+  assert.deepEqual(await range(), { from: '2026-12-14', to: '2026-12-19' });
+  assert.equal(await page.textContent('#rangeBtn'), '2026.12.14 – 2026.12.19');
+  assert.equal(await page.locator('#board .day').count(), 6);
+  assert.equal(await page.locator('.wh').count(), 1);
+
+  // 2) 끌어서 → 선택: 12/7 ~ 12/22 (거꾸로 끌어도 됨)
+  await page.click('#rangeBtn');
+  await dragTo(page, day('2026-12-22'), day('2026-12-07'));
+  await page.click('#rangePop [data-apply]');
+  assert.deepEqual(await range(), { from: '2026-12-07', to: '2026-12-22' });
+
+  // 3) 하루만: 같은 날 두 번
+  await page.click('#rangeBtn');
+  await day('2026-12-16').click(); await day('2026-12-16').click();
+  await page.click('#rangePop [data-apply]');
+  assert.deepEqual(await range(), { from: '2026-12-16', to: '2026-12-16' });
+  assert.equal(await page.textContent('#rangeBtn'), '2026.12.16');
+  assert.equal(await page.locator('#board .day').count(), 1);
+
+  // 4) 취소·바깥 누르기는 바뀌지 않음, 오늘은 오늘 날짜로
+  await page.click('#rangeBtn');
+  await day('2026-12-01').click();
+  await page.click('#rangePop [data-cancel]');
+  assert.deepEqual(await range(), { from: '2026-12-16', to: '2026-12-16' });
+  await page.click('#rangeBtn');
+  await page.click('#rangePop [data-today]');
+  const t = await page.evaluate(() => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; });
+  assert.match(await day(t).getAttribute('class'), /\btoday\b/);
+  await page.mouse.click(5, 5);
+  assert.ok(!(await page.isVisible('#rangePop')));
+  assert.deepEqual(await range(), { from: '2026-12-16', to: '2026-12-16' });
+
+  // 5) 주차×요일 판에서 날짜를 누르면 날짜별 시간표가 그 날로
+  await page.click('#rangeReset');
+  await page.click('[data-daydetail="2026-12-21"]');
+  const left = await page.evaluate(() => { const st = document.querySelector('#board'), el = st.querySelector('.day[data-day="2026-12-21"]'); return Math.abs(st.scrollLeft - (el.offsetLeft - st.offsetLeft)) < 4; });
+  assert.ok(left);
+  assert.match(await page.locator('#board .day[data-day="2026-12-21"]').getAttribute('class'), /\bfocus\b/);
   assert.deepEqual(errors, []);
   await ctx.close();
 });

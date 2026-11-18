@@ -108,7 +108,7 @@ function weekCard(it, st) {
 }
 function renderWeekGrid(statusCache) {
   const r = boardRange();
-  $('#rangeBtn').textContent = rangeLabel(r);
+  $('#rangeText').textContent = rangeLabel(r);
   const showFixed = ui.showFixed !== false;
   $('#showFixed').checked = showFixed;
   const weeks = [];
@@ -131,7 +131,7 @@ function renderWeekGrid(statusCache) {
         const txt = info.col !== real ? `${info.col}요일 ${info.week}주차 수업일` : `${info.week}주차`;
         tag = `<span class="tag ${ex ? '' : info.col !== real ? 'alt' : ''}">${esc(txt)}${ex ? ' · 시험 주차' : ''}</span>`;
       }
-      const cls = ['wcell', inBoardRange(r, d) ? '' : 'out', info && info.week === S.examWeek ? 'examday' : '', (ui.days || []).includes(d) ? 'sel' : ''].filter(Boolean).join(' ');
+      const cls = ['wcell', inBoardRange(r, d) ? '' : 'out', info && info.week === S.examWeek ? 'examday' : '', ui.focusDay === d ? 'sel' : ''].filter(Boolean).join(' ');
       html += `<div class="${cls}" data-date="${d}"><div class="wdate"><button type="button" class="linkbtn" data-daydetail="${d}" title="반×교시 자세히 보기">${esc(fmt(d))}</button>${tag}</div>${items.map(it => weekCard(it, statusCache[it.c.id])).join('')}</div>`;
     }
   }
@@ -142,7 +142,8 @@ function renderWeekGrid(statusCache) {
 /** 날짜 하나의 반×교시 자세한 시간표 (날짜를 누르면 아래에 펼침) */
 function renderDaySection(d, statusCache) {
   const head = `<div class="ghead"><div></div><div class="periods">${PERIODS.map((p, i) => `<div><b>${i + 1}</b>${i + 1 === LUNCH ? '점심' : p[0]}</div>`).join('')}</div></div>`;
-  const items = itemsOn(d, null);
+  const showFixed = ui.showFixed !== false;
+  const items = itemsOn(d, null).filter(it => showFixed || it.kind === 'exam');
   const nExam = items.filter(i => i.kind === 'exam').length;
   const lab = dayInfoLabel(d);
   const [, m, dd] = d.split('-');
@@ -163,12 +164,12 @@ function renderDaySection(d, statusCache) {
       const tip = [`${it.c.course} (${it.c.prof}) ${g}`, `${fmt(ex.date)} ${pRange(ex.start, ex.len)} ${tRange(ex.start, ex.len)} · ${roomLabel(ex.room)} · ${ex.method}`, ...st.bad.map(describeConflict), ...st.warn].join('\n');
       return `<button type="button" class="blk exam y${esc(year)}${st.bad.length ? ' bad' : ''}${badge ? ' has-badge' : ''}" style="${pos}" data-id="${esc(it.c.id)}" title="${esc(tip)}"><span class="t">${esc(it.c.course)}</span><span class="s">${S.examWeek}주차 · ${esc(it.c.prof)} · ${esc(roomLabel(ex.room))}</span>${badge}</button>`;
     }).join('');
-    rows += `<div class="grow${prevYear !== null && prevYear !== year ? ' yb' : ''}"><div class="glabel y${esc(year)}">${esc(g)}</div><div class="track" style="grid-template-rows:repeat(${lanes},minmax(42px,auto))">${cells}${blocks}</div></div>`;
+    rows += `<div class="grow${prevYear !== null && prevYear !== year ? ' yb' : ''}"><div class="glabel y${esc(year)}">${esc(g)}</div><div class="track" style="grid-template-rows:repeat(${lanes},minmax(30px,auto))">${cells}${blocks}</div></div>`;
     prevYear = year;
   }
-  return `<section class="day" data-day="${d}">
+  return `<section class="day${ui.focusDay === d ? ' focus' : ''}" data-day="${d}">
     <div class="dayhead"><h3>${+m}/${+dd}<span class="dow">(${DOW[dowOf(d)]})</span></h3><span class="tag ${lab.cls}">${esc(lab.text)}</span>
-    <span class="cnt">시험 ${nExam}과목</span><button type="button" class="btn small" data-closeday="${d}">접기</button></div>
+    <span class="cnt">시험 ${nExam}과목</span></div>
     <div class="scroller"><div class="grid">${head}${rows}</div></div></section>`;
 }
 function renderBoard() {
@@ -180,8 +181,41 @@ function renderBoard() {
   const kb = $('#btnKeepAll');
   kb.textContent = `옮기지 않은 과목 모두 '기존 시간표 수업 진행' 확정 (${keepable})`;
   kb.disabled = !keepable || isLocked();
-  const days = (ui.days || []).slice().sort();
-  $('#board').innerHTML = days.length ? `<div class="daydetail-head"><h3>반×교시 자세히</h3><span class="hint">블록을 끌어 교시까지 옮길 수 있어요</span></div>` + days.map(d => renderDaySection(d, statusCache)).join('') : '';
+  renderDayStrip(statusCache);
+}
+/** 고른 기간의 날짜마다 작은 반×교시 시간표를 가로로 나란히 (옆으로 넘겨 봄). 일요일은 뺌 */
+function stripDates() {
+  const r = boardRange();
+  if (r.days) return r.days.filter(d => dowOf(d) !== 0);
+  const out = [];
+  for (let d = r.from; d <= r.to && out.length < 60; d = addDays(d, 1)) if (dowOf(d) !== 0) out.push(d);
+  return out;
+}
+function renderDayStrip(statusCache) {
+  const strip = $('#board');
+  const keep = strip.scrollLeft;   // 옮긴 뒤 다시 그려도 보던 자리 유지
+  const dates = stripDates();
+  strip.innerHTML = dates.map(d => renderDaySection(d, statusCache)).join('') || '<p class="hint">기간을 골라 주세요.</p>';
+  strip.scrollLeft = ui.stripScroll === 0 ? 0 : keep;
+  ui.stripScroll = null;
+  if (ui.focusDay) { const el = strip.querySelector(`.day[data-day="${ui.focusDay}"]`); if (el) strip.scrollLeft = el.offsetLeft - strip.offsetLeft; }
+  updateStripPos();
+}
+function updateStripPos() {
+  const strip = $('#board'), days = [...strip.querySelectorAll('.day')];
+  if (!days.length) { $('#stripPos').textContent = ''; return; }
+  const left = strip.scrollLeft, right = left + strip.clientWidth;
+  const vis = days.filter(el => el.offsetLeft - strip.offsetLeft + el.offsetWidth / 2 >= left && el.offsetLeft - strip.offsetLeft + el.offsetWidth / 2 <= right);
+  const f = vis[0]?.dataset.day, l = vis[vis.length - 1]?.dataset.day;
+  $('#stripPos').textContent = f ? `${fmt(f)}${l && l !== f ? ` ~ ${fmt(l)}` : ''} · 전체 ${days.length}일` : `전체 ${days.length}일`;
+}
+/** 날짜별 시간표를 그 날짜로 넘김 */
+function focusStripDay(d) {
+  ui.focusDay = d;
+  const strip = $('#board'), el = strip.querySelector(`.day[data-day="${d}"]`);
+  strip.querySelectorAll('.day.focus').forEach(x => x.classList.remove('focus'));
+  if (el) { el.classList.add('focus'); strip.scrollTo({ left: el.offsetLeft - strip.offsetLeft, behavior: 'auto' }); strip.scrollIntoView({ block: 'nearest' }); }
+  updateStripPos();
 }
 /** 옮기지 않았고 겹침 없는 과목을 모두 '기존 시간표 수업 진행'으로 확정 */
 function keepAllUnmoved() {

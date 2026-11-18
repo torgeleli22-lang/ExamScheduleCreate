@@ -61,15 +61,9 @@ function bind() {
   });
   tb.addEventListener('click', e => {
     const dd = e.target.closest('[data-daydetail]');
-    if (dd) {
-      const d = dd.dataset.daydetail, days = ui.days || [];
-      ui.days = days.includes(d) ? days.filter(x => x !== d) : [...days, d];
-      renderBoard(); if (isLocked()) lockControls();
-      if (ui.days.includes(d)) document.querySelector(`.day[data-day="${d}"]`)?.scrollIntoView({ block: 'nearest' });
-      return;
-    }
-    const cd = e.target.closest('[data-closeday]');
-    if (cd) { ui.days = (ui.days || []).filter(x => x !== cd.dataset.closeday); renderBoard(); return; }
+    if (dd) { focusStripDay(dd.dataset.daydetail); return; }
+    const sp = e.target.closest('#stripPrev, #stripNext');
+    if (sp) { const st = $('#board'), w = st.querySelector('.day')?.offsetWidth || 500; st.scrollBy({ left: (sp.id === 'stripNext' ? 1 : -1) * (w + 10), behavior: 'smooth' }); return; }
     if (e.target.closest('#btnKeepAll')) {
       if (isLocked()) return;
       const n = keepAllUnmoved(); changed();
@@ -80,7 +74,7 @@ function bind() {
     if (b && (e.detail === 0 || isLocked())) openDrawer(b.dataset.id);
   });
   tb.addEventListener('change', e => {
-    if (e.target.id === 'showFixed') { ui.showFixed = e.target.checked; renderBoard(); return; }
+    if (e.target.id === 'showFixed') { ui.showFixed = e.target.checked; renderBoard(); if (isLocked()) lockControls(); return; }
   });
   document.addEventListener('keydown', e => {
     if (e.key !== 'Escape') return;
@@ -104,6 +98,7 @@ function bind() {
 
   bindDrawer();
   bindRange();
+  $('#board').addEventListener('scroll', () => { ui.focusDay = null; updateStripPos(); }, { passive: true });
   bindSetup();
   bindHistory();
   bindWizard();

@@ -44,7 +44,7 @@ src/js/*.js           앱 코드. 번들러 없이 scripts/build.mjs 의 JS_ORDE
   github.js           GitHub 저장소(data 브랜치) 저장·불러오기·합치기, 기록 탭의 GitHub 카드
   excel.js            엑셀 내보내기 · 파일 저장
   views.js            render(), 위쪽 선택칸, 요약, 날짜별 배치(주차×요일 판 + 반×교시 자세히), 과목 목록, 잠금
-  view-range.js       날짜별 배치 기간 고르기 달력(#rangePop): 기간(끌기·두 번 누르기·주차 칸) / 날짜 골라 담기(S.range.days)
+  view-range.js       기간선택 칸 + 한 달 달력(#rangePop): 시작·끝 누르기/끌기, 오늘·취소·선택, 8·15주차 빨간색
   view-setup.js       설정 탭(지금 시험 하나): 자료 다시 넣기(자동 인식), 보강 목록·직접 추가
   view-history.js     학기별 기록 탭, 백업/복원, switchPlan()
   wizard.js           자료 넣기 화면(고른 시험이 없을 때 #createPanel): 파일 여러 개 → 자동 인식 → 만들기
@@ -111,7 +111,7 @@ tests/helpers.mjs     vm 로더, 테스트용 xlsx/PDF/한글(makeHwp) 생성, �
 
 - 상단 `#selYear #selTerm #selKind` → `selectExam()`: 있으면 `switchPlan`, 없으면 `ui.missing` + `#createPanel`(탭·본문은 숨김, `body.missing`).
 - 탭: `#board`(날짜별 배치) `#courses`(과목 목록) `#history`(학기별 기록) `#setup`(설정, 지금 시험만)
-- 날짜별 배치: `#weekGrid`(`.wcell[data-date]` 안에 `.wcard`; 시험 카드만 `.exam`, 드래그하면 같은 교시로 날짜만 이동) + 날짜를 누르면 `ui.days`에 추가되어 `#board`에 반×교시 `.day[data-day]` 펼침(블록을 교시까지 드래그). `#btnKeepAll` = 옮기지 않고 겹침 없는 과목 모두 keep.
+- 날짜별 배치: `#rangeBtn`(기간선택 칸) → 달력에서 '선택'해야 `S.range` 저장. `#board.daystrip` = 기간의 날짜(일요일 제외)마다 작은 반×교시 `.day[data-day]`를 가로로(스크롤 위치는 다시 그려도 유지, 끌 때 좌우 가장자리 자동 넘김·snap 끔). 그 아래 `#weekGrid`(주차×요일 한눈에, `.wcard.exam`을 날짜 칸으로 끌면 같은 교시로 이동, 날짜를 누르면 `focusStripDay`). `#btnKeepAll` = 옮기지 않고 겹침 없는 과목 모두 keep. 화면 폭 `.wrap` 최대 1880px.
 - 블록 클릭 → `openDrawer(id)` 편집 서랍(즉시 반영). 상단 "시험 일정 등록" → `openRegister()` 폼(미리보기 후 `saveRegister()`로 반영).
 - 보관(잠금)된 계획: `isLocked()`. 모든 수정 진입점이 막혀 있고 `lockControls()`가 입력 칸을 끈다. `changed()`도 잠금이면 저장하지 않는다.
 - 다시 그리면서(innerHTML) 포커스된 칸이 지워지면 change 이벤트가 또 렌더를 부를 수 있다 → 마법사는 `renderWizard()` 재진입 가드 사용.
