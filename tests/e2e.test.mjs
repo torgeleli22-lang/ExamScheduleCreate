@@ -2,7 +2,7 @@
 // Chromium 경로를 지정하려면 CHROME=/path/to/chrome
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
-import { SEED, launch, openApp, makeTimetableXlsx, makeCalendarPdf, makeHwp, MAKEUP_HEAD, makeMakeupXls, download, readXlsx } from './helpers.mjs';
+import { SEED, launch, openApp, makeTimetableXlsx, makeCalendarPdf, makeHwp, MAKEUP_HEAD, makeMakeupXls, dropFiles, download, readXlsx } from './helpers.mjs';
 
 let browser;
 before(async () => { browser = await launch(); });
@@ -300,6 +300,45 @@ test('보강 신청 목록(.xls) 넣기 → 분반으로 반 찾기, 15주차보
   await page.click('#rangeBtn'); await page.click('#rangePop [data-clear]');
   await page.click('#rangePop .cday[data-d="2026-12-10"]'); await page.click('#rangePop [data-apply]');
   assert.ok(await page.locator('#board .day[data-day="2026-12-10"] .blk.fixed', { hasText: '보강(12주차분)' }).count() === 1);
+  assert.deepEqual(errors, []);
+  await ctx.close();
+});
+
+test('파일 끌어다 놓기: 화면 어디서나 → 보강은 설정 탭, 백업은 기록 탭, 없는 시험이면 자료 넣기 화면', async () => {
+  const { ctx, page, errors } = await openApp(browser);
+  const xls = makeMakeupXls([['컴퓨터소프트웨어과', '35382', 'JAVA프로그래밍응용', '102', '2', '2026/12/08(화) 2~4', '2026/12/22(화) 2~4', '양숙희', '기타']]);
+  // 날짜별 배치 화면에서 보강 .xls를 놓으면 → 설정 탭 '자료 다시 넣기'로, 안내 화면이 떴다가 사라짐
+  const shown = await dropFiles(page, [{ name: '보강신청목록.xls', mimeType: 'application/vnd.ms-excel', buffer: xls }]);
+  assert.ok(shown, '끄는 동안 안내 화면');
+  await page.waitForSelector('[data-apply="0"]');
+  assert.ok(!(await page.isVisible('#dropOverlay')));
+  assert.equal(await page.getAttribute('[data-tab="setup"]', 'aria-selected'), 'true');
+  assert.match(await page.innerText('#setupGrid .filelist'), /보강\s*보강신청목록\.xls/);
+  await page.click('[data-apply="0"]');
+  assert.equal((await examOf(page, '화-2B-2')).date, '2026-12-22');
+
+  // 설정 탭의 상자에 직접 놓아도 됨 (여러 개 한꺼번에: 수업일 현황 글자 파일 + 모르는 파일)
+  const cal = (await page.evaluate(() => window.__planner.state.calendar));
+  const calTxt = '주\t월\t화\t수\t목\t금\t토\n' + cal.weeks.map((w, i) => `${i + 1}\t${w.join('\t')}`).join('\n');
+  await dropFiles(page, [{ name: '수업일현황.txt', mimeType: 'text/plain', buffer: Buffer.from(calTxt) }, { name: '메모.txt', mimeType: 'text/plain', buffer: Buffer.from('아무 내용') }], '#sDrop');
+  await page.waitForSelector('#setupGrid .filelist >> text=메모.txt');
+  const list = await page.innerText('#setupGrid .filelist');
+  assert.match(list, /요일별 수업일 현황\s*수업일현황\.txt/); assert.match(list, /알 수 없음\s*메모\.txt/);
+
+  // 백업(.json)을 놓으면 → 학기별 기록의 백업 불러오기
+  const backup = await page.evaluate(() => JSON.stringify({ v: 2, plans: window.__planner.store.plans, currentId: window.__planner.state.id }));
+  await dropFiles(page, [{ name: '백업.json', mimeType: 'application/json', buffer: Buffer.from(backup) }]);
+  await page.waitForSelector('[data-act="restoreNo"]');
+  assert.equal(await page.getAttribute('[data-tab="history"]', 'aria-selected'), 'true');
+  await page.click('[data-act="restoreNo"]');
+
+  // 아직 없는 시험(2026-2 중간)을 고른 상태에서 놓으면 → 자료 넣기 화면의 파일 목록으로
+  await page.selectOption('#selKind', 'mid');
+  assert.ok(await page.isVisible('#createPanel'));
+  const hwp = makeHwp([MAKEUP_HEAD, ['32305-101', '데이터베이스기초', '1', '2026/09/22', '화', '2~4', '2026/10/21', '수', '9~10', '정재헌', '(인)', 'N']], { before: ['보 강 결 과 보 고 서'] });
+  await dropFiles(page, [{ name: '보강결과보고서.hwp', mimeType: 'application/octet-stream', buffer: hwp }]);
+  await page.waitForSelector('#createPanel .filelist >> text=보강결과보고서.hwp');
+  assert.match(await page.innerText('#createPanel'), /보강 1건/);
   assert.deepEqual(errors, []);
   await ctx.close();
 });

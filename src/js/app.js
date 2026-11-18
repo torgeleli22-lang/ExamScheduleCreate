@@ -33,6 +33,42 @@ function setTab(tab, push = true) {
   render();
 }
 
+/* ---------- 파일 끌어다 놓기 (화면 어디서나) ----------
+   - 고른 시험이 없을 때(자료 넣기 화면) → 그 화면으로
+   - 백업(.json)만 → 학기별 기록의 백업 불러오기
+   - 그 밖(시간표·수업일 현황·보강) → 설정 탭 '자료 다시 넣기' (종류를 알아보고 적용 버튼) */
+function routeDroppedFiles(files) {
+  if (!files.length) return;
+  if (ui.missing) { wizardAddFiles(files); return; }
+  if (files.every(f => /\.json$/i.test(f.name))) { historyRestoreFile(files[0]); return; }
+  setupAddFiles(files);
+}
+function bindFileDrop() {
+  const ov = $('#dropOverlay');
+  let depth = 0;
+  const hasFiles = e => [...(e.dataTransfer?.types || [])].includes('Files');
+  const hide = () => { depth = 0; ov.hidden = true; $$('.dropzone.over').forEach(z => z.classList.remove('over')); };
+  window.addEventListener('dragenter', e => {
+    if (!hasFiles(e)) return;
+    depth++;
+    ov.hidden = false;
+    ov.querySelector('.dropmsg').textContent = ui.missing ? '놓으면 이 시험의 자료로 넣어요' : '놓으면 자료로 넣어요';
+  });
+  window.addEventListener('dragover', e => {
+    if (!hasFiles(e)) return;
+    e.preventDefault();                                   // 브라우저가 파일을 열어 버리지 않게
+    e.dataTransfer.dropEffect = 'copy';
+    $$('.dropzone').forEach(z => z.classList.toggle('over', z.contains(e.target)));
+  });
+  window.addEventListener('dragleave', e => { if (!hasFiles(e)) return; depth = Math.max(0, depth - 1); if (!depth) hide(); });
+  window.addEventListener('drop', e => {
+    if (!hasFiles(e)) return;
+    e.preventDefault();
+    hide();
+    routeDroppedFiles([...e.dataTransfer.files]);
+  });
+}
+
 function bind() {
   $('.tabs').addEventListener('click', e => { const b = e.target.closest('button[data-tab]'); if (b) setTab(b.dataset.tab); });
   window.addEventListener('hashchange', () => { const h = location.hash.slice(1); if (TABS.includes(h) && h !== ui.tab) setTab(h, false); });
@@ -94,6 +130,7 @@ function bind() {
 
   bindDrawer();
   bindRange();
+  bindFileDrop();
   bindSetup();
   bindHistory();
   bindWizard();

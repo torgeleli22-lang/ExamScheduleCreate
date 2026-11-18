@@ -338,3 +338,11 @@ body.missing .summary,body.missing .tabs,body.missing main,body.missing #btnRegi
 .mknotice b{color:var(--warn)}
 .mknotice ul{margin:6px 0 0;padding-left:18px}
 .mknotice li b{color:var(--ink)}
+
+/* 파일 끌어다 놓기 (화면 전체) */
+.dropoverlay{position:fixed;inset:0;z-index:80;background:rgba(15,25,45,.35);display:flex;align-items:center;justify-content:center;padding:24px;pointer-events:none}
+.dropoverlay[hidden]{display:none}
+.dropbox{background:var(--surface);border:3px dashed var(--accent);border-radius:18px;padding:30px 40px;display:flex;flex-direction:column;align-items:center;gap:8px;color:var(--accent);box-shadow:0 14px 40px rgba(0,0,0,.25);text-align:center}
+.dropbox b{font-size:18px;color:var(--ink)}
+.dropbox span{font-size:13px;color:var(--muted)}
+.dropzone.over{border-color:var(--accent);background:var(--y2)}

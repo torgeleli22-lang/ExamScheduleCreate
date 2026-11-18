@@ -244,3 +244,17 @@ export function makeMakeupXls(rows) {
   XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(aoa), 'sheet');
   return Buffer.from(XLSX.write(wb, { type: 'buffer', bookType: 'xls' }));
 }
+
+/** 파일을 화면에 끌어다 놓기: 진짜 File이 든 DataTransfer로 dragenter → dragover → drop 를 보낸다 */
+export async function dropFiles(page, files, selector = 'main') {
+  const dt = await page.evaluateHandle(fs => {
+    const d = new DataTransfer();
+    for (const f of fs) d.items.add(new File([Uint8Array.from(atob(f.b64), c => c.charCodeAt(0))], f.name, { type: f.type || '' }));
+    return d;
+  }, files.map(f => ({ name: f.name, type: f.mimeType, b64: Buffer.from(f.buffer).toString('base64') })));
+  await page.dispatchEvent(selector, 'dragenter', { dataTransfer: dt });
+  await page.dispatchEvent(selector, 'dragover', { dataTransfer: dt });
+  const shown = await page.isVisible('#dropOverlay');
+  await page.dispatchEvent(selector, 'drop', { dataTransfer: dt });
+  return shown;
+}

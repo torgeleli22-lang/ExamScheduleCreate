@@ -22,7 +22,11 @@ function renderSetup() {
   <article class="card"><h2>자료 다시 넣기</h2>
     <p class="hint">시간표가 바뀌었거나 보강이 생겼을 때 파일을 넣으세요. 강의시간표(.xlsx), 요일별 수업일 현황(.pdf·.hwp·.xlsx), 보강결과보고서(.hwp·.xlsx·.pdf)를 알아서 알아봐요. 옮기지 않은 시험은 새 자료의 기본 시간을 따라가요.</p>
     <p class="hint">지금 자료: 시간표 ${esc(src.timetable || '-')} · 수업일 ${esc(src.calendar || '-')}${src.makeups ? ` · 보강 ${esc(src.makeups)}` : ''}</p>
-    <div class="row"><label class="btn small primary editable" for="sFiles">파일 고르기 (여러 개 가능)</label><input type="file" id="sFiles" class="editable" multiple accept=".xlsx,.xlsm,.pdf,.hwp,.txt,.csv" hidden></div>
+    <div class="dropzone" id="sDrop" data-drop="setup">
+      <b>여기에 파일을 끌어다 놓거나</b>
+      <label class="btn small primary editable" for="sFiles">파일 고르기 (여러 개 가능)</label><input type="file" id="sFiles" class="editable" multiple accept=".xlsx,.xlsm,.xls,.pdf,.hwp,.txt,.csv" hidden>
+      <span class="hint">강의시간표 .xlsx/.xls · 수업일 현황 .pdf/.hwp/.xlsx · 보강 .hwp/.xls/.xlsx</span>
+    </div>
     ${p.busy ? `<p class="hint">${esc(p.busy)}</p>` : ''}
     ${found.length ? `<div class="filelist">${found.map((f, i) => `<div class="it ${f.type === 'unknown' ? 'bad' : 'ok'}"><span class="ty">${esc(TYPE_LABEL[f.type])}</span><span>${esc(f.name)}</span><span class="hint">${esc(f.msg)}</span>
       ${f.type === 'unknown' ? '' : f.applied ? '<span class="keepnote">✓ 적용함</span>' : `<button type="button" class="btn small danger editable" data-apply="${i}">${f.type === 'makeups' ? '보강 추가' : '이 자료로 바꾸기'}</button>`}</div>`).join('')}</div>` : ''}
@@ -103,6 +107,18 @@ function applyFound(f) {
   return '';
 }
 
+/** 설정 탭 '자료 다시 넣기'에 파일들을 넣는다 (파일 고르기·끌어다 놓기 공통) → 종류를 알아보고 적용 버튼을 보여 줌 */
+async function setupAddFiles(files) {
+  if (!files.length) return;
+  if (isLocked()) { toast('보관된 기록이라 자료를 넣을 수 없어요. 먼저 보관을 해제하세요.'); return; }
+  if (ui.tab !== 'setup') setTab('setup');
+  ui.pending.busy = `파일 ${files.length}개 읽는 중…`; ui.pending.applyMsg = ''; renderSetup();
+  const out = [];
+  for (const f of files) { const r = await recognizeFile(f); out.push({ ...r }); }
+  ui.pending.files = out; ui.pending.busy = '';
+  renderSetup();
+  $('#sDrop')?.scrollIntoView({ block: 'nearest' });
+}
 function bindSetup() {
   const sg = $('#setupGrid');
   sg.addEventListener('change', async e => {
@@ -110,14 +126,7 @@ function bindSetup() {
     if (isLocked()) return;
     if (el.id === 'sTitle') { S.title = el.value.trim() || S.title; changed(); }
     else if (el.id === 'sDept') { S.dept = el.value.trim() || S.dept; changed(); }
-    else if (el.id === 'sFiles' && el.files.length) {
-      const files = [...el.files]; el.value = '';
-      ui.pending.busy = `파일 ${files.length}개 읽는 중…`; ui.pending.applyMsg = ''; renderSetup();
-      const out = [];
-      for (const f of files) { const r = await recognizeFile(f); out.push({ ...r }); }
-      ui.pending.files = out; ui.pending.busy = '';
-      renderSetup();
-    }
+    else if (el.id === 'sFiles' && el.files.length) { const files = [...el.files]; el.value = ''; setupAddFiles(files); }
   });
   sg.addEventListener('click', e => {
     const id = e.target.id;

@@ -112,10 +112,10 @@ function drawWizard() {
     <section class="step"><h3><span class="n">1</span>자료</h3>
       ${others.length ? `<label class="field" for="wBase"><span>다른 시험의 자료 가져오기 (같은 학기 중간→기말이면 그대로 쓰면 돼요. 아래에 새 파일을 넣으면 그 자료가 우선해요)</span>
         <select id="wBase"><option value="">가져오지 않음</option>${others.map(p => `<option value="${esc(p.id)}"${p.id === w.base ? ' selected' : ''}>${esc(p.title)} · 수업 ${p.classes.length}개${(p.makeups || []).length ? ` · 보강 ${p.makeups.length}건` : ''}</option>`).join('')}</select></label>` : ''}
-      <div class="dropzone" id="wDrop">
+      <div class="dropzone" id="wDrop" data-drop="wizard">
         <b>여기에 파일을 끌어다 놓거나</b>
-        <label class="btn small primary" for="wFiles">파일 고르기 (여러 개 가능)</label><input type="file" id="wFiles" multiple accept=".xlsx,.xlsm,.pdf,.hwp,.txt,.csv" hidden>
-        <span class="hint">강의시간표 .xlsx · 수업일 현황 .pdf/.hwp/.xlsx · 보강결과보고서 .hwp/.xlsx/.pdf</span>
+        <label class="btn small primary" for="wFiles">파일 고르기 (여러 개 가능)</label><input type="file" id="wFiles" multiple accept=".xlsx,.xlsm,.xls,.pdf,.hwp,.txt,.csv" hidden>
+        <span class="hint">강의시간표 .xlsx/.xls · 수업일 현황 .pdf/.hwp/.xlsx · 보강 .hwp/.xls/.xlsx</span>
       </div>
       ${w.files.length ? `<div class="filelist">${w.files.map(f => `<div class="it ${f.type === 'unknown' ? 'bad' : 'ok'}"><span class="ty">${esc(TYPE_LABEL[f.type])}</span><span>${esc(f.name)}</span><span class="hint">${esc(f.msg)}</span></div>`).join('')}</div>` : ''}
       ${w.busy ? `<p class="hint">${esc(w.busy)}</p>` : ''}
@@ -203,8 +203,4 @@ function bindWizard() {
     } else return;
     renderWizard();
   });
-  // 끌어다 놓기
-  box.addEventListener('dragover', e => { const z = e.target.closest('#wDrop'); if (!z) return; e.preventDefault(); z.classList.add('over'); });
-  box.addEventListener('dragleave', e => { const z = e.target.closest('#wDrop'); if (z) z.classList.remove('over'); });
-  box.addEventListener('drop', e => { const z = e.target.closest('#wDrop'); if (!z) return; e.preventDefault(); z.classList.remove('over'); wizardAddFiles([...e.dataTransfer.files]); });
 }

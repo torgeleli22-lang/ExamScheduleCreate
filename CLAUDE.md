@@ -117,6 +117,7 @@ tests/helpers.mjs     vm 로더, 테스트용 xlsx/PDF/한글(makeHwp) 생성, �
 - 상단 `#selYear #selTerm #selKind` → `selectExam()`: 있으면 `switchPlan`, 없으면 `ui.missing` + `#createPanel`(탭·본문은 숨김, `body.missing`).
 - 탭: `#board`(날짜별 배치) `#courses`(과목 목록) `#history`(학기별 기록) `#setup`(설정, 지금 시험만)
 - 날짜별 배치: `#rangeBtn`('날짜 선택') → 달력에서 '선택'해야 `S.range = {from,to,days}` 저장(처음 열면 빈 상태, 고른 적 있으면 그 날짜로). `#board.dayrows` = `stripDates()`(일요일 제외)를 `mondayOf`로 묶어 `.weekrow`마다 `.weekdays`(가로, 넘치면 스크롤, 다시 그려도 줄별 스크롤 유지) 안에 작은 반×교시 `.day[data-day]`. 블록은 다른 날짜·줄로 교시까지 드래그, 끄는 중 줄의 좌우 가장자리 자동 넘김(drag.js autoScroll). `#btnKeepAll` = 옮기지 않고 겹침 없는 과목 모두 keep. 화면 폭 `.wrap` 최대 1880px. (예전 '주차×요일 판'은 이 화면으로 대체해 삭제)
+- **파일 끌어다 놓기**(app.js `bindFileDrop` → `routeDroppedFiles`): 화면 어디에 놓아도 됨(끄는 동안 `#dropOverlay`). 고른 시험이 없으면 `wizardAddFiles`, 백업 .json만이면 `historyRestoreFile`, 그 밖엔 설정 탭 `setupAddFiles`(종류를 알아보고 적용 버튼). 앱 안의 블록·달력 드래그는 pointer 이벤트라 서로 안 겹침.
 - 블록 클릭 → `openDrawer(id)` 편집 서랍(즉시 반영). 상단 "시험 일정 등록" → `openRegister()` 폼(미리보기 후 `saveRegister()`로 반영).
 - 보관(잠금)된 계획: `isLocked()`. 모든 수정 진입점이 막혀 있고 `lockControls()`가 입력 칸을 끈다. `changed()`도 잠금이면 저장하지 않는다.
 - 다시 그리면서(innerHTML) 포커스된 칸이 지워지면 change 이벤트가 또 렌더를 부를 수 있다 → 마법사는 `renderWizard()` 재진입 가드 사용.

@@ -68,6 +68,13 @@ function switchPlan(id) {
   closeDrawer(); refreshRoomList(); persistLocal(); render();
 }
 
+/** 백업(.json) 파일 → 불러오기 확인 (파일 고르기·끌어다 놓기 공통) */
+async function historyRestoreFile(f) {
+  if (ui.tab !== 'history') setTab('history');
+  try { ui.hist.restore = planRestore(JSON.parse(await f.text())); }
+  catch { ui.hist.restore = { error: true, msg: '파일을 읽지 못했어요. JSON 백업 파일인지 확인해 주세요.' }; }
+  renderHistory();
+}
 function bindHistory() {
   bindGitHubCard();
   const box = $('#historyBox');
@@ -96,8 +103,7 @@ function bindHistory() {
   });
   box.addEventListener('change', async e => {
     if (e.target.id !== 'hRestore' || !e.target.files[0]) return;
-    try { ui.hist.restore = planRestore(JSON.parse(await e.target.files[0].text())); }
-    catch { ui.hist.restore = { error: true, msg: '파일을 읽지 못했어요. JSON 백업 파일인지 확인해 주세요.' }; }
-    renderHistory();
+    const f = e.target.files[0]; e.target.value = '';
+    historyRestoreFile(f);
   });
 }
