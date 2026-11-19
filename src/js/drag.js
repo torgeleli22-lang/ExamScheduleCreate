@@ -63,7 +63,8 @@ function updateTarget(x, y) {
     drag.target = place;
     tip.hidden = false;
     const cb = combinedAt(c, place);
-    tip.textContent = `${fmt(t.date)} ${pRange(start, ex.len)} ${tRange(start, ex.len)}` + (cf.length ? '\n' + cf.map(describeConflict).join('\n') : ' · 겹침 없음') + (cb.length ? `\n합반: ${combinedLabel(cb)}와 같은 시간에 한 시험` : '') + (wn.length ? '\n' + wn.join('\n') : '');
+    const tt = { ...ex }; moveExamStart(tt, start);
+    tip.textContent = `${fmt(t.date)} ${pRange(start, ex.len)} ${examTime(tt)}` + (cf.length ? '\n' + cf.map(describeConflict).join('\n') : ' · 겹침 없음') + (cb.length ? `\n합반: ${combinedLabel(cb)}와 같은 시간에 한 시험` : '') + (wn.length ? '\n' + wn.join('\n') : '');
   }
   tip.style.whiteSpace = 'pre-line';
   tip.style.left = Math.min(window.innerWidth - 330, e.clientX + 14) + 'px';
@@ -86,12 +87,12 @@ function endDrag(e, cancelled) {
   if (d.target) {
     const ex = S.exams[d.id];
     if (ex.date !== d.target.date || ex.start !== d.target.start) {
-      const before = `${fmt(ex.date)} ${pRange(ex.start, ex.len)}`;
-      ex.date = d.target.date; ex.start = d.target.start; ex.keep = false;
+      const before = `${fmt(ex.date)} ${examTime(ex)}`;
+      ex.date = d.target.date; moveExamStart(ex, d.target.start); ex.keep = false;
       changed();
       const c = D.byId[d.id];
       const n = conflictsOf(c, { date: ex.date, start: ex.start, len: ex.len, room: ex.room }).length;
-      toast(`${c.course}(${groupOf(c)}) ${before} → ${fmt(ex.date)} ${pRange(ex.start, ex.len)}${n ? ` · 겹침 ${n}건` : ''}`);
+      toast(`${c.course}(${groupOf(c)}) ${before} → ${fmt(ex.date)} ${examTime(ex)}${n ? ` · 겹침 ${n}건` : ''}`);
     }
   }
 }

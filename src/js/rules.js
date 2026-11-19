@@ -1,6 +1,42 @@
 /* ---------- 겹침 · 경고 규칙 ---------- */
 const hasSlot = ex => !NO_SLOT.has(ex.method);
-const isMoved = c => { const ex = S.exams[c.id]; return hasSlot(ex) && (ex.date !== defaultDate(c) || ex.start !== defaultStart(c)); };
+
+/* ---------- 시험 시간 직접 정하기 ----------
+   exam.time = {from:'10:00', to:'11:30'} 이 있으면 그 시간이 진짜 시험 시간. 없으면 교시 시간(start·len).
+   겹침·판 위치는 교시 기준: 정한 시간이 걸치는 교시를 모두 쓰는 것으로 본다 (start·len을 시간에서 다시 계산). */
+const toMin = t => { const [h, m] = String(t).split(':').map(Number); return h * 60 + (m || 0); };
+const fromMin = n => `${String(Math.floor(n / 60)).padStart(2, '0')}:${String(n % 60).padStart(2, '0')}`;
+const DAY_FROM = PERIODS[0][0], DAY_TO = PERIODS[NP - 1][1];
+/** 시:분 범위 → 걸치는 교시 {start, len} */
+function timeToPeriods(from, to) {
+  const a = toMin(from), b = toMin(to);
+  let s = PERIODS.findIndex(p => toMin(p[1]) > a) + 1;
+  if (s <= 0) s = NP;
+  let e = s;
+  PERIODS.forEach((p, i) => { if (toMin(p[0]) < b && i + 1 > e) e = i + 1; });
+  return { start: s, len: e - s + 1 };
+}
+const periodTime = (s, len) => ({ from: PERIODS[s - 1][0], to: PERIODS[Math.min(NP, s + len - 1) - 1][1] });
+/** 시험 시간 글자: 직접 정한 시간이 있으면 그것, 없으면 교시 시간 */
+const examTime = ex => (ex.time ? `${ex.time.from}~${ex.time.to}` : tRange(ex.start, ex.len));
+/** 시작·종료 시간을 정한다. 교시 경계와 같으면 교시 시간으로(시간 지움). 잘못된 시간이면 false */
+function setExamTime(ex, from, to) {
+  if (!/^\d{1,2}:\d{2}$/.test(from) || !/^\d{1,2}:\d{2}$/.test(to) || toMin(to) <= toMin(from)) return false;
+  from = fromMin(toMin(from)); to = fromMin(toMin(to));
+  const pr = timeToPeriods(from, to);
+  ex.start = pr.start; ex.len = pr.len;
+  const def = periodTime(pr.start, pr.len);
+  if (def.from === from && def.to === to) delete ex.time; else ex.time = { from, to };
+  return true;
+}
+/** 시작 교시를 옮긴다(끌기·빈 시간 누르기). 직접 정한 시간이 있으면 같은 만큼 같이 옮긴다 */
+function moveExamStart(ex, start) {
+  if (ex.time && start !== ex.start) {
+    const d = toMin(PERIODS[start - 1][0]) - toMin(PERIODS[ex.start - 1][0]);
+    if (!setExamTime(ex, fromMin(toMin(ex.time.from) + d), fromMin(toMin(ex.time.to) + d))) { delete ex.time; ex.start = start; }
+  } else ex.start = start;
+}
+const isMoved = c => { const ex = S.exams[c.id]; return hasSlot(ex) && (ex.date !== defaultDate(c) || ex.start !== defaultStart(c) || !!ex.time); };
 /** 공지·엑셀에 쓰는 방식 글자: '기존 시간표 수업 진행'으로 확정했으면 그것을 앞에 */
 const methodLabel = c => { const ex = S.exams[c.id]; return isKept(c) ? `기존 시간표 수업 진행${ex.method !== '미정' ? ` (${ex.method})` : ''}` : ex.method; };
 /** '기존 시간표 수업 진행'으로 확정했고 그 뒤로 옮기지 않았는지 */
@@ -75,6 +111,7 @@ function warningsOf(c, p) {
   if (pv && p.date <= pv) w.push(`${S.examWeek - 1}주차 수업(${fmt(pv)})보다 이르거나 같은 날이에요`);
   if (p.start <= LUNCH && p.start + p.len - 1 >= LUNCH) w.push('점심시간(5교시)이 끼어 있어요');
   if (p.start + p.len - 1 > NP) w.push('10교시를 넘어가요');
+  if (p.time && (toMin(p.time.from) < toMin(DAY_FROM) || toMin(p.time.to) > toMin(DAY_TO))) w.push(`수업 시간(${DAY_FROM}~${DAY_TO}) 밖이에요`);
   // 합반인데 같은 교수님이 서로 다른 강의실 → 한 강의실로 맞춰야 함
   const apart = combinedAt(c, p).filter(x => x.c.prof && x.c.prof === c.prof && normRoom(x.room) !== normRoom(p.room));
   if (apart.length) w.push(`합반(${combinedLabel(apart)})인데 강의실이 달라요(${roomLabel(p.room)}·${[...new Set(apart.map(x => roomLabel(x.room)))].join('·')}). 같은 교수님이라 한 강의실로 맞춰 주세요`);
@@ -93,7 +130,7 @@ function describeConflict(x) {
 function statusOf(c) {
   const ex = S.exams[c.id];
   if (!hasSlot(ex)) return { bad: [], warn: [], moved: false, undecided: false, done: !!ex.done, noslot: true, keep: false, combined: [] };
-  const p = { date: ex.date, start: ex.start, len: ex.len, room: ex.room };
+  const p = { date: ex.date, start: ex.start, len: ex.len, room: ex.room, time: ex.time };
   return { bad: conflictsOf(c, p), warn: warningsOf(c, p), moved: isMoved(c), undecided: ex.method === '미정', done: !!ex.done, noslot: false, keep: isKept(c), combined: combinedAt(c, p) };
 }
 /** 시험주차-2 이후 후보 날짜 중 (시험주차-1) 수업일 이후, 토요일 제외, 점심을 걸치지 않고 겹침 0인 시작 교시 */

@@ -105,9 +105,9 @@ function renderDaySection(d, statusCache) {
       }
       const ex = S.exams[it.c.id], st = statusCache[it.c.id];
       const badge = st.bad.length ? `<span class="badge b-bad">겹침</span>` : st.combined.length ? `<span class="badge b-cb">합반</span>` : st.keep ? `<span class="badge b-ok">기존</span>` : st.done ? `<span class="badge b-ok">확정</span>` : st.moved ? `<span class="badge b-mv">이동</span>` : '';
-      const tip = [`${it.c.course} (${it.c.prof}) ${g}`, `${fmt(ex.date)} ${pRange(ex.start, ex.len)} ${tRange(ex.start, ex.len)} · ${roomLabel(ex.room)} · ${ex.method}`,
+      const tip = [`${it.c.course} (${it.c.prof}) ${g}`, `${fmt(ex.date)} ${examTime(ex)} (${pRange(ex.start, ex.len)}) · ${roomLabel(ex.room)} · ${ex.method}`,
         st.moved ? `↪ ${S.examWeek}주차 수업 ${fmt(defaultDate(it.c))} ${pRange(defaultStart(it.c), defaultLen(it.c))}에서 옮김` : '', st.keep ? '✓ 기존 시간표 수업 진행' : '', st.combined.length ? `합반: ${combinedLabel(st.combined)}와 같은 시간에 한 시험` : '', ...st.bad.map(describeConflict), ...st.warn].filter(Boolean).join('\n');
-      return `<button type="button" class="blk exam y${esc(year)}${st.bad.length ? ' bad' : ''}${badge ? ' has-badge' : ''}" style="${pos}" data-id="${esc(it.c.id)}" title="${esc(tip)}"><span class="t">${esc(it.c.course)}</span><span class="s">${st.moved ? `${S.examWeek}주차 · ${esc(fmt(defaultDate(it.c)))}에서 옮김` : `${S.examWeek}주차${D.examMakeup[it.c.id] ? '(보강)' : ''} · ${esc(it.c.prof)} · ${esc(roomLabel(ex.room))}`}</span>${badge}</button>`;
+      return `<button type="button" class="blk exam y${esc(year)}${st.bad.length ? ' bad' : ''}${badge ? ' has-badge' : ''}" style="${pos}" data-id="${esc(it.c.id)}" title="${esc(tip)}"><span class="t">${esc(it.c.course)}</span><span class="s">${ex.time ? `${esc(examTime(ex))} · ` : ''}${st.moved && (ex.date !== defaultDate(it.c) || ex.start !== defaultStart(it.c)) ? `${S.examWeek}주차 · ${esc(fmt(defaultDate(it.c)))}에서 옮김` : st.moved ? `${S.examWeek}주차 · 시간 변경` : `${S.examWeek}주차${D.examMakeup[it.c.id] ? '(보강)' : ''} · ${esc(it.c.prof)} · ${esc(roomLabel(ex.room))}`}</span>${badge}</button>`;
     }).join('');
     rows += `<div class="grow${prevYear !== null && prevYear !== year ? ' yb' : ''}"><div class="glabel y${esc(year)}">${esc(g)}</div><div class="track" style="grid-template-rows:repeat(${lanes},minmax(30px,auto))">${cells}${blocks}</div></div>`;
     prevYear = year;
@@ -227,7 +227,7 @@ function renderList() {
       <td><select aria-label="방식" data-f="method">${opts(METHODS, ex.method)}</select></td>
       <td><select aria-label="날짜" data-f="date"${dis}>${dateOptions(ex.date)}</select></td>
       <td><select aria-label="시작 교시" data-f="start"${dis}>${opts(range(1, NP), ex.start, v => `${v}교시`)}</select></td>
-      <td><select aria-label="교시 수" data-f="len"${dis}>${opts(range(1, 6), ex.len, v => `${v}교시`)}</select><span class="sub">${st.noslot ? '' : tRange(ex.start, ex.len)}</span></td>
+      <td><select aria-label="교시 수" data-f="len"${dis}>${opts(range(1, 6), ex.len, v => `${v}교시`)}</select><span class="sub">${st.noslot ? '' : examTime(ex)}</span></td>
       <td><input type="text" aria-label="강의실" data-f="room" value="${esc(ex.room)}" size="7" list="roomList"${dis}></td>
       <td><input type="text" class="note" aria-label="요청사항" data-f="note" value="${esc(ex.note)}" placeholder="교수님 요청사항"></td>
       <td><input type="checkbox" aria-label="확정" data-f="done"${ex.done ? ' checked' : ''}></td>

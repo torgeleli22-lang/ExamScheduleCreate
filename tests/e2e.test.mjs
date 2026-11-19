@@ -352,6 +352,41 @@ test('파일 끌어다 놓기: 화면 어디서나 → 보강은 설정 탭, 백
   await ctx.close();
 });
 
+test('시험 상세에서 시작·종료 시간 직접 정하기 → 판·목록·엑셀에 그 시간, 교시로 맞추기', async () => {
+  const { ctx, page, errors } = await openApp(browser);
+  // 2A JAVA프로그래밍응용: 15주차 12/8(화) 6~8교시(13:35~16:15)
+  const blk = page.locator('#board .day[data-day="2026-12-08"] .blk.exam[data-id="화-2A-6"]');
+  await blk.scrollIntoViewIfNeeded(); await blk.click();
+  assert.equal(await page.inputValue('#dFrom'), '13:35');
+  assert.equal(await page.inputValue('#dTo'), '16:15');
+  await page.fill('#dFrom', '13:40');
+  await page.fill('#dTo', '15:10');
+  const ex = await examOf(page, '화-2A-6');
+  assert.deepEqual({ start: ex.start, len: ex.len, time: ex.time }, { start: 6, len: 2, time: { from: '13:40', to: '15:10' } });
+  assert.match(await page.innerText('#drawer'), /90분 · 직접 정한 시간 · 겹침은 6~7교시 기준으로 검사해요/);
+  assert.match(await page.innerText('#dChecks'), /12\/8\(화\) 13:40~15:10 \(6~7교시\)/);
+  assert.match(await page.innerText('#board .day[data-day="2026-12-08"] .blk.exam[data-id="화-2A-6"]'), /13:40~15:10 · 15주차 · 시간 변경/);
+  // 거꾸로 넣으면 거부
+  await page.fill('#dTo', '13:00');
+  assert.deepEqual((await examOf(page, '화-2A-6')).time, { from: '13:40', to: '15:10' });
+  // 엑셀 과목별 목록·공지에 그 시간
+  await page.click('#dClose');
+  const x = await download(page, () => page.click('#btnExport'));
+  const wb = await readXlsx(x.buf);
+  const rows = []; wb.getWorksheet('과목별 목록').eachRow((r, i) => { if (i > 1) rows.push([String(r.getCell(7).value), String(r.getCell(5).value) + r.getCell(6).value, String(r.getCell(4).value)]); });
+  assert.deepEqual(rows.find(r => r[0] === 'JAVA프로그래밍응용' && r[1] === '2A'), ['JAVA프로그래밍응용', '2A', '13:40~15:10']);
+  const notice = []; wb.getWorksheet('시험시간표(공지)').eachRow(r => r.eachCell(cell => notice.push(String(cell.value))));
+  assert.ok(notice.some(t => t.startsWith('JAVA프로그래밍응용(양숙희)\n13:40~15:10')));
+  // 교시로 맞추기: 6교시 ~ 8교시 → 직접 정한 시간 없어지고 원래대로
+  await blk.click();
+  await page.selectOption('#dPEnd', '8');
+  const ex2 = await examOf(page, '화-2A-6');
+  assert.equal(ex2.time, undefined); assert.equal(ex2.len, 3);
+  assert.equal(await page.inputValue('#dTo'), '16:15');
+  assert.deepEqual(errors, []);
+  await ctx.close();
+});
+
 test('예전 버전(v1) 브라우저 저장 내용을 그대로 이어받는다', async () => {
   const c = SEED.classes[0];
   const v1 = { v: 1, ...SEED, exams: { [c.id]: { method: '실기', date: '2026-12-18', start: 6, len: 2, room: '412', note: '노트북 지참', done: true } }, extraDates: [], rev: 5, updatedAt: 1 };

@@ -351,3 +351,5 @@ body.missing .summary,body.missing .tabs,body.missing main,body.missing #btnRegi
 .badge.b-cb{background:#e7e0fb;color:#4b2fa3;border:1px solid #7d62d6}
 .pill.cb{background:#e7e0fb;color:#4b2fa3}
 @media (prefers-color-scheme: dark){ :root:not([data-theme="light"]) .badge.b-cb,:root:not([data-theme="light"]) .pill.cb{background:#2c2350;color:#c9b8ff;border-color:#7d62d6} }
+.fgrid .prow{flex-wrap:nowrap}
+.fgrid .prow select{width:auto;flex:1 1 0;min-width:0}

@@ -64,6 +64,7 @@ tests/helpers.mjs     vm 로더, 테스트용 xlsx/PDF/한글(makeHwp) 생성, �
 
 - `Store` (저장 단위): `{v:2, plans:{[planId]: Plan}, currentId}`. localStorage 키 `exam-planner:v2`.
 - `Plan` (시험 하나): `{v:2, id:"2027-1-mid", termYear, term(1|2), kind('mid'|'final'), title, dept, year, examWeek, calendar:{cols, weeks}, classes:[...], exams:{[classId]: {method, date(YYYY-MM-DD), start, len, room, note, done}}, extraDates, locked, sources:{timetable, calendar, makeups}, makeups:[...], range:{from,to}, createdAt, updatedAt, rev}`
+  - exam에 `time: {from:'13:40', to:'15:10'}`(선택) = 서랍에서 **시작·종료 시간을 직접** 정한 경우. `setExamTime()`이 걸치는 교시로 start·len을 다시 계산(겹침·판 위치는 교시 기준), 교시 경계와 같으면 time을 지운다. 표시는 `examTime(ex)`. 끌기·빈 시간 누르기는 `moveExamStart()`로 같은 만큼 같이 옮기고, 교시로 고치는 곳(목록 select·등록 폼·교시로 맞추기·되돌리기)은 time을 지운다. time이 있으면 `isMoved`(기존 시간표 아님).
   - exam에 `keep: true` = **기존 시간표 수업 진행** 확정(done도 true). 옮기면 풀린다(`isKept(c)` = keep && !isMoved). 방식(필기·시험 없음 등)은 따로 고를 수 있어 "원래 시간에 시험"과 "시험 없이 수업" 둘 다 표현. 엑셀은 `methodLabel(c)`.
   - makeup: `{id, classId, from(결강일|''), to(보강일), start, end, room, note}`.
   - range: 날짜별 시간표에 보일 날짜. 달력에서 고르면 `{from, to, days:[…]}`. 없으면 `defaultRange()` = 시험 주차 날짜들이 들어가는 주(월~토). 읽을 때는 `boardRange()` / `stripDates()`.

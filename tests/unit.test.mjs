@@ -278,3 +278,30 @@ test('합반 시험: 같은 과목 다른 반이 같은 날 같은 교시에 시
   // 같은 반이 겹치는 건 합반이어도 여전히 겹침 (같은 반이 두 시험)
   assert.equal(core.combinedAt(b2, { date: '2026-12-16', start: 2, len: 3, room: '212' }).length, 0);
 });
+
+test('시험 시간 직접 정하기: 시간 → 걸치는 교시, 교시 경계면 시간 지움, 끌면 같이 옮김', () => {
+  const core = loadCore();
+  core.usePlan(seedPlan(core));
+  const P = (a, b) => JSON.parse(JSON.stringify(core.timeToPeriods(a, b)));
+  assert.deepEqual(P('10:00', '11:30'), { start: 2, len: 2 });   // 2교시(09:55~10:45)·3교시(10:50~11:40)에 걸침
+  assert.deepEqual(P('09:00', '12:35'), { start: 1, len: 4 });
+  assert.deepEqual(P('13:00', '14:00'), { start: 5, len: 2 });   // 점심(5교시)에 걸침
+  const c = SEED.classes.find(x => x.id === '화-2A-6'), ex = core.get('S').exams[c.id];
+  assert.equal(core.statusOf(c).moved, false);
+  assert.ok(core.setExamTime(ex, '13:40', '15:10'));
+  assert.deepEqual({ start: ex.start, len: ex.len, time: { ...ex.time } }, { start: 6, len: 2, time: { from: '13:40', to: '15:10' } });
+  assert.equal(core.examTime(ex), '13:40~15:10');
+  assert.equal(core.statusOf(c).moved, true);                      // 시간을 바꾸면 '기존 시간표'가 아님
+  assert.equal(core.setExamTime(ex, '15:10', '13:40'), false);      // 거꾸로면 거부
+  // 끌어서 2교시로 → 같은 길이·같은 어긋남으로 이동 (13:35→09:55 = -220분)
+  core.moveExamStart(ex, 2);
+  assert.deepEqual({ ...ex.time }, { from: '10:00', to: '11:30' });
+  assert.equal(ex.start, 2); assert.equal(ex.len, 2);
+  // 교시 경계와 같게 정하면 직접 정한 시간이 없어지고 교시 시간
+  assert.ok(core.setExamTime(ex, '13:35', '16:15'));
+  assert.equal(ex.time, undefined); assert.equal(ex.start, 6); assert.equal(ex.len, 3);
+  assert.equal(core.statusOf(c).moved, false);
+  // 수업 시간 밖이면 경고
+  core.setExamTime(ex, '17:30', '18:30');
+  assert.match(core.statusOf(c).warn.join(' '), /수업 시간\(09:00~18:05\) 밖이에요/);
+});
