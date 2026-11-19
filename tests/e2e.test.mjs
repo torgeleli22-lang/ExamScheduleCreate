@@ -434,6 +434,20 @@ test('다른 주차 수업: 짧게 누르면 안내, 꾹 누르면 풀려서 끌
   const moved = page.locator('#board .day[data-day="2026-12-09"] .blk.session.manual[data-cid="수-1A-6"]');
   assert.match(await moved.innerText(), /14주차 수업 · 옮김/);
   assert.match(await moved.getAttribute('class'), /movable/);          // 옮긴 수업은 바로 다시 옮길 수 있음
+  // 엑셀: 시험이 없는 12/9도 손댄 날이라 '기존 수업 진행'으로 접지 않고 교시별로 그날 수업을 모두
+  {
+    const x = await download(page, () => page.click('#btnExport'));
+    const ws = (await readXlsx(x.buf)).worksheets[0];
+    const heads = {}; ws.getRow(5).eachCell((cell, col) => { heads[String(cell.value)] ??= col; });
+    const c9 = heads['수 12/9'];
+    assert.ok(c9, Object.keys(heads).join(','));
+    assert.equal(ws.getCell(6, c9).value, '1교시'); assert.equal(ws.getCell(6, c9 + 9).value, '10교시');
+    const vals = []; ws.eachRow(r => r.eachCell(cell => vals.push(String(cell.value))));
+    assert.ok(vals.includes('마이크로프로세서실습\n(박신성) 412호\n14주차 수업 옮김'), vals.filter(v => v.startsWith('마이크로')).join(' | '));
+    assert.ok(vals.some(v => /^Python프로그래밍\n\(장준국\) .+\n기존 수업 진행$/.test(v)));
+    // 손대지 않은 12/7(월)은 그대로 한 칸
+    assert.equal(ws.getCell('B5').value, '월 12/7'); assert.equal(ws.getCell('B8').value, '기존 수업\n진행');
+  }
   // 눌러서 상세: 시간 직접 정하기
   await moved.click();
   assert.equal(await page.inputValue('#sxDate'), '2026-12-09');

@@ -397,3 +397,27 @@ test('직접 정한 시간은 분 단위로 겹침 검사·점심 경고·합반
     assert.equal(core.statusOf(a).combined.length, 0);
   }
 });
+
+test('엑셀에서 펼칠 날(dayTouched): 보강·옮긴 수업이 들고 나는 날, 시험을 옮긴 원래 날, 메모 있는 시험', () => {
+  const core = loadCore();
+  core.usePlan(seedPlan(core));
+  const S = core.get('S'), dm = core.get('D.dateMap');
+  const untouched = Object.keys(dm).filter(k => !core.dayTouched(k));
+  assert.ok(untouched.includes('2026-12-09') && untouched.includes('2026-12-10'));   // 처음엔 손댄 날 없음
+  // 14주차 수업을 12/9 → 12/10으로 옮기면 두 날 모두
+  const c = SEED.classes.find(x => x.id === '수-1A-6');
+  const it = core.itemsOn('2026-12-09').find(x => x.c.id === c.id);
+  core.applySession(core.sessionRef(it), { date: '2026-12-10', start: 1 });
+  assert.equal(core.dayTouched('2026-12-09'), true); assert.equal(core.dayTouched('2026-12-10'), true);
+  assert.equal(core.dayTouched('2026-12-11'), false);
+  // 시험을 원래 날(12/8)에서 다른 날로 옮기면 12/8도
+  const j = SEED.classes.find(x => x.id === '화-2A-6'), ex = S.exams[j.id];
+  ex.date = '2026-12-22';
+  assert.equal(core.dayTouched('2026-12-08'), true);
+  // 메모: 시험 없음(블록 없음)인 과목이면 원래 수업일에
+  const w = SEED.classes.find(x => x.day === '금');
+  const wd = core.defaultDate(w);
+  assert.equal(core.dayTouched(wd), false);
+  S.exams[w.id].note = '교수님 출장';
+  assert.equal(core.dayTouched(wd), true);
+});

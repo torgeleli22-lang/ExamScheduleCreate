@@ -15,7 +15,7 @@ function exportWeeks() {
   const exDays = new Set(S.classes.map(c => S.exams[c.id]).filter(ex => hasSlot(ex) && ex.date).map(ex => ex.date));
   const weeks = new Map();
   for (const d of stripDates()) {
-    if (dowOf(d) === 6 && !exDays.has(d)) continue;
+    if (dowOf(d) === 6 && !exDays.has(d) && !dayTouched(d)) continue;
     const m = mondayOf(d);
     if (!weeks.has(m)) weeks.set(m, []);
     weeks.get(m).push(d);
@@ -31,7 +31,7 @@ function weekCellOf(it) {
     return { text: `${c.course}\n(${c.prof}) ${roomLabel(ex.room)}\n${kept ? '기존 수업시간 진행' : koRange(tm.from, tm.to)}${extra ? ` · ${extra}` : ''}`, fill: kept ? WK.gray : (WK.year[c.year] || WK.gray), exam: true };
   }
   const what = it.kind === 'makeup' ? (it.m && it.m.manual ? `${it.week || ''}주차 수업 옮김` : '보강 수업 진행') : '기존 수업 진행';
-  return { text: `${c.course}\n(${c.prof}) ${roomLabel(it.room)}\n${what}`, fill: WK.gray, exam: false };
+  return { text: `${c.course}\n(${c.prof}) ${roomLabel(it.room)}\n${what}${it.tm ? ` · ${koRange(it.tm.from, it.tm.to)}` : ''}`, fill: WK.gray, exam: false };
 }
 function addWeekSheets(wb) {
   const F = (o = {}) => ({ name: '맑은 고딕', size: 11, ...o });
@@ -46,11 +46,11 @@ function addWeekSheets(wb) {
     const name = `${wi + 1}주차 (${days[0].slice(5).replace('-', '')}(${DOW[dowOf(days[0])]})-${days[days.length - 1].slice(5).replace('-', '')}(${DOW[dowOf(days[days.length - 1])]}))`;
     const ws = wb.addWorksheet(name.slice(0, 31), { views: [{ state: 'frozen', xSplit: 1, ySplit: 7 }],
       pageSetup: { paperSize: 8, orientation: 'landscape', fitToPage: true, fitToWidth: 1, fitToHeight: 1, horizontalCentered: true, margins: { left: 0.25, right: 0.25, top: 0.4, bottom: 0.4, header: 0.2, footer: 0.2 } } });
-    // 날짜마다 열: 시험 있으면 1~10교시, 없으면 한 칸
+    // 날짜마다 열: 시험이 있거나 손댄 날(dayTouched)은 1~10교시, 아니면 한 칸
     let col = 2;
     const layout = days.map(d => {
       const items = itemsOn(d, null);
-      const open = items.some(it => it.kind === 'exam');
+      const open = items.some(it => it.kind === 'exam') || dayTouched(d);   // 시험이 없어도 손댄 날은 수업을 다 보여 준다
       const L = { d, items, open, col, n: open ? NP : 1 };
       col += L.n;
       return L;
@@ -126,7 +126,7 @@ function addWeekSheets(wb) {
       }
     });
     const last = first + D.groups.length - 1;
-    // 시험 없는 날: 한 칸으로 '기존 수업 진행'
+    // 시험도 없고 손댄 것도 없는 날: 한 칸으로 '기존 수업 진행'
     for (const L of layout) {
       if (L.open) continue;
       ws.mergeCells(first, L.col, last, L.col);
