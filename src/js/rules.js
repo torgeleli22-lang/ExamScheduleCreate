@@ -55,14 +55,14 @@ function itemsOn(iso, excludeId) {
       if (c.day !== info.col) continue;
       if (examWeekDay && hasSlot(S.exams[c.id]) && !D.examPushed?.has(c.id)) continue;   // 시험이 보강으로 밀렸으면 원래 시험 주차 수업은 평소 수업
       if (D.cancelled?.has(`${c.id}|${iso}`)) continue;
-      out.push({ kind: 'fixed', c, s: c.start, e: c.end, room: c.room, week: info.week });
+      out.push({ kind: 'fixed', c, s: c.start, e: c.end, room: c.room, week: info.week, date: iso });
     }
   }
   for (const m of D.makeups || []) {
     if (m.to !== iso) continue;
     const c = D.byId[m.classId];
     if (D.examMakeup[c.id] === m && hasSlot(S.exams[c.id])) continue;   // 시험 주차 보강 = 시험 자리
-    out.push({ kind: 'makeup', c, s: m.start, e: m.end, room: m.room || c.room, week: m.from ? D.dateMap[m.from]?.week : null, from: m.from, m });
+    out.push({ kind: 'makeup', c, s: m.start, e: m.end, room: m.room || c.room, week: m.from ? D.dateMap[m.from]?.week : null, from: m.from, m, date: iso });
   }
   for (const c of S.classes) {
     if (c.id === excludeId) continue;
@@ -84,12 +84,15 @@ function combinedAt(c, p) {
   return itemsOn(p.date, c.id).filter(it => isCombined(c, it, p.start)).map(it => ({ c: it.c, room: it.room }));
 }
 /** 겹침 = 교시 범위가 겹치면서 같은 반 / 같은 교수 / 같은 강의실 (합반이면 교수·강의실은 빼고) */
+/** p.self = 옮기는 수업의 참조 {cid, from, mkId}: 그 수업 자신(원래 자리·옮긴 자리)은 겹침에서 빼고, 같은 과목 시험은 넣는다 */
+const isSelfSession = (p, it) => !!p.self && it.kind !== 'exam' && it.c.id === p.self.cid
+  && ((it.kind === 'fixed' && it.date === p.self.from) || (it.kind === 'makeup' && it.m.id === p.self.mkId));
 function conflictsOf(c, p) {
   if (!p.date) return [];
   const s = p.start, e = p.start + p.len - 1, g = groupOf(c), rn = normRoom(p.room);
   const res = [];
-  for (const it of itemsOn(p.date, c.id)) {
-    if (it.s > e || it.e < s) continue;
+  for (const it of itemsOn(p.date, p.self ? null : c.id)) {
+    if (it.s > e || it.e < s || isSelfSession(p, it)) continue;
     const combined = isCombined(c, it, s);
     const kinds = [];
     if (groupOf(it.c) === g) kinds.push('반');
@@ -117,13 +120,13 @@ function warningsOf(c, p) {
   if (apart.length) w.push(`합반(${combinedLabel(apart)})인데 강의실이 달라요(${roomLabel(p.room)}·${[...new Set(apart.map(x => roomLabel(x.room)))].join('·')}). 같은 교수님이라 한 강의실로 맞춰 주세요`);
   for (const m of D.makeups || []) {
     if (m.classId !== c.id || D.examMakeup?.[c.id] === m) continue;
-    if (m.to > p.date) w.push(`보강(${fmt(m.to)} ${pRange(m.start, m.end - m.start + 1)})이 시험보다 뒤에 있어요`);
+    if (m.to > p.date) w.push(`${m.manual ? '옮긴 수업' : '보강'}(${fmt(m.to)} ${pRange(m.start, m.end - m.start + 1)})이 시험보다 뒤에 있어요`);
   }
   return w;
 }
 function describeConflict(x) {
   const it = x.it, o = it.c;
-  const what = it.kind === 'exam' ? '시험' : it.kind === 'makeup' ? `보강(${it.from ? `${fmt(it.from)} 결강분` : '추가'})` : `${it.week}주차 수업`;
+  const what = it.kind === 'exam' ? '시험' : it.kind === 'makeup' ? (it.m?.manual ? `${it.week}주차 수업(${fmt(it.from)}에서 옮김)` : `보강(${it.from ? `${fmt(it.from)} 결강분` : '추가'})`) : `${it.week}주차 수업`;
   const room = x.kinds.includes('강의실') ? ` · ${roomLabel(it.room)}` : '';
   return `${x.kinds.join('·')} 겹침: ${o.course}(${o.prof}, ${groupOf(o)}) ${what} ${pRange(it.s, it.e - it.s + 1)}${room}`;
 }
@@ -151,6 +154,47 @@ function shiftedByMakeup() {
     return { c, m, ew: D.colDates[c.day]?.[S.examWeek - 1], to: m.to, pushed: D.examPushed.has(c.id) };
   }).sort((a, b) => a.to.localeCompare(b.to) || groupOf(a.c).localeCompare(groupOf(b.c)));
 }
+/* ---------- 다른 주차 수업 옮기기 ----------
+   8·15주차(와 이 시험의 시험 주차) 수업은 바로 옮길 수 있고, 다른 주차 수업은 판에서 꾹 눌러 푼 뒤 옮긴다(사용자 요구).
+   옮긴 수업은 보강처럼 기록한다 → 겹침 검사·보강 목록·엑셀이 그대로 따라온다:
+     makeup {id: `${classId}|${원래 날짜}|m`, classId, from: 원래 날짜, to, start, end, room, time?, note: '직접 옮김', manual: true}
+   원래 날짜·시간·강의실로 되돌리면 기록을 지운다. 가져온 보강(manual 아님)은 그 보강을 고친다. */
+const freeWeeks = () => new Set([KINDS.mid.week, KINDS.final.week, S.examWeek]);
+/** 판의 수업 항목(itemsOn의 fixed·makeup) → 옮기기 참조 {cid, from, mkId} */
+const sessionRef = it => (it.kind === 'makeup' ? { cid: it.c.id, from: it.m.from || '', mkId: it.m.id } : { cid: it.c.id, from: it.date, mkId: null });
+const sessionKey = ref => (ref.mkId ? `mk:${ref.mkId}` : `${ref.cid}|${ref.from}`);
+/** 꾹 누르지 않아도 옮길 수 있는 수업인지 (8·15주차, 직접 옮긴 수업) */
+const sessionFree = it => (it.kind === 'makeup' && it.m.manual) || freeWeeks().has(it.week);
+/** 참조 → 지금 그 수업의 자리 {c, m, from, date, start, len, room, time, week} */
+function sessionOf(ref) {
+  const c = D.byId[ref.cid]; if (!c) return null;
+  const m = ref.mkId ? (S.makeups || []).find(x => x.id === ref.mkId) : null;
+  if (m) return { c, m, from: m.from, date: m.to, start: m.start, len: m.end - m.start + 1, room: m.room || c.room, time: m.time || null, week: m.from ? D.dateMap[m.from]?.week : null };
+  return { c, m: null, from: ref.from, date: ref.from, start: c.start, len: lenOf(c), room: c.room, time: null, week: D.dateMap[ref.from]?.week };
+}
+/** 수업 하나의 날짜·시작·길이·강의실·시간을 고친다 → 새 참조. 옮긴 기록을 만들거나 고치고, 원래 자리면 지운다 */
+function applySession(ref, patch) {
+  const cur = sessionOf(ref); if (!cur) return ref;
+  const c = cur.c;
+  const next = { date: cur.date, start: cur.start, len: cur.len, room: cur.room, time: cur.time, ...patch };
+  let out = ref;
+  rebaseUnmoved(() => {
+    S.makeups = S.makeups || [];
+    let m = cur.m;
+    if (!m) {
+      m = { id: `${c.id}|${cur.from}|m`, classId: c.id, from: cur.from, to: cur.from, start: c.start, end: c.end, room: c.room, note: '직접 옮김', manual: true };
+      S.makeups = S.makeups.filter(x => x.id !== m.id).concat([m]);
+    }
+    m.to = next.date; m.start = next.start; m.end = next.start + next.len - 1; m.room = cleanRoom(next.room) || c.room;
+    if (next.time) m.time = { ...next.time }; else delete m.time;
+    const back = m.manual && m.to === m.from && m.start === c.start && m.end === c.end && !m.time && normRoom(m.room) === normRoom(c.room);
+    if (back) { S.makeups = S.makeups.filter(x => x !== m); out = { cid: c.id, from: m.from, mkId: null }; }
+    else out = { cid: c.id, from: m.from, mkId: m.id };
+  });
+  return out;
+}
+/** 수업 시간 글자 (직접 정한 시간이 있으면 그것) */
+const sessionTime = cur => (cur.time ? `${cur.time.from}~${cur.time.to}` : tRange(cur.start, cur.len));
 function counts() {
   let total = 0, bad = 0, warn = 0, moved = 0, und = 0, done = 0, noslot = 0, keep = 0;
   for (const c of S.classes) {

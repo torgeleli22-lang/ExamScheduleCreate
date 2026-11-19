@@ -66,7 +66,8 @@ tests/helpers.mjs     vm 로더, 테스트용 xlsx/PDF/한글(makeHwp) 생성, �
 - `Plan` (시험 하나): `{v:2, id:"2027-1-mid", termYear, term(1|2), kind('mid'|'final'), title, dept, year, examWeek, calendar:{cols, weeks}, classes:[...], exams:{[classId]: {method, date(YYYY-MM-DD), start, len, room, note, done}}, extraDates, locked, sources:{timetable, calendar, makeups}, makeups:[...], range:{from,to}, createdAt, updatedAt, rev}`
   - exam에 `time: {from:'13:40', to:'15:10'}`(선택) = 서랍에서 **시작·종료 시간을 직접** 정한 경우. `setExamTime()`이 걸치는 교시로 start·len을 다시 계산(겹침·판 위치는 교시 기준), 교시 경계와 같으면 time을 지운다. 표시는 `examTime(ex)`. 끌기·빈 시간 누르기는 `moveExamStart()`로 같은 만큼 같이 옮기고, 교시로 고치는 곳(목록 select·등록 폼·교시로 맞추기·되돌리기)은 time을 지운다. time이 있으면 `isMoved`(기존 시간표 아님).
   - exam에 `keep: true` = **기존 시간표 수업 진행** 확정(done도 true). 옮기면 풀린다(`isKept(c)` = keep && !isMoved). 방식(필기·시험 없음 등)은 따로 고를 수 있어 "원래 시간에 시험"과 "시험 없이 수업" 둘 다 표현. 엑셀은 `methodLabel(c)`.
-  - makeup: `{id, classId, from(결강일|''), to(보강일), start, end, room, note}`.
+  - makeup: `{id, classId, from(결강일|''), to(보강일), start, end, room, note}`. 판에서 직접 옮긴 수업은 `manual: true`(id `${classId}|${원래 날짜}|m`, note '직접 옮김', 선택 `time:{from,to}`).
+  - **다른 주차 수업 옮기기**(rules.js `sessionRef/sessionKey/sessionFree/sessionOf/applySession`): 8·15주차(와 시험 주차) 수업·직접 옮긴 수업은 바로, 다른 주차 수업은 판에서 꾹 눌러(drag.js `LONG_PRESS_MS` 600ms, `ui.unlocked`) 푼 뒤 끌기·서랍(`openSessionDrawer`, `ui.sess`). 원래 날짜·시간·강의실로 돌아가면 기록을 지운다. manual 보강은 `deriveMakeups`에서 시험을 밀거나 대신하지 않는다(시험보다 뒤면 경고만). 겹침 검사는 `place.self`로 자기 자신을 뺀다(`isSelfSession`). 보관된 계획에선 안 풀린다.
   - range: 날짜별 시간표에 보일 날짜. 달력에서 고르면 `{from, to, days:[…]}`. 없으면 `defaultRange()` = 시험 주차 날짜들이 들어가는 주(월~토). 읽을 때는 `boardRange()` / `stripDates()`.
   - 계획마다 시간표·수업일을 **복사본으로** 들고 있다 → 새 학기 업로드가 지난 기록을 바꾸지 않는다.
   - `S` = 지금 보는 계획(= `Store.plans[Store.currentId]`), `D` = `derive()`가 계산한 값. 계획 바꾸기는 `switchPlan(id)` / 테스트에선 `usePlan(p)`.
@@ -112,7 +113,7 @@ tests/helpers.mjs     vm 로더, 테스트용 xlsx/PDF/한글(makeHwp) 생성, �
   - 테스트는 `tests/helpers.mjs`의 `fakeGitHub()`(가짜 API)로 여러 브라우저가 한 저장소를 쓰는 상황을 재현한다.
 - 이 브라우저: localStorage(`exam-planner:v2`)에도 항상 저장. JSON 백업(전체 또는 시험 하나, 형식은 Store). 복원은 합치기: 없는 시험 추가, 같은 id는 백업이 더 최신일 때만 덮어씀.
 - claude.ai 아티팩트로 열면 `window.claude.use('db')`의 `plans/{planId}` 문서(계획당 1문서, 256KiB 한도 안)와 `use('downloads')`를 쓴다. 삭제는 `{deleted:true}` 표시. 예전 `planner/state` 문서가 있으면 처음 한 번 가져온다. claude.ai 밖에서는 자동으로 건너뛴다.
-- 엑셀은 ExcelJS 4.4.0을 jsDelivr에서 필요할 때 로드. 시트: 시험시간표(공지) / 과목별 목록 / 교수님별.
+- 엑셀은 ExcelJS 4.4.0을 jsDelivr에서 필요할 때 로드. 시트: 주마다 한 시트(학과 중간고사 시간표 양식: `N주차 (MMDD(요)-MMDD(요))`, 시험 있는 날은 1~10교시로 펼치고 없는 날은 한 칸 '기존 수업 진행', 학년별 색, 기존 수업시간 진행·보강·옮긴 수업은 회색, 겹침은 '+ …' 붉은색, `addWeekSheets`) / 과목별 목록 / 교수님별.
 
 ## UI 진입점
 

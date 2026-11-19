@@ -408,6 +408,67 @@ test('시험 상세에서 시작·종료 시간 직접 정하기 → 판·목록
   await ctx.close();
 });
 
+test('다른 주차 수업: 짧게 누르면 안내, 꾹 누르면 풀려서 끌어 옮기기 → 상세에서 시간 고치기 → 되돌리기, 보관하면 막힘', async () => {
+  const { ctx, page, errors } = await openApp(browser);
+  const sel = '#board .day[data-day="2026-12-09"] .blk.session[data-cid="수-1A-6"]';   // 1A 마이크로프로세서실습 14주차 12/9(수) 6~8교시
+  const blk = page.locator(sel);
+  await blk.scrollIntoViewIfNeeded();
+  assert.match(await blk.getAttribute('class'), /session/);
+  assert.doesNotMatch(await blk.getAttribute('class'), /movable/);
+  const mks = () => page.evaluate(() => window.__planner.state.makeups || []);
+  // 짧게 누르면: 고정 안내만, 아무것도 안 바뀜
+  await blk.click();
+  assert.match(await page.innerText('#toast'), /꾹 누르면/);
+  assert.equal(await page.isHidden('#drawer'), true);
+  assert.deepEqual(await mks(), []);
+  // 꾹 누르기(0.6초) → 풀림 → 누른 채로 같은 날 1교시로 끌기
+  const bb = await blk.boundingBox();
+  await page.mouse.move(bb.x + 6, bb.y + bb.height / 2); await page.mouse.down();
+  await page.waitForTimeout(800);
+  assert.match(await blk.getAttribute('class'), /unlocked/);
+  assert.match(await page.innerText('#toast'), /옮길 수 있어요/);
+  const cell = await page.locator('#board .day[data-day="2026-12-09"] .cell[data-group="1A"][data-p="1"]').boundingBox();
+  await page.mouse.move(cell.x + cell.width / 2, cell.y + cell.height / 2, { steps: 12 }); await page.mouse.up();
+  let m = (await mks())[0];
+  assert.deepEqual({ id: m.id, from: m.from, to: m.to, start: m.start, end: m.end, manual: m.manual }, { id: '수-1A-6|2026-12-09|m', from: '2026-12-09', to: '2026-12-09', start: 1, end: 3, manual: true });
+  const moved = page.locator('#board .day[data-day="2026-12-09"] .blk.session.manual[data-cid="수-1A-6"]');
+  assert.match(await moved.innerText(), /14주차 수업 · 옮김/);
+  assert.match(await moved.getAttribute('class'), /movable/);          // 옮긴 수업은 바로 다시 옮길 수 있음
+  // 눌러서 상세: 시간 직접 정하기
+  await moved.click();
+  assert.equal(await page.inputValue('#sxDate'), '2026-12-09');
+  assert.equal(await page.inputValue('#sxFrom'), '09:00');
+  await page.fill('#sxFrom', '09:30'); await page.fill('#sxTo', '11:30');
+  m = (await mks())[0];
+  assert.deepEqual({ start: m.start, end: m.end, time: m.time }, { start: 1, end: 3, time: { from: '09:30', to: '11:30' } });
+  assert.match(await page.innerText('#sxChecks'), /12\/9\(수\) 09:30~11:30 \(1~3교시\)/);
+  assert.doesNotMatch(await page.innerText('#sxChecks'), /박신성, 1A/);          // 자기 자신과는 겹치지 않음 (1B 같은 과목·412호는 진짜 겹침)
+  assert.match(await page.innerText('#sxChecks'), /교수·강의실 겹침: 마이크로프로세서실습\(박신성, 1B\)/);
+  assert.doesNotMatch(await page.innerText('#sxRoom'), /1A 마이크로프로세서실습/);
+  assert.match(await moved.innerText(), /09:30~11:30/);
+  // 다른 날짜로 (12/12 토요일, 수업일 현황상 14주차 토요일)
+  await page.fill('#sxDate', '2026-12-12');
+  assert.equal((await mks())[0].to, '2026-12-12');
+  assert.equal(await page.locator('#board .day[data-day="2026-12-12"] .blk.session.manual[data-cid="수-1A-6"]').count(), 1);
+  // 되돌리기 → 기록이 없어지고 원래 자리에 고정 수업
+  await page.click('#sxReset');
+  assert.deepEqual(await mks(), []);
+  assert.equal(await page.locator('#sxReset').count(), 0);
+  await page.keyboard.press('Escape');
+  assert.equal(await page.isHidden('#drawer'), true);
+  assert.equal(await page.locator(sel).count(), 1);
+  // 보관(잠금)하면 꾹 눌러도 안 풀림
+  await page.evaluate(() => { const S = window.__planner.state; S.locked = true; window.__planner.render(); });
+  const b2 = await page.locator(sel).boundingBox();
+  await page.mouse.move(b2.x + 6, b2.y + b2.height / 2); await page.mouse.down();
+  await page.waitForTimeout(800);
+  await page.mouse.move(b2.x + 60, b2.y + b2.height / 2 + 40, { steps: 6 }); await page.mouse.up();
+  assert.doesNotMatch(await page.locator(sel).getAttribute('class'), /unlocked/);
+  assert.deepEqual(await mks(), []);
+  assert.deepEqual(errors, []);
+  await ctx.close();
+});
+
 test('강의실 고르기: 가진 강의실 전부, 그 시간에 비어 있음/사용 중, 직접 입력, 목록·등록 폼', async () => {
   const { ctx, page, errors } = await openApp(browser);
   const rooms = [...new Set(SEED.classes.map(c => c.room))];

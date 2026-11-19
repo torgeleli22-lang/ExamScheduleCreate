@@ -24,12 +24,13 @@ function render() {
   if (ui.tab === 'history') renderHistory();
   if (ui.tab === 'setup') renderSetup();
   if (ui.drawerId) refreshDrawerChecks();
+  if (ui.sess) refreshSessionChecks();
   if (ui.reg) refreshRegister();
   if (locked) lockControls();
 }
 /** 보관(잠금)된 계획: 입력 칸을 모두 막는다. 탭 이동·필터·복사·내보내기는 그대로 */
 function lockControls() {
-  $$('#listTable input, #listTable select, #drawer input, #drawer select, #drawer textarea, #drawer .slotbtn, #drawer #dReset, #drawer #dToReg, #setupGrid .editable, #btnKeepAll, #rangeBtn, #rangeReset, #createPanel button')
+  $$('#listTable input, #listTable select, #drawer input, #drawer select, #drawer textarea, #drawer .slotbtn, #drawer #dReset, #drawer #dToReg, #drawer #sxReset, #setupGrid .editable, #btnKeepAll, #rangeBtn, #rangeReset, #createPanel button')
     .forEach(el => { el.disabled = true; });
 }
 /* 위쪽 학년도·학기·시험 선택칸. 없는 조합을 고르면 ui.missing → 자료 넣기 화면 */
@@ -61,8 +62,8 @@ function roomUse(c, place) {
   const out = {};
   if (!c || !place || !place.date) return out;
   const s = +place.start, e = s + +place.len - 1;
-  for (const it of itemsOn(place.date, c.id)) {
-    if (it.s > e || it.e < s || !it.room || isCombined(c, it, s)) continue;
+  for (const it of itemsOn(place.date, place.self ? null : c.id)) {
+    if (it.s > e || it.e < s || !it.room || isSelfSession(place, it) || isCombined(c, it, s)) continue;
     (out[normRoom(it.room)] = out[normRoom(it.room)] || []).push(`${groupOf(it.c)} ${it.c.course}`);
   }
   return out;
@@ -140,9 +141,14 @@ function renderDaySection(d, statusCache) {
     const cells = range(1, NP).map(p => `<div class="cell${p === LUNCH ? ' lunch' : ''}" style="grid-column:${p}" data-date="${d}" data-group="${g}" data-p="${p}"></div>`).join('');
     const blocks = gi.map(it => {
       const pos = `grid-column:${it.s} / span ${Math.min(NP, it.e) - it.s + 1};grid-row:${it.lane + 1}`;
-      if (it.kind !== 'exam') {
-        const what = it.kind === 'makeup' ? `보강${it.week ? `(${it.week}주차분)` : ''}` : `${it.week}주차 수업`;
-        return `<div class="blk fixed" style="${pos}" title="${esc(`${what}: ${it.c.course}(${it.c.prof}) ${roomLabel(it.room)}`)}"><span class="t">${esc(it.c.course)}</span><span class="s">${esc(what)} · ${esc(it.c.prof)}</span></div>`;
+      if (it.kind !== 'exam') {   // 수업·보강: 8·15주차는 바로, 그 밖은 꾹 눌러 풀어야 옮길 수 있다
+        const manual = it.kind === 'makeup' && it.m.manual;
+        const what = manual ? `${it.week ? `${it.week}주차 ` : ''}수업 · 옮김` : it.kind === 'makeup' ? `보강${it.week ? `(${it.week}주차분)` : ''}` : `${it.week}주차 수업`;
+        const ref = sessionRef(it), key = sessionKey(ref), free = sessionFree(it), open = !isLocked() && (free || !!ui.unlocked?.has(key));
+        const tm = it.kind === 'makeup' && it.m.time ? `${it.m.time.from}~${it.m.time.to} · ` : '';
+        const tip = `${what}: ${it.c.course}(${it.c.prof}) ${roomLabel(it.room)}${isLocked() ? '' : open ? '\n끌어서 옮기거나 눌러서 날짜·시간을 고치세요' : '\n고정된 수업이에요. 꾹 누르면 옮길 수 있어요'}`;
+        const un = open && !free;
+        return `<div class="blk fixed session${open ? ' movable' : ''}${un ? ' unlocked has-badge' : ''}${manual ? ' manual' : ''}" style="${pos}" data-cid="${esc(ref.cid)}" data-from="${esc(ref.from)}" data-mk="${esc(ref.mkId || '')}" data-key="${esc(key)}" title="${esc(tip)}"><span class="t">${esc(it.c.course)}</span><span class="s">${esc(tm)}${esc(what)} · ${esc(it.c.prof)}</span>${un ? '<span class="badge b-un">옮기기</span>' : ''}</div>`;
       }
       const ex = S.exams[it.c.id], st = statusCache[it.c.id];
       const badge = st.bad.length ? `<span class="badge b-bad">겹침</span>` : st.combined.length ? `<span class="badge b-cb">합반</span>` : st.keep ? `<span class="badge b-ok">기존</span>` : st.done ? `<span class="badge b-ok">확정</span>` : st.moved ? `<span class="badge b-mv">이동</span>` : '';
