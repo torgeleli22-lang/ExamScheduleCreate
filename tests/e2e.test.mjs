@@ -384,7 +384,7 @@ test('시험 상세에서 시작·종료 시간 직접 정하기 → 판·목록
   await page.fill('#dTo', '15:10');
   const ex = await examOf(page, '화-2A-6');
   assert.deepEqual({ start: ex.start, len: ex.len, time: ex.time }, { start: 6, len: 2, time: { from: '13:40', to: '15:10' } });
-  assert.match(await page.innerText('#drawer'), /90분 · 직접 정한 시간 · 겹침은 6~7교시 기준으로 검사해요/);
+  assert.match(await page.innerText('#drawer'), /90분 · 직접 정한 시간\(6~7교시에 걸침\) · 겹침은 분 단위로 검사해요/);
   assert.match(await page.innerText('#dChecks'), /12\/8\(화\) 13:40~15:10 \(6~7교시\)/);
   assert.match(await page.innerText('#board .day[data-day="2026-12-08"] .blk.exam[data-id="화-2A-6"]'), /13:40~15:10 · 15주차 · 시간 변경/);
   // 거꾸로 넣으면 거부
@@ -408,7 +408,7 @@ test('시험 상세에서 시작·종료 시간 직접 정하기 → 판·목록
   await ctx.close();
 });
 
-test('다른 주차 수업: 짧게 누르면 안내, 꾹 누르면 풀려서 끌어 옮기기 → 상세에서 시간 고치기 → 되돌리기, 보관하면 막힘', async () => {
+test('다른 주차 수업: 짧게 누르면 안내, 꾹 누르면 풀려서 끌어 옮기기 → 상세에서 시간 고치기 → 되돌리기 → 다시 고정, 보관하면 막힘', async () => {
   const { ctx, page, errors } = await openApp(browser);
   const sel = '#board .day[data-day="2026-12-09"] .blk.session[data-cid="수-1A-6"]';   // 1A 마이크로프로세서실습 14주차 12/9(수) 6~8교시
   const blk = page.locator(sel);
@@ -457,6 +457,30 @@ test('다른 주차 수업: 짧게 누르면 안내, 꾹 누르면 풀려서 끌
   await page.keyboard.press('Escape');
   assert.equal(await page.isHidden('#drawer'), true);
   assert.equal(await page.locator(sel).count(), 1);
+  // 다시 고정하기 ① 풀린 수업을 움직이지 않고 다시 꾹 누르기
+  const cls = () => page.locator(sel).getAttribute('class');
+  const hold = async (loc, ms = 800) => { const r = await loc.boundingBox(); await page.mouse.move(r.x + 6, r.y + r.height / 2); await page.mouse.down(); await page.waitForTimeout(ms); await page.mouse.up(); };
+  assert.match(await cls(), /unlocked/);
+  assert.match(await page.innerText('#btnRelock'), /다시 고정 \(1\)/);
+  await hold(page.locator(sel));
+  assert.doesNotMatch(await cls(), /unlocked|movable/);
+  assert.match(await page.innerText('#toast'), /다시 고정했어요/);
+  assert.equal(await page.isHidden('#btnRelock'), true);
+  assert.deepEqual(await mks(), []);
+  // ② 상세 창의 '다시 고정하기'
+  await hold(page.locator(sel));
+  assert.match(await cls(), /unlocked/);
+  await page.locator(sel).click();
+  await page.click('#sxLock');
+  assert.equal(await page.isHidden('#drawer'), true);
+  assert.doesNotMatch(await cls(), /unlocked/);
+  // ③ 위쪽 '풀어 둔 수업 다시 고정 (N)'
+  const other = page.locator('#board .day[data-day="2026-12-09"] .blk.session[data-cid="수-1B-6"]');
+  await hold(page.locator(sel)); await hold(other);
+  assert.match(await page.innerText('#btnRelock'), /다시 고정 \(2\)/);
+  await page.click('#btnRelock');
+  assert.equal(await page.locator('#board .blk.session.unlocked').count(), 0);
+  assert.equal(await page.isHidden('#btnRelock'), true);
   // 보관(잠금)하면 꾹 눌러도 안 풀림
   await page.evaluate(() => { const S = window.__planner.state; S.locked = true; window.__planner.render(); });
   const b2 = await page.locator(sel).boundingBox();

@@ -19,7 +19,7 @@ function openDrawer(id) {
         <label class="field" for="dTo"><span>종료 시간</span><input type="time" id="dTo" data-f="tto" step="300" value="${esc(tm.to)}"${dis}></label>
         <div class="field full"><span>교시로 맞추기</span><span class="row prow"><select id="dPStart" data-f="pstart" aria-label="시작 교시"${dis}>${opts(range(1, NP), ex.start, v => `${v}교시 (${PERIODS[v - 1][0]}~)`)}</select> ~
           <select id="dPEnd" data-f="pend" aria-label="끝 교시"${dis}>${opts(range(ex.start, NP), Math.min(NP, ex.start + ex.len - 1), v => `${v}교시 (~${PERIODS[v - 1][1]})`)}</select></span>
-          <small class="hint">${hasSlot(ex) ? `${toMin(tm.to) - toMin(tm.from)}분 · ${ex.time ? `직접 정한 시간 · 겹침은 ${pRange(ex.start, ex.len)} 기준으로 검사해요` : '교시 시간 그대로'}` : ''}</small></div>
+          <small class="hint">${hasSlot(ex) ? `${toMin(tm.to) - toMin(tm.from)}분 · ${ex.time ? `직접 정한 시간(${pRange(ex.start, ex.len)}에 걸침) · 겹침은 분 단위로 검사해요` : '교시 시간 그대로'}` : ''}</small></div>
         <label class="field full" for="dRoom"><span>강의실</span><select id="dRoom" data-f="roomsel"${dis}>${roomOptions(ex.room, c, ex)}</select>
           <input type="text" id="dRoomCustom" data-f="room" placeholder="강의실 직접 입력 (예: 515, 산학관203)" hidden></label>
         <label class="field" for="dDone" style="justify-content:flex-end"><span>교수님 확인</span><span class="chk"><input type="checkbox" id="dDone" data-f="done"${ex.done ? ' checked' : ''}>확정</span></label>
@@ -57,10 +57,10 @@ function openSessionDrawer(ref) {
         <label class="field" for="sxTo"><span>종료 시간</span><input type="time" id="sxTo" data-s="tto" step="300" value="${esc(tm.to)}"></label>
         <div class="field full"><span>교시로 맞추기</span><span class="row prow"><select id="sxPStart" data-s="pstart" aria-label="시작 교시">${opts(range(1, NP), cur.start, v => `${v}교시 (${PERIODS[v - 1][0]}~)`)}</select> ~
           <select id="sxPEnd" data-s="pend" aria-label="끝 교시">${opts(range(cur.start, NP), Math.min(NP, cur.start + cur.len - 1), v => `${v}교시 (~${PERIODS[v - 1][1]})`)}</select></span></div>
-        <label class="field full" for="sxRoom"><span>강의실</span><select id="sxRoom" data-s="room">${roomOptions(cur.room, c, { date: cur.date, start: cur.start, len: cur.len, self: ref }, { custom: false })}</select></label>
+        <label class="field full" for="sxRoom"><span>강의실</span><select id="sxRoom" data-s="room">${roomOptions(cur.room, c, { date: cur.date, start: cur.start, len: cur.len, time: cur.time, self: ref }, { custom: false })}</select></label>
       </div>
       <div class="dsec"><h3>검사 결과</h3><div class="checks" id="sxChecks"></div></div>
-      ${m && m.manual ? '<div class="row"><button type="button" class="btn small" id="sxReset">원래 자리로 되돌리기</button></div>' : ''}
+      <div class="row">${m && m.manual ? '<button type="button" class="btn small" id="sxReset">원래 자리로 되돌리기</button>' : ''}${freeWeeks().has(cur.week) ? '' : '<button type="button" class="btn small" id="sxLock">다시 고정하기</button>'}</div>
       <p class="hint">시험이 아닌 ${cur.week ? `${cur.week}주차 ` : ''}${kind}이에요. 옮긴 수업은 보강처럼 기록되고(설정 → 보강), 겹침 검사·엑셀에 그대로 반영돼요.</p>
     </div>`;
   $('#drawer').hidden = false;
@@ -70,7 +70,7 @@ function openSessionDrawer(ref) {
 function refreshSessionChecks() {
   const box = $('#sxChecks'); if (!ui.sess || !box) return;
   const cur = sessionOf(ui.sess); if (!cur) return;
-  const cf = conflictsOf(cur.c, { date: cur.date, start: cur.start, len: cur.len, room: cur.room, self: ui.sess });
+  const cf = conflictsOf(cur.c, { date: cur.date, start: cur.start, len: cur.len, room: cur.room, time: cur.time, self: ui.sess });
   box.innerHTML = [`<div class="it ${cf.length ? 'bad' : 'ok'}">${fmt(cur.date)} ${sessionTime(cur)} (${pRange(cur.start, cur.len)}) · ${esc(roomLabel(cur.room))}${cf.length ? '' : ' · 겹치는 일정 없음'}</div>`,
     ...cf.map(x => `<div class="it bad">${esc(describeConflict(x))}</div>`)].join('');
 }
@@ -241,6 +241,7 @@ function bindDrawer() {
   dr.addEventListener('focusout', e => { if (!isLocked() && e.target.dataset && e.target.dataset.f === 'note') { clearTimeout(noteT); changed(); } });
   dr.addEventListener('click', e => {
     if (e.target.closest('#dClose')) { closeDrawer(); return; }
+    if (e.target.closest('#sxLock') && ui.sess) { relockSession(ui.sess); return; }
     if (e.target.closest('#sxReset') && ui.sess && !isLocked()) {
       const cur = sessionOf(ui.sess);
       ui.sess = applySession(ui.sess, { date: cur.from, start: cur.c.start, len: lenOf(cur.c), time: null, room: cur.c.room });

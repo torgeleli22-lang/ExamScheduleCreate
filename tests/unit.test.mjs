@@ -333,7 +333,7 @@ test('다른 주차 수업 옮기기: 직접 옮긴 기록이 생기고, 원래 
   assert.deepEqual({ from: m.from, to: m.to, start: m.start, end: m.end, manual: m.manual }, { from: d14, to: thu, start: 1, end: 3, manual: true });
   assert.equal(fixedOf(d14), undefined);                         // 원래 날짜에서 빠지고
   const moved = fixedOf(thu);
-  assert.equal(moved.kind, 'makeup'); assert.equal(moved.week, 14); assert.equal(core.sessionFree(moved), true);
+  assert.equal(moved.kind, 'makeup'); assert.equal(moved.week, 14); assert.equal(core.sessionFree(moved), false);   // 옮겨도 14주차 수업 → 꾹 눌러야 함
   assert.match(core.describeConflict({ it: moved, kinds: ['반'] }), /14주차 수업\(.+에서 옮김\)/);
   // 자기 자신(옮긴 자리·원래 자리)은 겹침이 아님. 그 자리에 같은 반 다른 수업이 있으면 겹침
   const placeOf = r => { const s = core.sessionOf(r); return { date: s.date, start: s.start, len: s.len, room: s.room, self: r }; };
@@ -358,4 +358,42 @@ test('다른 주차 수업 옮기기: 직접 옮긴 기록이 생기고, 원래 
   assert.equal(S().exams[c.id].date, ex0.date);
   assert.equal(core.get('D.examPushed').has(c.id), false);
   assert.match(core.statusOf(c).warn.join(' '), /옮긴 수업\(.+\)이 시험보다 뒤에 있어요/);
+});
+
+test('직접 정한 시간은 분 단위로 겹침 검사·점심 경고·합반·판 위치', () => {
+  const core = loadCore();
+  core.usePlan(seedPlan(core));
+  const S = core.get('S');
+  const [a, b] = SEED.classes.filter(c => c.year === 2 && c.ban === 'A');
+  const day = '2026-12-22';                                   // 토요일 15주차: 우리 과 수업 없음
+  const put = (c, from, to) => { const ex = S.exams[c.id]; ex.date = day; assert.ok(core.setExamTime(ex, from, to)); return ex; };
+  const bad = c => core.statusOf(c).bad;
+  // 같은 6교시 안이지만 13:35~14:00 / 14:00~14:25 → 안 겹침 (교시로만 보면 겹침)
+  put(a, '13:35', '14:00'); put(b, '14:00', '14:25');
+  assert.equal(S.exams[a.id].start, S.exams[b.id].start);
+  assert.equal(bad(a).length, 0); assert.equal(bad(b).length, 0);
+  // 13:50~14:25 → 10분 겹침, 겹침 글자에 그 시간
+  put(b, '13:50', '14:25');
+  assert.deepEqual(Array.from(bad(a)[0].kinds), ['반']);
+  assert.match(core.describeConflict(bad(a)[0]), /13:50~14:25/);
+  // 점심: 12:05~12:35는 경고 없음, 12:20~12:50은 경고
+  put(b, '12:05', '12:35');
+  assert.doesNotMatch(core.statusOf(b).warn.join(' '), /점심/);
+  put(b, '12:20', '12:50');
+  assert.match(core.statusOf(b).warn.join(' '), /점심/);
+  // 판 위치(%): 점심 칸은 0.55배 폭, 쉬는 시간은 칸 경계
+  const pct = t => core.timePct(core.toMin(t));
+  assert.equal(pct('09:00'), 0); assert.equal(pct('18:05'), 100);
+  assert.ok(Math.abs(pct('12:35') - 4 / 9.55 * 100) < 1e-9);
+  assert.equal(pct('12:37'), pct('12:35'));
+  assert.ok(Math.abs(pct('12:20') - 3.7 / 9.55 * 100) < 1e-9);
+  // 합반은 시작 시각이 같아야: 2A·2B 같은 과목이 13:40 / 13:40 → 합반, 13:40 / 13:35 → 합반 아님
+  const twin = SEED.classes.find(x => x.year === 2 && x.ban === 'B' && x.course === a.course);
+  if (twin) {
+    S.exams[b.id].date = '2026-12-07';
+    put(a, '13:40', '15:10'); put(twin, '13:40', '15:10');
+    assert.equal(core.statusOf(a).combined.length, 1);
+    put(twin, '13:35', '15:10');
+    assert.equal(core.statusOf(a).combined.length, 0);
+  }
 });

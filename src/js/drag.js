@@ -12,6 +12,7 @@ function onDragMove(e) {
   if (!drag.started) {
     if (Math.hypot(e.clientX - drag.x0, e.clientY - drag.y0) < 6) return;
     drag.started = true;
+    if (drag.relock) { clearTimeout(drag.relock); drag.relock = null; drag.el.classList.remove('pressing'); }
     document.body.classList.add('dragging');
     drag.el.classList.add('src');
     const r = drag.el.getBoundingClientRect();
@@ -57,14 +58,14 @@ function updateTarget(x, y) {
     tip.hidden = false; tip.textContent = `${groupOf(c)} 줄 안에서만 옮길 수 있어요`;
   } else {
     const start = Math.max(1, Math.min(NP - ex.len + 1, t.p - drag.grabP));
-    const place = { date: t.date, start, len: ex.len, room: ex.room };
+    const tt = { ...ex }; moveExamStart(tt, start);
+    const place = { date: t.date, start: tt.start, len: tt.len, room: ex.room, time: tt.time };
     const cf = conflictsOf(c, place), wn = warningsOf(c, place);
     const cls = cf.length ? 'bad' : 'ok';
     $$('.cell', t.track).forEach(el => { const p = +el.dataset.p; if (p >= start && p < start + ex.len) el.classList.add(cls); });
     drag.target = place;
     tip.hidden = false;
     const cb = combinedAt(c, place);
-    const tt = { ...ex }; moveExamStart(tt, start);
     tip.textContent = `${fmt(t.date)} ${pRange(start, ex.len)} ${examTime(tt)}` + (cf.length ? '\n' + cf.map(describeConflict).join('\n') : ' · 겹침 없음') + (cb.length ? `\n합반: ${combinedLabel(cb)}와 같은 시간에 한 시험` : '') + (wn.length ? '\n' + wn.join('\n') : '');
   }
   tip.style.whiteSpace = 'pre-line';
@@ -75,6 +76,7 @@ function endDrag(e, cancelled) {
   if (!drag) return;
   const d = drag; drag = null;
   if (d.raf) cancelAnimationFrame(d.raf);
+  if (d.relock) { clearTimeout(d.relock); d.el.classList.remove('pressing'); }
   window.removeEventListener('pointermove', onDragMove);
   window.removeEventListener('pointerup', onUp);
   window.removeEventListener('pointercancel', onCancel);
@@ -93,7 +95,7 @@ function endDrag(e, cancelled) {
       ex.date = d.target.date; moveExamStart(ex, d.target.start); ex.keep = false;
       changed();
       const c = D.byId[d.id];
-      const n = conflictsOf(c, { date: ex.date, start: ex.start, len: ex.len, room: ex.room }).length;
+      const n = conflictsOf(c, { date: ex.date, start: ex.start, len: ex.len, room: ex.room, time: ex.time }).length;
       toast(`${c.course}(${groupOf(c)}) ${before} → ${fmt(ex.date)} ${examTime(ex)}${n ? ` · 겹침 ${n}건` : ''}`);
     }
   }
@@ -124,11 +126,11 @@ function updateSessionTarget(t, e, tip) {
   if (t.group !== groupOf(c)) { tip.hidden = false; tip.textContent = `${groupOf(c)} 줄 안에서만 옮길 수 있어요`; }
   else {
     const start = Math.max(1, Math.min(NP - cur.len + 1, t.p - drag.grabP));
-    const place = { date: t.date, start, len: cur.len, room: cur.room, self: drag.ref };
+    const tt = { start: cur.start, len: cur.len, time: cur.time }; moveExamStart(tt, start);
+    const place = { date: t.date, start, len: cur.len, room: cur.room, time: tt.time, self: drag.ref };
     const cf = conflictsOf(c, place);
     $$('.cell', t.track).forEach(el => { const p = +el.dataset.p; if (p >= start && p < start + cur.len) el.classList.add(cf.length ? 'bad' : 'ok'); });
     drag.target = place;
-    const tt = { start: cur.start, len: cur.len, time: cur.time }; moveExamStart(tt, start);
     tip.hidden = false;
     tip.textContent = `${cur.week ? `${cur.week}주차 ` : ''}수업 → ${fmt(t.date)} ${pRange(start, cur.len)} ${sessionTime(tt)}` + (cf.length ? '\n' + cf.map(describeConflict).join('\n') : ' · 겹침 없음');
   }
@@ -147,7 +149,7 @@ function endSessionDrag(d) {
   (ui.unlocked = ui.unlocked || new Set()).add(sessionKey(ref));
   changed();
   const now = sessionOf(ref);
-  const n = conflictsOf(now.c, { date: now.date, start: now.start, len: now.len, room: now.room, self: ref }).length;
+  const n = conflictsOf(now.c, { date: now.date, start: now.start, len: now.len, room: now.room, time: now.time, self: ref }).length;
   toast(`${now.c.course}(${groupOf(now.c)}) ${now.week ? `${now.week}주차 ` : ''}수업 ${before} → ${fmt(now.date)} ${sessionTime(now)}${n ? ` · 겹침 ${n}건` : ''}`);
 }
 /* 꾹 누르기: 고정된 수업을 풀어서 옮길 수 있게. 누른 채로 움직이면 바로 끌기 */
@@ -176,7 +178,33 @@ function firePress() {
   (ui.unlocked = ui.unlocked || new Set()).add(el.dataset.key);
   el.classList.remove('pressing'); el.classList.add('movable', 'unlocked', 'has-badge');
   const cur = sessionOf({ cid: el.dataset.cid, from: el.dataset.from, mkId: el.dataset.mk || null });
-  if (cur) toast(`${cur.c.course}(${groupOf(cur.c)}) ${cur.week ? `${cur.week}주차 ` : ''}수업을 옮길 수 있어요. 끌어서 옮기거나 눌러서 날짜·시간을 고치세요.`);
+  if (cur) toast(`${cur.c.course}(${groupOf(cur.c)}) ${cur.week ? `${cur.week}주차 ` : ''}수업을 옮길 수 있어요. 끌어서 옮기거나 눌러서 날짜·시간을 고치세요. 다시 꾹 누르면 고정돼요.`);
   drag = sessionDragFrom(el, { clientX: p.x0, clientY: p.y0 });   // 누른 채로 움직이면 바로 끌기
   if (drag) { drag.justUnlocked = true; listenDrag(); }
+}
+
+/* 풀린 수업 다시 고정: 움직이지 않고 다시 꾹 누르기 · 서랍의 '다시 고정하기' · 위쪽 '풀어 둔 수업 다시 고정' */
+function armRelock(el) {
+  if (!drag || drag.kind !== 'session') return;
+  el.classList.add('pressing');
+  drag.relock = setTimeout(() => {
+    const d = drag; if (!d || d.started || d.el !== el) return;
+    endDrag(null, true);
+    relockSession(d.ref);
+  }, LONG_PRESS_MS);
+}
+function relockSession(ref) {
+  ui.unlocked = ui.unlocked || new Set();
+  ui.unlocked.delete(sessionKey(ref)); ui.unlocked.delete(`${ref.cid}|${ref.from}`);
+  if (ui.sess) closeDrawer();
+  render();
+  const cur = sessionOf(ref);
+  toast(`${cur ? `${cur.c.course}(${groupOf(cur.c)}) ` : ''}수업을 다시 고정했어요. 옮기려면 다시 꾹 누르세요.`);
+}
+function relockAll() {
+  const n = $$('#board .blk.session.unlocked').length;
+  ui.unlocked = new Set();
+  if (ui.sess) closeDrawer();
+  render();
+  toast(`풀어 둔 수업 ${n}개를 다시 고정했어요.`);
 }
