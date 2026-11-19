@@ -21,7 +21,7 @@ async function copyText(text, fallbackEl) {
 function listTsv() {
   const head = ['날짜', '요일', '교시', '시간', '반', '과목', '교수', '강의실', '방식', '확정', '메모'];
   const rows = sortedExams().map(c => { const ex = S.exams[c.id], ok = hasSlot(ex);
-    return [ok ? fmt(ex.date).replace(/\(.\)/, '') : '', ok ? DOW[dowOf(ex.date)] : '', ok ? pRange(ex.start, ex.len) : '', ok ? tRange(ex.start, ex.len) : '', groupOf(c), c.course, c.prof, ok ? roomLabel(ex.room) : '', ex.method, ex.done ? 'O' : '', ex.note.replace(/\s+/g, ' ')]; });
+    return [ok ? fmt(ex.date).replace(/\(.\)/, '') : '', ok ? DOW[dowOf(ex.date)] : '', ok ? pRange(ex.start, ex.len) : '', ok ? examTime(ex) : '', groupOf(c), c.course, c.prof, ok ? roomLabel(ex.room) : '', ex.method, ex.done ? 'O' : '', ex.note.replace(/\s+/g, ' ')]; });
   return [head, ...rows].map(r => r.join('\t')).join('\n');
 }
 function refreshRoomList() { $('#roomList').innerHTML = D.rooms.map(r => `<option value="${esc(r)}"></option>`).join(''); }

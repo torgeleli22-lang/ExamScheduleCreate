@@ -64,6 +64,7 @@ tests/helpers.mjs     vm 로더, 테스트용 xlsx/PDF/한글(makeHwp) 생성, �
 
 - `Store` (저장 단위): `{v:2, plans:{[planId]: Plan}, currentId}`. localStorage 키 `exam-planner:v2`.
 - `Plan` (시험 하나): `{v:2, id:"2027-1-mid", termYear, term(1|2), kind('mid'|'final'), title, dept, year, examWeek, calendar:{cols, weeks}, classes:[...], exams:{[classId]: {method, date(YYYY-MM-DD), start, len, room, note, done}}, extraDates, locked, sources:{timetable, calendar, makeups}, makeups:[...], range:{from,to}, createdAt, updatedAt, rev}`
+  - exam에 `time: {from:'13:40', to:'15:10'}`(선택) = 서랍에서 **시작·종료 시간을 직접** 정한 경우. `setExamTime()`이 걸치는 교시로 start·len을 다시 계산(겹침·판 위치는 교시 기준), 교시 경계와 같으면 time을 지운다. 표시는 `examTime(ex)`. 끌기·빈 시간 누르기는 `moveExamStart()`로 같은 만큼 같이 옮기고, 교시로 고치는 곳(목록 select·등록 폼·교시로 맞추기·되돌리기)은 time을 지운다. time이 있으면 `isMoved`(기존 시간표 아님).
   - exam에 `keep: true` = **기존 시간표 수업 진행** 확정(done도 true). 옮기면 풀린다(`isKept(c)` = keep && !isMoved). 방식(필기·시험 없음 등)은 따로 고를 수 있어 "원래 시간에 시험"과 "시험 없이 수업" 둘 다 표현. 엑셀은 `methodLabel(c)`.
   - makeup: `{id, classId, from(결강일|''), to(보강일), start, end, room, note}`.
   - range: 날짜별 시간표에 보일 날짜. 달력에서 고르면 `{from, to, days:[…]}`. 없으면 `defaultRange()` = 시험 주차 날짜들이 들어가는 주(월~토). 읽을 때는 `boardRange()` / `stripDates()`.
@@ -84,6 +85,7 @@ tests/helpers.mjs     vm 로더, 테스트용 xlsx/PDF/한글(makeHwp) 생성, �
   - 날짜별 배치 위 `#mkNotice`에 옮겨진 과목 목록(`shiftedByMakeup()`). 시험보다 뒤에 남은 보강은 경고.
   - 수업일·보강이 바뀌면 `rebaseUnmoved()`로 옮기지 않은 시험이 따라감.
 - 겹침 = 교시 범위가 겹치면서 같은 반 OR 같은 교수 OR 같은 강의실(`normRoom`으로 공백·'호' 제거 후 비교).
+- **합반 시험**(`isCombined`/`combinedAt`): 같은 과목(공백 무시 이름 같음)의 **다른 반** 시험이 **같은 날 같은 시작 교시**면 한 시험으로 보고 교수·강의실 겹침에서 뺀다(사용자: "15주차 수업을 동시에 진행하면 합반 시험"). 시작 교시가 다르게 걸치거나 다른 과목이면 겹침. 같은 교수님인데 강의실이 다르면 경고. 블록 '합반' 배지, 서랍·등록 폼·끄는 중 안내, 목록 pill에 표시.
 - 경고 = 주말, 수업일 현황에 없는 날, 학기 마지막 수업일 이후, (시험주차-1) 주차 수업일 이전·당일, 점심 포함, 10교시 초과.
 - `freeSlots`: 시험주차-2 이후 후보 날짜 중 (시험주차-1) 수업일 이후, 토요일 제외, 점심을 걸치지 않고 겹침 0인 시작 교시 목록.
 - 다른 학과의 강의실 사용, 4학년 야간 수업은 검사하지 않는다(데이터 없음).

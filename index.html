@@ -356,6 +356,13 @@ body.missing .summary,body.missing .tabs,body.missing main,body.missing #btnRegi
 .dropbox b{font-size:18px;color:var(--ink)}
 .dropbox span{font-size:13px;color:var(--muted)}
 .dropzone.over{border-color:var(--accent);background:var(--y2)}
+
+/* 합반 시험 */
+.badge.b-cb{background:#e7e0fb;color:#4b2fa3;border:1px solid #7d62d6}
+.pill.cb{background:#e7e0fb;color:#4b2fa3}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]) .badge.b-cb,:root:not([data-theme="light"]) .pill.cb{background:#2c2350;color:#c9b8ff;border-color:#7d62d6} }
+.fgrid .prow{flex-wrap:nowrap}
+.fgrid .prow select{width:auto;flex:1 1 0;min-width:0}
 </style>
 </head>
 <body>
@@ -681,7 +688,43 @@ function shiftedDays(calendar, year) {
 /* ===== src/js/rules.js ===== */
 /* ---------- 겹침 · 경고 규칙 ---------- */
 const hasSlot = ex => !NO_SLOT.has(ex.method);
-const isMoved = c => { const ex = S.exams[c.id]; return hasSlot(ex) && (ex.date !== defaultDate(c) || ex.start !== defaultStart(c)); };
+
+/* ---------- 시험 시간 직접 정하기 ----------
+   exam.time = {from:'10:00', to:'11:30'} 이 있으면 그 시간이 진짜 시험 시간. 없으면 교시 시간(start·len).
+   겹침·판 위치는 교시 기준: 정한 시간이 걸치는 교시를 모두 쓰는 것으로 본다 (start·len을 시간에서 다시 계산). */
+const toMin = t => { const [h, m] = String(t).split(':').map(Number); return h * 60 + (m || 0); };
+const fromMin = n => `${String(Math.floor(n / 60)).padStart(2, '0')}:${String(n % 60).padStart(2, '0')}`;
+const DAY_FROM = PERIODS[0][0], DAY_TO = PERIODS[NP - 1][1];
+/** 시:분 범위 → 걸치는 교시 {start, len} */
+function timeToPeriods(from, to) {
+  const a = toMin(from), b = toMin(to);
+  let s = PERIODS.findIndex(p => toMin(p[1]) > a) + 1;
+  if (s <= 0) s = NP;
+  let e = s;
+  PERIODS.forEach((p, i) => { if (toMin(p[0]) < b && i + 1 > e) e = i + 1; });
+  return { start: s, len: e - s + 1 };
+}
+const periodTime = (s, len) => ({ from: PERIODS[s - 1][0], to: PERIODS[Math.min(NP, s + len - 1) - 1][1] });
+/** 시험 시간 글자: 직접 정한 시간이 있으면 그것, 없으면 교시 시간 */
+const examTime = ex => (ex.time ? `${ex.time.from}~${ex.time.to}` : tRange(ex.start, ex.len));
+/** 시작·종료 시간을 정한다. 교시 경계와 같으면 교시 시간으로(시간 지움). 잘못된 시간이면 false */
+function setExamTime(ex, from, to) {
+  if (!/^\d{1,2}:\d{2}$/.test(from) || !/^\d{1,2}:\d{2}$/.test(to) || toMin(to) <= toMin(from)) return false;
+  from = fromMin(toMin(from)); to = fromMin(toMin(to));
+  const pr = timeToPeriods(from, to);
+  ex.start = pr.start; ex.len = pr.len;
+  const def = periodTime(pr.start, pr.len);
+  if (def.from === from && def.to === to) delete ex.time; else ex.time = { from, to };
+  return true;
+}
+/** 시작 교시를 옮긴다(끌기·빈 시간 누르기). 직접 정한 시간이 있으면 같은 만큼 같이 옮긴다 */
+function moveExamStart(ex, start) {
+  if (ex.time && start !== ex.start) {
+    const d = toMin(PERIODS[start - 1][0]) - toMin(PERIODS[ex.start - 1][0]);
+    if (!setExamTime(ex, fromMin(toMin(ex.time.from) + d), fromMin(toMin(ex.time.to) + d))) { delete ex.time; ex.start = start; }
+  } else ex.start = start;
+}
+const isMoved = c => { const ex = S.exams[c.id]; return hasSlot(ex) && (ex.date !== defaultDate(c) || ex.start !== defaultStart(c) || !!ex.time); };
 /** 공지·엑셀에 쓰는 방식 글자: '기존 시간표 수업 진행'으로 확정했으면 그것을 앞에 */
 const methodLabel = c => { const ex = S.exams[c.id]; return isKept(c) ? `기존 시간표 수업 진행${ex.method !== '미정' ? ` (${ex.method})` : ''}` : ex.method; };
 /** '기존 시간표 수업 진행'으로 확정했고 그 뒤로 옮기지 않았는지 */
@@ -718,20 +761,33 @@ function itemsOn(iso, excludeId) {
   return out;
 }
 /** p = {date, start, len, room}. 교시가 겹치면서 같은 반 / 같은 교수 / 같은 강의실이면 겹침 */
+/* 합반 시험: 같은 과목의 다른 반 시험이 같은 날 같은 교시에 시작하면 한 시험(합반)으로 본다.
+   → 교수·강의실 겹침으로 세지 않는다 (사용자: "15주차 수업을 동시에 진행하면 합반 시험").
+   시작 교시가 다르게 걸치거나, 다른 과목이면 지금처럼 겹침. */
+const courseKey = c => String(c.course || '').replace(/\s+/g, '').toUpperCase();
+const isCombined = (c, it, start) => it.kind === 'exam' && it.c.id !== c.id && groupOf(it.c) !== groupOf(c) && courseKey(it.c) === courseKey(c) && it.s === start;
+/** p에 놓으면 함께 합반 시험을 보게 되는 다른 반 수업들 */
+function combinedAt(c, p) {
+  if (!p.date) return [];
+  return itemsOn(p.date, c.id).filter(it => isCombined(c, it, p.start)).map(it => ({ c: it.c, room: it.room }));
+}
+/** 겹침 = 교시 범위가 겹치면서 같은 반 / 같은 교수 / 같은 강의실 (합반이면 교수·강의실은 빼고) */
 function conflictsOf(c, p) {
   if (!p.date) return [];
   const s = p.start, e = p.start + p.len - 1, g = groupOf(c), rn = normRoom(p.room);
   const res = [];
   for (const it of itemsOn(p.date, c.id)) {
     if (it.s > e || it.e < s) continue;
+    const combined = isCombined(c, it, s);
     const kinds = [];
     if (groupOf(it.c) === g) kinds.push('반');
-    if (it.c.prof && it.c.prof === c.prof) kinds.push('교수');
-    if (rn && normRoom(it.room) === rn) kinds.push('강의실');
+    if (!combined && it.c.prof && it.c.prof === c.prof) kinds.push('교수');
+    if (!combined && rn && normRoom(it.room) === rn) kinds.push('강의실');
     if (kinds.length) res.push({ kinds, it });
   }
   return res;
 }
+const combinedLabel = list => list.map(x => groupOf(x.c)).join('·');
 function warningsOf(c, p) {
   const w = [];
   if (!p.date) { w.push('날짜를 정해 주세요'); return w; }
@@ -743,6 +799,10 @@ function warningsOf(c, p) {
   if (pv && p.date <= pv) w.push(`${S.examWeek - 1}주차 수업(${fmt(pv)})보다 이르거나 같은 날이에요`);
   if (p.start <= LUNCH && p.start + p.len - 1 >= LUNCH) w.push('점심시간(5교시)이 끼어 있어요');
   if (p.start + p.len - 1 > NP) w.push('10교시를 넘어가요');
+  if (p.time && (toMin(p.time.from) < toMin(DAY_FROM) || toMin(p.time.to) > toMin(DAY_TO))) w.push(`수업 시간(${DAY_FROM}~${DAY_TO}) 밖이에요`);
+  // 합반인데 같은 교수님이 서로 다른 강의실 → 한 강의실로 맞춰야 함
+  const apart = combinedAt(c, p).filter(x => x.c.prof && x.c.prof === c.prof && normRoom(x.room) !== normRoom(p.room));
+  if (apart.length) w.push(`합반(${combinedLabel(apart)})인데 강의실이 달라요(${roomLabel(p.room)}·${[...new Set(apart.map(x => roomLabel(x.room)))].join('·')}). 같은 교수님이라 한 강의실로 맞춰 주세요`);
   for (const m of D.makeups || []) {
     if (m.classId !== c.id || D.examMakeup?.[c.id] === m) continue;
     if (m.to > p.date) w.push(`보강(${fmt(m.to)} ${pRange(m.start, m.end - m.start + 1)})이 시험보다 뒤에 있어요`);
@@ -757,9 +817,9 @@ function describeConflict(x) {
 }
 function statusOf(c) {
   const ex = S.exams[c.id];
-  if (!hasSlot(ex)) return { bad: [], warn: [], moved: false, undecided: false, done: !!ex.done, noslot: true, keep: false };
-  const p = { date: ex.date, start: ex.start, len: ex.len, room: ex.room };
-  return { bad: conflictsOf(c, p), warn: warningsOf(c, p), moved: isMoved(c), undecided: ex.method === '미정', done: !!ex.done, noslot: false, keep: isKept(c) };
+  if (!hasSlot(ex)) return { bad: [], warn: [], moved: false, undecided: false, done: !!ex.done, noslot: true, keep: false, combined: [] };
+  const p = { date: ex.date, start: ex.start, len: ex.len, room: ex.room, time: ex.time };
+  return { bad: conflictsOf(c, p), warn: warningsOf(c, p), moved: isMoved(c), undecided: ex.method === '미정', done: !!ex.done, noslot: false, keep: isKept(c), combined: combinedAt(c, p) };
 }
 /** 시험주차-2 이후 후보 날짜 중 (시험주차-1) 수업일 이후, 토요일 제외, 점심을 걸치지 않고 겹침 0인 시작 교시 */
 function freeSlots(c, len, room) {
@@ -1651,7 +1711,7 @@ async function buildWorkbook() {
       for (const c of blocks) {
         const ex = S.exams[c.id];
         const s = Math.max(1, ex.start), e = Math.min(NP, ex.start + ex.len - 1);
-        const text = `${c.course}(${c.prof})\n${roomLabel(ex.room)}${methodLabel(c) !== '미정' ? ' · ' + methodLabel(c) : ''}`;
+        const text = `${c.course}(${c.prof})\n${ex.time ? examTime(ex) + ' · ' : ''}${roomLabel(ex.room)}${methodLabel(c) !== '미정' ? ' · ' + methodLabel(c) : ''}`;
         const clashAt = range(s, e).find(p => used[p]);
         if (clashAt) {
           const mc = ws.getCell(r, 4 + used[clashAt]);
@@ -1692,7 +1752,7 @@ async function buildWorkbook() {
     const ex = S.exams[c.id], st = statusOf(c), ok = hasSlot(ex);
     const row = ls.addRow({
       date: ok && ex.date ? `${+ex.date.split('-')[1]}/${+ex.date.split('-')[2]}` : '', dow: ok && ex.date ? DOW[dowOf(ex.date)] : '',
-      per: ok ? pRange(ex.start, ex.len) : '', time: ok ? tRange(ex.start, ex.len) : '', year: c.year, ban: c.ban, course: c.course, prof: c.prof,
+      per: ok ? pRange(ex.start, ex.len) : '', time: ok ? examTime(ex) : '', year: c.year, ban: c.ban, course: c.course, prof: c.prof,
       room: ok ? roomLabel(ex.room) : '', method: methodLabel(c), orig: `${fmt(defaultDate(c))} ${pRange(defaultStart(c), defaultLen(c))}`,
       moved: st.moved ? 'O' : '', done: ex.done ? 'O' : '', issues: [...st.bad.map(describeConflict), ...st.warn].join('\n'), note: ex.note });
     row.alignment = { vertical: 'middle', wrapText: true };
@@ -1710,7 +1770,7 @@ async function buildWorkbook() {
   const byProf = S.classes.slice().sort((a, b) => a.prof.localeCompare(b.prof, 'ko') || (S.exams[a.id].date || '').localeCompare(S.exams[b.id].date || '') || S.exams[a.id].start - S.exams[b.id].start);
   for (const c of byProf) {
     const ex = S.exams[c.id], ok = hasSlot(ex);
-    ps.addRow({ prof: c.prof, course: c.course, grp: groupOf(c), date: ok ? fmt(ex.date) : '', per: ok ? pRange(ex.start, ex.len) : '', time: ok ? tRange(ex.start, ex.len) : '',
+    ps.addRow({ prof: c.prof, course: c.course, grp: groupOf(c), date: ok ? fmt(ex.date) : '', per: ok ? pRange(ex.start, ex.len) : '', time: ok ? examTime(ex) : '',
       room: ok ? roomLabel(ex.room) : '', method: methodLabel(c), done: ex.done ? 'O' : '', note: ex.note }).alignment = { vertical: 'middle', wrapText: true };
   }
   ps.getRow(1).font = F({ bold: true }); ps.getRow(1).fill = fill('FFE5E8EE');
@@ -1863,10 +1923,10 @@ function renderDaySection(d, statusCache) {
         return `<div class="blk fixed" style="${pos}" title="${esc(`${what}: ${it.c.course}(${it.c.prof}) ${roomLabel(it.room)}`)}"><span class="t">${esc(it.c.course)}</span><span class="s">${esc(what)} · ${esc(it.c.prof)}</span></div>`;
       }
       const ex = S.exams[it.c.id], st = statusCache[it.c.id];
-      const badge = st.bad.length ? `<span class="badge b-bad">겹침</span>` : st.keep ? `<span class="badge b-ok">기존</span>` : st.done ? `<span class="badge b-ok">확정</span>` : st.moved ? `<span class="badge b-mv">이동</span>` : '';
-      const tip = [`${it.c.course} (${it.c.prof}) ${g}`, `${fmt(ex.date)} ${pRange(ex.start, ex.len)} ${tRange(ex.start, ex.len)} · ${roomLabel(ex.room)} · ${ex.method}`,
-        st.moved ? `↪ ${S.examWeek}주차 수업 ${fmt(defaultDate(it.c))} ${pRange(defaultStart(it.c), defaultLen(it.c))}에서 옮김` : '', st.keep ? '✓ 기존 시간표 수업 진행' : '', ...st.bad.map(describeConflict), ...st.warn].filter(Boolean).join('\n');
-      return `<button type="button" class="blk exam y${esc(year)}${st.bad.length ? ' bad' : ''}${badge ? ' has-badge' : ''}" style="${pos}" data-id="${esc(it.c.id)}" title="${esc(tip)}"><span class="t">${esc(it.c.course)}</span><span class="s">${st.moved ? `${S.examWeek}주차 · ${esc(fmt(defaultDate(it.c)))}에서 옮김` : `${S.examWeek}주차${D.examMakeup[it.c.id] ? '(보강)' : ''} · ${esc(it.c.prof)} · ${esc(roomLabel(ex.room))}`}</span>${badge}</button>`;
+      const badge = st.bad.length ? `<span class="badge b-bad">겹침</span>` : st.combined.length ? `<span class="badge b-cb">합반</span>` : st.keep ? `<span class="badge b-ok">기존</span>` : st.done ? `<span class="badge b-ok">확정</span>` : st.moved ? `<span class="badge b-mv">이동</span>` : '';
+      const tip = [`${it.c.course} (${it.c.prof}) ${g}`, `${fmt(ex.date)} ${examTime(ex)} (${pRange(ex.start, ex.len)}) · ${roomLabel(ex.room)} · ${ex.method}`,
+        st.moved ? `↪ ${S.examWeek}주차 수업 ${fmt(defaultDate(it.c))} ${pRange(defaultStart(it.c), defaultLen(it.c))}에서 옮김` : '', st.keep ? '✓ 기존 시간표 수업 진행' : '', st.combined.length ? `합반: ${combinedLabel(st.combined)}와 같은 시간에 한 시험` : '', ...st.bad.map(describeConflict), ...st.warn].filter(Boolean).join('\n');
+      return `<button type="button" class="blk exam y${esc(year)}${st.bad.length ? ' bad' : ''}${badge ? ' has-badge' : ''}" style="${pos}" data-id="${esc(it.c.id)}" title="${esc(tip)}"><span class="t">${esc(it.c.course)}</span><span class="s">${ex.time ? `${esc(examTime(ex))} · ` : ''}${st.moved && (ex.date !== defaultDate(it.c) || ex.start !== defaultStart(it.c)) ? `${S.examWeek}주차 · ${esc(fmt(defaultDate(it.c)))}에서 옮김` : st.moved ? `${S.examWeek}주차 · 시간 변경` : `${S.examWeek}주차${D.examMakeup[it.c.id] ? '(보강)' : ''} · ${esc(it.c.prof)} · ${esc(roomLabel(ex.room))}`}</span>${badge}</button>`;
     }).join('');
     rows += `<div class="grow${prevYear !== null && prevYear !== year ? ' yb' : ''}"><div class="glabel y${esc(year)}">${esc(g)}</div><div class="track" style="grid-template-rows:repeat(${lanes},minmax(30px,auto))">${cells}${blocks}</div></div>`;
     prevYear = year;
@@ -1963,6 +2023,7 @@ function statusPills(st) {
   if (st.bad.length) out.push(`<span class="pill bad" title="${esc(st.bad.map(describeConflict).join('\n'))}">겹침 ${st.bad.length}</span>`);
   if (st.warn.length) out.push(`<span class="pill warn" title="${esc(st.warn.join('\n'))}">확인 ${st.warn.length}</span>`);
   if (st.moved) out.push('<span class="pill mv">변경</span>');
+  if (st.combined?.length) out.push(`<span class="pill cb" title="같은 과목 ${esc(combinedLabel(st.combined))}와 같은 시간에 한 시험">합반 ${esc(combinedLabel(st.combined))}</span>`);
   if (st.keep) out.push('<span class="pill ok">기존 시간표 수업 진행</span>');
   else if (st.done) out.push('<span class="pill ok">확정</span>');
   if (!out.length) out.push('<span class="pill na">기본</span>');
@@ -1985,7 +2046,7 @@ function renderList() {
       <td><select aria-label="방식" data-f="method">${opts(METHODS, ex.method)}</select></td>
       <td><select aria-label="날짜" data-f="date"${dis}>${dateOptions(ex.date)}</select></td>
       <td><select aria-label="시작 교시" data-f="start"${dis}>${opts(range(1, NP), ex.start, v => `${v}교시`)}</select></td>
-      <td><select aria-label="교시 수" data-f="len"${dis}>${opts(range(1, 6), ex.len, v => `${v}교시`)}</select><span class="sub">${st.noslot ? '' : tRange(ex.start, ex.len)}</span></td>
+      <td><select aria-label="교시 수" data-f="len"${dis}>${opts(range(1, 6), ex.len, v => `${v}교시`)}</select><span class="sub">${st.noslot ? '' : examTime(ex)}</span></td>
       <td><input type="text" aria-label="강의실" data-f="room" value="${esc(ex.room)}" size="7" list="roomList"${dis}></td>
       <td><input type="text" class="note" aria-label="요청사항" data-f="note" value="${esc(ex.note)}" placeholder="교수님 요청사항"></td>
       <td><input type="checkbox" aria-label="확정" data-f="done"${ex.done ? ' checked' : ''}></td>
@@ -2644,18 +2705,22 @@ function openDrawer(id) {
   ui.drawerId = id; ui.reg = null;
   const ex = S.exams[id];
   const dis = hasSlot(ex) ? '' : ' disabled';
+  const tm = ex.time || periodTime(ex.start, ex.len);
   const dr = $('#drawer');
   dr.innerHTML = `
     <div class="dhead"><div><h2>${esc(c.course)}</h2><p>${esc(groupOf(c))} · ${esc(c.prof)} · 원래 ${esc(c.day)} ${pRange(c.start, lenOf(c))} ${tRange(c.start, lenOf(c))}, ${esc(roomLabel(c.room))}</p>
       <p><span class="wk wk-exam">${S.examWeek}주차 수업</span> ${fmt(defaultDate(c))} ${pRange(defaultStart(c), defaultLen(c))}${D.examMakeup[c.id] ? (D.examPushed.has(c.id) ? ` (보강으로 밀림, 원래 ${fmt(D.colDates[c.day]?.[S.examWeek - 1])})` : ` (보강, 원래 ${fmt(D.examMakeup[c.id].from)})`) : ''} · ${S.examWeek - 1}주차 수업 ${fmt(prevDate(c))}</p>
-      ${isMoved(c) ? `<p class="mvnote">↪ ${S.examWeek}주차 수업을 ${fmt(ex.date)} ${pRange(ex.start, ex.len)}(으)로 옮겼어요</p>` : ''}</div>
+      ${isMoved(c) ? `<p class="mvnote">↪ ${S.examWeek}주차 수업을 ${fmt(ex.date)} ${examTime(ex)}(으)로 옮겼어요</p>` : ''}</div>
       <button type="button" class="btn small" id="dClose" aria-label="닫기">닫기</button></div>
     <div class="dbody">
       <div class="fgrid">
         <label class="field full" for="dMethod"><span>시험 방식</span><select id="dMethod" data-f="method">${opts(METHODS, ex.method)}</select></label>
         <label class="field full" for="dDate"><span>날짜</span><select id="dDate" data-f="date"${dis}>${dateOptions(ex.date)}</select></label>
-        <label class="field" for="dStart"><span>시작 교시</span><select id="dStart" data-f="start"${dis}>${opts(range(1, NP), ex.start, v => `${v}교시 (${PERIODS[v - 1][0]})`)}</select></label>
-        <label class="field" for="dLen"><span>시험 길이</span><select id="dLen" data-f="len"${dis}>${opts(range(1, 6), ex.len, v => `${v}교시 (${v * 50}분)`)}</select></label>
+        <label class="field" for="dFrom"><span>시작 시간</span><input type="time" id="dFrom" data-f="tfrom" step="300" value="${esc(tm.from)}"${dis}></label>
+        <label class="field" for="dTo"><span>종료 시간</span><input type="time" id="dTo" data-f="tto" step="300" value="${esc(tm.to)}"${dis}></label>
+        <div class="field full"><span>교시로 맞추기</span><span class="row prow"><select id="dPStart" data-f="pstart" aria-label="시작 교시"${dis}>${opts(range(1, NP), ex.start, v => `${v}교시 (${PERIODS[v - 1][0]}~)`)}</select> ~
+          <select id="dPEnd" data-f="pend" aria-label="끝 교시"${dis}>${opts(range(ex.start, NP), Math.min(NP, ex.start + ex.len - 1), v => `${v}교시 (~${PERIODS[v - 1][1]})`)}</select></span>
+          <small class="hint">${hasSlot(ex) ? `${toMin(tm.to) - toMin(tm.from)}분 · ${ex.time ? `직접 정한 시간 · 겹침은 ${pRange(ex.start, ex.len)} 기준으로 검사해요` : '교시 시간 그대로'}` : ''}</small></div>
         <label class="field" for="dRoom"><span>강의실</span><input type="text" id="dRoom" data-f="room" value="${esc(ex.room)}" list="roomList"${dis}></label>
         <label class="field" for="dDone" style="justify-content:flex-end"><span>교수님 확인</span><span class="chk"><input type="checkbox" id="dDone" data-f="done"${ex.done ? ' checked' : ''}>확정</span></label>
         <label class="field full" for="dNote"><span>요청사항 · 메모</span><textarea id="dNote" data-f="note" rows="3" placeholder="예: 실기 2시간, 노트북 지참, 412호 희망">${esc(ex.note)}</textarea></label>
@@ -2673,13 +2738,19 @@ function openDrawer(id) {
   if (isLocked()) lockControls();
 }
 function closeDrawer() { ui.drawerId = null; ui.reg = null; $('#drawer').hidden = true; $('#drawer').innerHTML = ''; }
+/** 합반 안내 줄: 같은 시간에 한 시험을 보는 다른 반들 */
+function combinedLines(list) {
+  if (!list.length) return [];
+  return [`<div class="it ok">합반 시험: ${list.map(x => `${esc(groupOf(x.c))}(${esc(x.c.prof)}, ${esc(roomLabel(x.room))})`).join(', ')}와 같은 시간 · 교수·강의실 겹침으로 보지 않아요</div>`];
+}
 function refreshDrawerChecks() {
   const id = ui.drawerId, c = D.byId[id]; if (!c || $('#drawer').hidden) return;
   const ex = S.exams[id], st = statusOf(c);
   const box = $('#dChecks'); if (!box) return;
   if (st.noslot) box.innerHTML = `<div class="it ok">${esc(ex.method)}: 시험 시간을 잡지 않아요. 이 과목의 ${S.examWeek}주차 수업은 원래 시간에 하는 것으로 봐요.</div>`;
   else box.innerHTML = [
-    `<div class="it ${st.bad.length ? 'bad' : 'ok'}">${fmt(ex.date)} ${pRange(ex.start, ex.len)} ${tRange(ex.start, ex.len)} · ${esc(roomLabel(ex.room))}${st.bad.length ? '' : ' · 겹치는 일정 없음'}</div>`,
+    `<div class="it ${st.bad.length ? 'bad' : 'ok'}">${fmt(ex.date)} ${examTime(ex)} (${pRange(ex.start, ex.len)}) · ${esc(roomLabel(ex.room))}${st.bad.length ? '' : ' · 겹치는 일정 없음'}</div>`,
+    ...combinedLines(st.combined),
     ...st.bad.map(x => `<div class="it bad">${esc(describeConflict(x))}</div>`),
     ...st.warn.map(w => `<div class="it warn">${esc(w)}</div>`)].join('');
   const slotsEl = $('#dSlots');
@@ -2694,7 +2765,7 @@ function refreshDrawerChecks() {
 function setExamField(id, f, raw) {
   const ex = S.exams[id]; if (!ex) return;
   if (f === 'date' || f === 'start') ex.keep = false;
-  if (f === 'start' || f === 'len') ex[f] = Math.max(1, Math.min(NP, parseInt(raw, 10) || 1));
+  if (f === 'start' || f === 'len') { ex[f] = Math.max(1, Math.min(NP, parseInt(raw, 10) || 1)); delete ex.time; }
   else if (f === 'done') ex.done = !!raw;
   else if (f === 'room') ex.room = String(raw).replace(/호/g, '').trim();
   else ex[f] = String(raw);
@@ -2716,7 +2787,7 @@ function openRegister(preId) {
     <div class="dbody">
       <div class="fgrid">
         <label class="field full" for="rCourse"><span>과목</span><select id="rCourse" data-r="id"><option value="">과목 선택</option>${courseOpts}</select></label>
-        ${id ? `<p class="hint full">현재: ${hasSlot(S.exams[id]) ? `${fmt(S.exams[id].date)} ${pRange(S.exams[id].start, S.exams[id].len)} ${tRange(S.exams[id].start, S.exams[id].len)} · ${esc(roomLabel(S.exams[id].room))}` : esc(S.exams[id].method)} · ${S.examWeek}주차 기본 ${fmt(defaultDate(D.byId[id]))} ${pRange(defaultStart(D.byId[id]), defaultLen(D.byId[id]))}</p>` : ''}
+        ${id ? `<p class="hint full">현재: ${hasSlot(S.exams[id]) ? `${fmt(S.exams[id].date)} ${pRange(S.exams[id].start, S.exams[id].len)} ${examTime(S.exams[id])} · ${esc(roomLabel(S.exams[id].room))}` : esc(S.exams[id].method)} · ${S.examWeek}주차 기본 ${fmt(defaultDate(D.byId[id]))} ${pRange(defaultStart(D.byId[id]), defaultLen(D.byId[id]))}</p>` : ''}
         <label class="field full" for="rMethod"><span>시험 방식</span><select id="rMethod" data-r="method"${id ? '' : ' disabled'}>${opts(METHODS, r.method || '미정')}</select></label>
         <label class="field full" for="rDate"><span>날짜</span><select id="rDate" data-r="date"${dis}>${dateOptions(r.date)}</select></label>
         <label class="field" for="rStart"><span>시작 교시</span><select id="rStart" data-r="start"${dis}>${opts(range(1, NP), r.start || 1, v => `${v}교시 (${PERIODS[v - 1][0]})`)}</select></label>
@@ -2751,7 +2822,7 @@ function refreshRegister() {
   const p = { date: r.date, start: +r.start, len: +r.len, room: String(r.room || '').replace(/호/g, '').trim() };
   const cf = conflictsOf(c, p), wn = warningsOf(c, p);
   box.innerHTML = [`<div class="it ${cf.length ? 'bad' : 'ok'}">${fmt(p.date)} ${pRange(p.start, p.len)} ${tRange(p.start, p.len)} · ${esc(roomLabel(p.room))}${cf.length ? '' : ' · 겹치는 일정 없음'}</div>`,
-    ...cf.map(x => `<div class="it bad">${esc(describeConflict(x))}</div>`), ...wn.map(w => `<div class="it warn">${esc(w)}</div>`)].join('');
+    ...combinedLines(combinedAt(c, p)), ...cf.map(x => `<div class="it bad">${esc(describeConflict(x))}</div>`), ...wn.map(w => `<div class="it warn">${esc(w)}</div>`)].join('');
   const fs = freeSlots(c, p.len, p.room), def = defaultDate(c);
   sl.innerHTML = fs.length ? fs.map(x => `<div class="slotday"><div class="lbl"><b>${fmt(x.d)}</b>${x.d === def ? ' 기본' : ''}<br>${esc(D.dateMap[x.d] ? `${D.dateMap[x.d].col}${D.dateMap[x.d].week}주차` : '')}</div>
     <div class="opts">${x.starts.map(s => `<button type="button" class="slotbtn${x.d === p.date && s === p.start ? ' cur' : ''}" data-rslot="${x.d}|${s}">${pRange(s, p.len)}</button>`).join('')}</div></div>`).join('')
@@ -2761,7 +2832,7 @@ function saveRegister() {
   const r = ui.reg; if (!r || !r.id) return;
   const c = D.byId[r.id], ex = S.exams[r.id];
   ex.method = r.method; ex.note = r.note || '';
-  if (!NO_SLOT.has(r.method)) { ex.date = r.date; ex.start = +r.start; ex.len = +r.len; ex.room = cleanRoom(r.room); }
+  if (!NO_SLOT.has(r.method)) { ex.date = r.date; ex.start = +r.start; ex.len = +r.len; ex.room = cleanRoom(r.room); delete ex.time; }
   if (isMoved(c)) ex.keep = false;
   changed();
   const n = hasSlot(ex) ? conflictsOf(c, { date: ex.date, start: ex.start, len: ex.len, room: ex.room }).length : 0;
@@ -2782,6 +2853,18 @@ function bindDrawer() {
     }
     const el = e.target, f = el.dataset.f; if (!f || !ui.drawerId) return;
     if (f === 'note') return;
+    const ex = S.exams[ui.drawerId];
+    if (f === 'tfrom' || f === 'tto') {          // 시작·종료 시간 직접
+      const from = $('#dFrom').value, to = $('#dTo').value;
+      if (!from || !to) return;
+      if (!setExamTime(ex, from, to)) { toast('종료 시간이 시작 시간보다 늦어야 해요.'); openDrawer(ui.drawerId); return; }
+      changed(); openDrawer(ui.drawerId); return;
+    }
+    if (f === 'pstart' || f === 'pend') {         // 교시로 맞추기
+      const s = +$('#dPStart').value, e2 = Math.max(s, +$('#dPEnd').value);
+      ex.start = s; ex.len = e2 - s + 1; delete ex.time;
+      changed(); openDrawer(ui.drawerId); return;
+    }
     setExamField(ui.drawerId, f, el.type === 'checkbox' ? el.checked : el.value);
     changed();
     if (f === 'method') openDrawer(ui.drawerId);
@@ -2804,7 +2887,7 @@ function bindDrawer() {
     if (e.target.closest('#rDefault')) { const c = D.byId[ui.reg.id]; Object.assign(ui.reg, { date: defaultDate(c), start: defaultStart(c), len: defaultLen(c), room: defaultRoom(c) }); openRegisterValues(); return; }
     const rs = e.target.closest('[data-rslot]');
     if (rs) { const [d, st] = rs.dataset.rslot.split('|'); ui.reg.date = d; ui.reg.start = +st; openRegisterValues(); return; }
-    if (e.target.closest('#dReset')) { const c = D.byId[ui.drawerId], ex = S.exams[ui.drawerId]; ex.date = defaultDate(c); ex.start = defaultStart(c); ex.len = defaultLen(c); ex.room = defaultRoom(c); changed(); openDrawer(ui.drawerId); return; }
+    if (e.target.closest('#dReset')) { const c = D.byId[ui.drawerId], ex = S.exams[ui.drawerId]; ex.date = defaultDate(c); ex.start = defaultStart(c); ex.len = defaultLen(c); ex.room = defaultRoom(c); delete ex.time; changed(); openDrawer(ui.drawerId); return; }
     if (e.target.closest('#dKeep')) {
       const c = D.byId[ui.drawerId], ex = S.exams[ui.drawerId];
       if (isKept(c)) { ex.keep = false; ex.done = false; } else if (!isMoved(c)) { ex.keep = true; ex.done = true; }
@@ -2812,7 +2895,7 @@ function bindDrawer() {
       toast(ex.keep ? `${c.course}(${groupOf(c)}): 기존 시간표 수업 진행으로 확정했어요.` : `${c.course}(${groupOf(c)}) 확정을 취소했어요.`); return;
     }
     const sb = e.target.closest('[data-slot]');
-    if (sb) { const [d, s] = sb.dataset.slot.split('|'); const ex = S.exams[ui.drawerId]; ex.date = d; ex.start = +s; ex.keep = false; changed(); openDrawer(ui.drawerId); }
+    if (sb) { const [d, s] = sb.dataset.slot.split('|'); const ex = S.exams[ui.drawerId]; ex.date = d; moveExamStart(ex, +s); ex.keep = false; changed(); openDrawer(ui.drawerId); }
   });
 }
 
@@ -2881,7 +2964,9 @@ function updateTarget(x, y) {
     $$('.cell', t.track).forEach(el => { const p = +el.dataset.p; if (p >= start && p < start + ex.len) el.classList.add(cls); });
     drag.target = place;
     tip.hidden = false;
-    tip.textContent = `${fmt(t.date)} ${pRange(start, ex.len)} ${tRange(start, ex.len)}` + (cf.length ? '\n' + cf.map(describeConflict).join('\n') : ' · 겹침 없음') + (wn.length ? '\n' + wn.join('\n') : '');
+    const cb = combinedAt(c, place);
+    const tt = { ...ex }; moveExamStart(tt, start);
+    tip.textContent = `${fmt(t.date)} ${pRange(start, ex.len)} ${examTime(tt)}` + (cf.length ? '\n' + cf.map(describeConflict).join('\n') : ' · 겹침 없음') + (cb.length ? `\n합반: ${combinedLabel(cb)}와 같은 시간에 한 시험` : '') + (wn.length ? '\n' + wn.join('\n') : '');
   }
   tip.style.whiteSpace = 'pre-line';
   tip.style.left = Math.min(window.innerWidth - 330, e.clientX + 14) + 'px';
@@ -2904,12 +2989,12 @@ function endDrag(e, cancelled) {
   if (d.target) {
     const ex = S.exams[d.id];
     if (ex.date !== d.target.date || ex.start !== d.target.start) {
-      const before = `${fmt(ex.date)} ${pRange(ex.start, ex.len)}`;
-      ex.date = d.target.date; ex.start = d.target.start; ex.keep = false;
+      const before = `${fmt(ex.date)} ${examTime(ex)}`;
+      ex.date = d.target.date; moveExamStart(ex, d.target.start); ex.keep = false;
       changed();
       const c = D.byId[d.id];
       const n = conflictsOf(c, { date: ex.date, start: ex.start, len: ex.len, room: ex.room }).length;
-      toast(`${c.course}(${groupOf(c)}) ${before} → ${fmt(ex.date)} ${pRange(ex.start, ex.len)}${n ? ` · 겹침 ${n}건` : ''}`);
+      toast(`${c.course}(${groupOf(c)}) ${before} → ${fmt(ex.date)} ${examTime(ex)}${n ? ` · 겹침 ${n}건` : ''}`);
     }
   }
 }
@@ -2940,7 +3025,7 @@ async function copyText(text, fallbackEl) {
 function listTsv() {
   const head = ['날짜', '요일', '교시', '시간', '반', '과목', '교수', '강의실', '방식', '확정', '메모'];
   const rows = sortedExams().map(c => { const ex = S.exams[c.id], ok = hasSlot(ex);
-    return [ok ? fmt(ex.date).replace(/\(.\)/, '') : '', ok ? DOW[dowOf(ex.date)] : '', ok ? pRange(ex.start, ex.len) : '', ok ? tRange(ex.start, ex.len) : '', groupOf(c), c.course, c.prof, ok ? roomLabel(ex.room) : '', ex.method, ex.done ? 'O' : '', ex.note.replace(/\s+/g, ' ')]; });
+    return [ok ? fmt(ex.date).replace(/\(.\)/, '') : '', ok ? DOW[dowOf(ex.date)] : '', ok ? pRange(ex.start, ex.len) : '', ok ? examTime(ex) : '', groupOf(c), c.course, c.prof, ok ? roomLabel(ex.room) : '', ex.method, ex.done ? 'O' : '', ex.note.replace(/\s+/g, ' ')]; });
   return [head, ...rows].map(r => r.join('\t')).join('\n');
 }
 function refreshRoomList() { $('#roomList').innerHTML = D.rooms.map(r => `<option value="${esc(r)}"></option>`).join(''); }

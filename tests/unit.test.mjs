@@ -249,3 +249,59 @@ test('보강 신청 목록(.xls 모양): 분반 칸 101·102·103 → 반', () =
     ['목-2B-3', '2026-12-10', '2026-12-10', 1, 2],
   ]);
 });
+
+test('합반 시험: 같은 과목 다른 반이 같은 날 같은 교시에 시작하면 교수·강의실 겹침 아님', () => {
+  const core = loadCore();
+  core.usePlan(seedPlan(core));
+  const S = core.get('S');
+  // 웹자바프로그래밍입문: 2A 목 6~8(이성욱, 212) / 2B 수 2~4(이성욱, 212). 2A 시험은 12/17 6교시
+  const b2 = SEED.classes.find(x => x.id === '수-2B-2');
+  const same = { date: '2026-12-17', start: 6, len: 3, room: '212' };
+  assert.deepEqual(Array.from(core.conflictsOf(b2, same)), []);
+  assert.deepEqual(Array.from(core.combinedAt(b2, same), x => x.c.id), ['목-2A-6']);
+  assert.deepEqual(Array.from(core.warningsOf(b2, same)), []);
+  // 시작 교시가 다르게 걸치면 합반 아님 → 교수·강의실 겹침
+  const kinds = Array.from(core.conflictsOf(b2, { ...same, start: 7 }), x => x.kinds.join('·'));
+  assert.deepEqual(Array.from(kinds), ['교수·강의실']);
+  assert.equal(core.combinedAt(b2, { ...same, start: 7 }).length, 0);
+  // 다른 과목(이성욱 커리어디자인 2C, 12/17 3~4교시)과 같은 시간이면 교수 겹침
+  const kc = core.conflictsOf(b2, { date: '2026-12-17', start: 3, len: 2, room: '999' });
+  assert.ok(kc.some(x => x.it.c.id === '목-2C-3' && x.kinds.includes('교수')));
+  // 같은 교수님인데 강의실을 다르게 잡으면 겹침은 아니지만 확인 필요
+  assert.match(core.warningsOf(b2, { ...same, room: '413' }).join(' '), /합반\(2A\)인데 강의실이 달라요\(413호·212호\)/);
+  // 교수님이 다른 합반(커리어디자인 2A 조동일 · 2B 박신성)은 강의실이 달라도 괜찮음
+  const k2a = SEED.classes.find(x => x.id === '목-2A-1');
+  S.exams['목-2B-3'] = { ...S.exams['목-2B-3'], start: 1, len: 2 };      // 2B를 2A와 같은 12/17 1교시로
+  assert.deepEqual(Array.from(core.combinedAt(k2a, { date: '2026-12-17', start: 1, len: 2, room: '산학관101' }), x => x.c.id), ['목-2B-3']);
+  assert.deepEqual(Array.from(core.statusOf(k2a).bad), []);
+  assert.equal(core.statusOf(k2a).combined.length, 1);
+  // 같은 반이 겹치는 건 합반이어도 여전히 겹침 (같은 반이 두 시험)
+  assert.equal(core.combinedAt(b2, { date: '2026-12-16', start: 2, len: 3, room: '212' }).length, 0);
+});
+
+test('시험 시간 직접 정하기: 시간 → 걸치는 교시, 교시 경계면 시간 지움, 끌면 같이 옮김', () => {
+  const core = loadCore();
+  core.usePlan(seedPlan(core));
+  const P = (a, b) => JSON.parse(JSON.stringify(core.timeToPeriods(a, b)));
+  assert.deepEqual(P('10:00', '11:30'), { start: 2, len: 2 });   // 2교시(09:55~10:45)·3교시(10:50~11:40)에 걸침
+  assert.deepEqual(P('09:00', '12:35'), { start: 1, len: 4 });
+  assert.deepEqual(P('13:00', '14:00'), { start: 5, len: 2 });   // 점심(5교시)에 걸침
+  const c = SEED.classes.find(x => x.id === '화-2A-6'), ex = core.get('S').exams[c.id];
+  assert.equal(core.statusOf(c).moved, false);
+  assert.ok(core.setExamTime(ex, '13:40', '15:10'));
+  assert.deepEqual({ start: ex.start, len: ex.len, time: { ...ex.time } }, { start: 6, len: 2, time: { from: '13:40', to: '15:10' } });
+  assert.equal(core.examTime(ex), '13:40~15:10');
+  assert.equal(core.statusOf(c).moved, true);                      // 시간을 바꾸면 '기존 시간표'가 아님
+  assert.equal(core.setExamTime(ex, '15:10', '13:40'), false);      // 거꾸로면 거부
+  // 끌어서 2교시로 → 같은 길이·같은 어긋남으로 이동 (13:35→09:55 = -220분)
+  core.moveExamStart(ex, 2);
+  assert.deepEqual({ ...ex.time }, { from: '10:00', to: '11:30' });
+  assert.equal(ex.start, 2); assert.equal(ex.len, 2);
+  // 교시 경계와 같게 정하면 직접 정한 시간이 없어지고 교시 시간
+  assert.ok(core.setExamTime(ex, '13:35', '16:15'));
+  assert.equal(ex.time, undefined); assert.equal(ex.start, 6); assert.equal(ex.len, 3);
+  assert.equal(core.statusOf(c).moved, false);
+  // 수업 시간 밖이면 경고
+  core.setExamTime(ex, '17:30', '18:30');
+  assert.match(core.statusOf(c).warn.join(' '), /수업 시간\(09:00~18:05\) 밖이에요/);
+});
