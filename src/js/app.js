@@ -87,7 +87,8 @@ function bind() {
     const sb = e.target.closest('.blk.session');
     if (sb && e.button === 0 && !isLocked()) {      // 수업: 풀린 건 끌기, 고정된 건 꾹 눌러 풀기
       e.preventDefault();
-      if (sb.classList.contains('movable')) beginSessionDrag(sb, e); else startLongPress(sb, e);
+      if (sb.classList.contains('movable')) { beginSessionDrag(sb, e); if (sb.classList.contains('unlocked')) armRelock(sb); }   // 풀린 수업을 다시 꾹 누르면 고정
+      else startLongPress(sb, e);
       return;
     }
     const b = e.target.closest('.blk.exam'); if (!b || e.button !== 0 || isLocked()) return;
@@ -107,6 +108,7 @@ function bind() {
       const n = keepAllUnmoved(); changed();
       toast(`${n}과목을 '기존 시간표 수업 진행'으로 확정했어요.`); return;
     }
+    if (e.target.closest('#btnRelock')) { relockAll(); return; }
     if (e.target.closest('#rangeReset')) { if (isLocked()) return; delete S.range; changed(); return; }
     const b = e.target.closest('.blk.exam');
     if (b && (e.detail === 0 || isLocked())) openDrawer(b.dataset.id);

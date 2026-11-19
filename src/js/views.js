@@ -61,9 +61,9 @@ function allRooms() {
 function roomUse(c, place) {
   const out = {};
   if (!c || !place || !place.date) return out;
-  const s = +place.start, e = s + +place.len - 1;
+  const [a, b] = spanOf(+place.start, +place.len, place.time);
   for (const it of itemsOn(place.date, place.self ? null : c.id)) {
-    if (it.s > e || it.e < s || !it.room || isSelfSession(place, it) || isCombined(c, it, s)) continue;
+    if (it.t1 <= a || it.t0 >= b || !it.room || isSelfSession(place, it) || isCombined(c, it, a)) continue;
     (out[normRoom(it.room)] = out[normRoom(it.room)] || []).push(`${groupOf(it.c)} ${it.c.course}`);
   }
   return out;
@@ -96,11 +96,11 @@ function renderSummary() {
     <button type="button" class="chip ${k.done === k.all ? 'ok' : ''}" data-jump="done">확정 <b>${k.done}</b> / ${k.all}</button>`;
 }
 function lanesFor(items) {
-  const sorted = items.slice().sort((a, b) => a.s - b.s || (a.kind === 'fixed' ? -1 : 1));
+  const sorted = items.slice().sort((a, b) => a.t0 - b.t0 || (a.kind === 'fixed' ? -1 : 1));
   const ends = [];
-  for (const it of sorted) {
-    let lane = ends.findIndex(e => e < it.s);
-    if (lane < 0) { lane = ends.length; ends.push(it.e); } else ends[lane] = it.e;
+  for (const it of sorted) {   // 실제 시간(분)이 겹치는 것끼리만 다른 줄로
+    let lane = ends.findIndex(e => e <= it.t0);
+    if (lane < 0) { lane = ends.length; ends.push(it.t1); } else ends[lane] = it.t1;
     it.lane = lane;
   }
   return Math.max(1, ends.length);
@@ -140,21 +140,25 @@ function renderDaySection(d, statusCache) {
     const year = g.slice(0, -1);
     const cells = range(1, NP).map(p => `<div class="cell${p === LUNCH ? ' lunch' : ''}" style="grid-column:${p}" data-date="${d}" data-group="${g}" data-p="${p}"></div>`).join('');
     const blocks = gi.map(it => {
-      const pos = `grid-column:${it.s} / span ${Math.min(NP, it.e) - it.s + 1};grid-row:${it.lane + 1}`;
+      // 직접 정한 시간이면 칸 안에서도 실제 시각에 맞춰 놓는다(예: 12:05~13:00 → 4교시 중간부터)
+      const pos = it.tm
+        ? `grid-column:1 / -1;grid-row:${it.lane + 1};margin-left:calc(${timePct(it.t0).toFixed(3)}% + 3px);width:calc(${Math.max(1.5, timePct(it.t1) - timePct(it.t0)).toFixed(3)}% - 6px)`
+        : `grid-column:${it.s} / span ${Math.min(NP, it.e) - it.s + 1};grid-row:${it.lane + 1}`;
+      const nar = timePct(it.t1) - timePct(it.t0) < 12 ? ' narrow' : '';   // 한 교시 남짓: 배지는 점으로
       if (it.kind !== 'exam') {   // 수업·보강: 8·15주차는 바로, 그 밖은 꾹 눌러 풀어야 옮길 수 있다
         const manual = it.kind === 'makeup' && it.m.manual;
         const what = manual ? `${it.week ? `${it.week}주차 ` : ''}수업 · 옮김` : it.kind === 'makeup' ? `보강${it.week ? `(${it.week}주차분)` : ''}` : `${it.week}주차 수업`;
         const ref = sessionRef(it), key = sessionKey(ref), free = sessionFree(it), open = !isLocked() && (free || !!ui.unlocked?.has(key));
         const tm = it.kind === 'makeup' && it.m.time ? `${it.m.time.from}~${it.m.time.to} · ` : '';
-        const tip = `${what}: ${it.c.course}(${it.c.prof}) ${roomLabel(it.room)}${isLocked() ? '' : open ? '\n끌어서 옮기거나 눌러서 날짜·시간을 고치세요' : '\n고정된 수업이에요. 꾹 누르면 옮길 수 있어요'}`;
+        const tip = `${what}: ${it.c.course}(${it.c.prof}) ${roomLabel(it.room)}${isLocked() ? '' : free ? '\n끌어서 옮기거나 눌러서 날짜·시간을 고치세요' : open ? '\n끌어서 옮기거나 눌러서 날짜·시간을 고치세요. 다시 꾹 누르면 고정돼요' : '\n고정된 수업이에요. 꾹 누르면 옮길 수 있어요'}`;
         const un = open && !free;
-        return `<div class="blk fixed session${open ? ' movable' : ''}${un ? ' unlocked has-badge' : ''}${manual ? ' manual' : ''}" style="${pos}" data-cid="${esc(ref.cid)}" data-from="${esc(ref.from)}" data-mk="${esc(ref.mkId || '')}" data-key="${esc(key)}" title="${esc(tip)}"><span class="t">${esc(it.c.course)}</span><span class="s">${esc(tm)}${esc(what)} · ${esc(it.c.prof)}</span>${un ? '<span class="badge b-un">옮기기</span>' : ''}</div>`;
+        return `<div class="blk fixed session${nar}${open ? ' movable' : ''}${un ? ' unlocked has-badge' : ''}${manual ? ' manual' : ''}" style="${pos}" data-cid="${esc(ref.cid)}" data-from="${esc(ref.from)}" data-mk="${esc(ref.mkId || '')}" data-key="${esc(key)}" title="${esc(tip)}"><span class="t">${esc(it.c.course)}</span><span class="s">${esc(tm)}${esc(what)} · ${esc(it.c.prof)}</span>${un ? '<span class="badge b-un">옮기기</span>' : ''}</div>`;
       }
       const ex = S.exams[it.c.id], st = statusCache[it.c.id];
       const badge = st.bad.length ? `<span class="badge b-bad">겹침</span>` : st.combined.length ? `<span class="badge b-cb">합반</span>` : st.keep ? `<span class="badge b-ok">기존</span>` : st.done ? `<span class="badge b-ok">확정</span>` : st.moved ? `<span class="badge b-mv">이동</span>` : '';
       const tip = [`${it.c.course} (${it.c.prof}) ${g}`, `${fmt(ex.date)} ${examTime(ex)} (${pRange(ex.start, ex.len)}) · ${roomLabel(ex.room)} · ${ex.method}`,
         st.moved ? `↪ ${S.examWeek}주차 수업 ${fmt(defaultDate(it.c))} ${pRange(defaultStart(it.c), defaultLen(it.c))}에서 옮김` : '', st.keep ? '✓ 기존 시간표 수업 진행' : '', st.combined.length ? `합반: ${combinedLabel(st.combined)}와 같은 시간에 한 시험` : '', ...st.bad.map(describeConflict), ...st.warn].filter(Boolean).join('\n');
-      return `<button type="button" class="blk exam y${esc(year)}${st.bad.length ? ' bad' : ''}${badge ? ' has-badge' : ''}" style="${pos}" data-id="${esc(it.c.id)}" title="${esc(tip)}"><span class="t">${esc(it.c.course)}</span><span class="s">${ex.time ? `${esc(examTime(ex))} · ` : ''}${st.moved && (ex.date !== defaultDate(it.c) || ex.start !== defaultStart(it.c)) ? `${S.examWeek}주차 · ${esc(fmt(defaultDate(it.c)))}에서 옮김` : st.moved ? `${S.examWeek}주차 · 시간 변경` : `${S.examWeek}주차${D.examMakeup[it.c.id] ? '(보강)' : ''} · ${esc(it.c.prof)} · ${esc(roomLabel(ex.room))}`}</span>${badge}</button>`;
+      return `<button type="button" class="blk exam${nar} y${esc(year)}${st.bad.length ? ' bad' : ''}${badge ? ' has-badge' : ''}" style="${pos}" data-id="${esc(it.c.id)}" title="${esc(tip)}"><span class="t">${esc(it.c.course)}</span><span class="s">${ex.time ? `${esc(examTime(ex))} · ` : ''}${st.moved && (ex.date !== defaultDate(it.c) || ex.start !== defaultStart(it.c)) ? `${S.examWeek}주차 · ${esc(fmt(defaultDate(it.c)))}에서 옮김` : st.moved ? `${S.examWeek}주차 · 시간 변경` : `${S.examWeek}주차${D.examMakeup[it.c.id] ? '(보강)' : ''} · ${esc(it.c.prof)} · ${esc(roomLabel(ex.room))}`}</span>${badge}</button>`;
     }).join('');
     rows += `<div class="grow${prevYear !== null && prevYear !== year ? ' yb' : ''}"><div class="glabel y${esc(year)}">${esc(g)}</div><div class="track" style="grid-template-rows:repeat(${lanes},minmax(30px,auto))">${cells}${blocks}</div></div>`;
     prevYear = year;
@@ -175,6 +179,8 @@ function renderBoard() {
   kb.disabled = !keepable || isLocked();
   renderMakeupNotice();
   renderDayRows(statusCache);
+  const nUn = $$('#board .blk.session.unlocked').length, rb = $('#btnRelock');
+  rb.hidden = !nUn; rb.textContent = `풀어 둔 수업 다시 고정 (${nUn})`;
 }
 /** 보강 때문에 시험 주차 수업이 밀린(또는 당겨진) 과목 알림 */
 function renderMakeupNotice() {
