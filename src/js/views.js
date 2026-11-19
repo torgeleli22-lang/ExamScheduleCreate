@@ -104,9 +104,9 @@ function renderDaySection(d, statusCache) {
         return `<div class="blk fixed" style="${pos}" title="${esc(`${what}: ${it.c.course}(${it.c.prof}) ${roomLabel(it.room)}`)}"><span class="t">${esc(it.c.course)}</span><span class="s">${esc(what)} · ${esc(it.c.prof)}</span></div>`;
       }
       const ex = S.exams[it.c.id], st = statusCache[it.c.id];
-      const badge = st.bad.length ? `<span class="badge b-bad">겹침</span>` : st.keep ? `<span class="badge b-ok">기존</span>` : st.done ? `<span class="badge b-ok">확정</span>` : st.moved ? `<span class="badge b-mv">이동</span>` : '';
+      const badge = st.bad.length ? `<span class="badge b-bad">겹침</span>` : st.combined.length ? `<span class="badge b-cb">합반</span>` : st.keep ? `<span class="badge b-ok">기존</span>` : st.done ? `<span class="badge b-ok">확정</span>` : st.moved ? `<span class="badge b-mv">이동</span>` : '';
       const tip = [`${it.c.course} (${it.c.prof}) ${g}`, `${fmt(ex.date)} ${pRange(ex.start, ex.len)} ${tRange(ex.start, ex.len)} · ${roomLabel(ex.room)} · ${ex.method}`,
-        st.moved ? `↪ ${S.examWeek}주차 수업 ${fmt(defaultDate(it.c))} ${pRange(defaultStart(it.c), defaultLen(it.c))}에서 옮김` : '', st.keep ? '✓ 기존 시간표 수업 진행' : '', ...st.bad.map(describeConflict), ...st.warn].filter(Boolean).join('\n');
+        st.moved ? `↪ ${S.examWeek}주차 수업 ${fmt(defaultDate(it.c))} ${pRange(defaultStart(it.c), defaultLen(it.c))}에서 옮김` : '', st.keep ? '✓ 기존 시간표 수업 진행' : '', st.combined.length ? `합반: ${combinedLabel(st.combined)}와 같은 시간에 한 시험` : '', ...st.bad.map(describeConflict), ...st.warn].filter(Boolean).join('\n');
       return `<button type="button" class="blk exam y${esc(year)}${st.bad.length ? ' bad' : ''}${badge ? ' has-badge' : ''}" style="${pos}" data-id="${esc(it.c.id)}" title="${esc(tip)}"><span class="t">${esc(it.c.course)}</span><span class="s">${st.moved ? `${S.examWeek}주차 · ${esc(fmt(defaultDate(it.c)))}에서 옮김` : `${S.examWeek}주차${D.examMakeup[it.c.id] ? '(보강)' : ''} · ${esc(it.c.prof)} · ${esc(roomLabel(ex.room))}`}</span>${badge}</button>`;
     }).join('');
     rows += `<div class="grow${prevYear !== null && prevYear !== year ? ' yb' : ''}"><div class="glabel y${esc(year)}">${esc(g)}</div><div class="track" style="grid-template-rows:repeat(${lanes},minmax(30px,auto))">${cells}${blocks}</div></div>`;
@@ -204,6 +204,7 @@ function statusPills(st) {
   if (st.bad.length) out.push(`<span class="pill bad" title="${esc(st.bad.map(describeConflict).join('\n'))}">겹침 ${st.bad.length}</span>`);
   if (st.warn.length) out.push(`<span class="pill warn" title="${esc(st.warn.join('\n'))}">확인 ${st.warn.length}</span>`);
   if (st.moved) out.push('<span class="pill mv">변경</span>');
+  if (st.combined?.length) out.push(`<span class="pill cb" title="같은 과목 ${esc(combinedLabel(st.combined))}와 같은 시간에 한 시험">합반 ${esc(combinedLabel(st.combined))}</span>`);
   if (st.keep) out.push('<span class="pill ok">기존 시간표 수업 진행</span>');
   else if (st.done) out.push('<span class="pill ok">확정</span>');
   if (!out.length) out.push('<span class="pill na">기본</span>');

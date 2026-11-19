@@ -37,20 +37,33 @@ function itemsOn(iso, excludeId) {
   return out;
 }
 /** p = {date, start, len, room}. 교시가 겹치면서 같은 반 / 같은 교수 / 같은 강의실이면 겹침 */
+/* 합반 시험: 같은 과목의 다른 반 시험이 같은 날 같은 교시에 시작하면 한 시험(합반)으로 본다.
+   → 교수·강의실 겹침으로 세지 않는다 (사용자: "15주차 수업을 동시에 진행하면 합반 시험").
+   시작 교시가 다르게 걸치거나, 다른 과목이면 지금처럼 겹침. */
+const courseKey = c => String(c.course || '').replace(/\s+/g, '').toUpperCase();
+const isCombined = (c, it, start) => it.kind === 'exam' && it.c.id !== c.id && groupOf(it.c) !== groupOf(c) && courseKey(it.c) === courseKey(c) && it.s === start;
+/** p에 놓으면 함께 합반 시험을 보게 되는 다른 반 수업들 */
+function combinedAt(c, p) {
+  if (!p.date) return [];
+  return itemsOn(p.date, c.id).filter(it => isCombined(c, it, p.start)).map(it => ({ c: it.c, room: it.room }));
+}
+/** 겹침 = 교시 범위가 겹치면서 같은 반 / 같은 교수 / 같은 강의실 (합반이면 교수·강의실은 빼고) */
 function conflictsOf(c, p) {
   if (!p.date) return [];
   const s = p.start, e = p.start + p.len - 1, g = groupOf(c), rn = normRoom(p.room);
   const res = [];
   for (const it of itemsOn(p.date, c.id)) {
     if (it.s > e || it.e < s) continue;
+    const combined = isCombined(c, it, s);
     const kinds = [];
     if (groupOf(it.c) === g) kinds.push('반');
-    if (it.c.prof && it.c.prof === c.prof) kinds.push('교수');
-    if (rn && normRoom(it.room) === rn) kinds.push('강의실');
+    if (!combined && it.c.prof && it.c.prof === c.prof) kinds.push('교수');
+    if (!combined && rn && normRoom(it.room) === rn) kinds.push('강의실');
     if (kinds.length) res.push({ kinds, it });
   }
   return res;
 }
+const combinedLabel = list => list.map(x => groupOf(x.c)).join('·');
 function warningsOf(c, p) {
   const w = [];
   if (!p.date) { w.push('날짜를 정해 주세요'); return w; }
@@ -62,6 +75,9 @@ function warningsOf(c, p) {
   if (pv && p.date <= pv) w.push(`${S.examWeek - 1}주차 수업(${fmt(pv)})보다 이르거나 같은 날이에요`);
   if (p.start <= LUNCH && p.start + p.len - 1 >= LUNCH) w.push('점심시간(5교시)이 끼어 있어요');
   if (p.start + p.len - 1 > NP) w.push('10교시를 넘어가요');
+  // 합반인데 같은 교수님이 서로 다른 강의실 → 한 강의실로 맞춰야 함
+  const apart = combinedAt(c, p).filter(x => x.c.prof && x.c.prof === c.prof && normRoom(x.room) !== normRoom(p.room));
+  if (apart.length) w.push(`합반(${combinedLabel(apart)})인데 강의실이 달라요(${roomLabel(p.room)}·${[...new Set(apart.map(x => roomLabel(x.room)))].join('·')}). 같은 교수님이라 한 강의실로 맞춰 주세요`);
   for (const m of D.makeups || []) {
     if (m.classId !== c.id || D.examMakeup?.[c.id] === m) continue;
     if (m.to > p.date) w.push(`보강(${fmt(m.to)} ${pRange(m.start, m.end - m.start + 1)})이 시험보다 뒤에 있어요`);
@@ -76,9 +92,9 @@ function describeConflict(x) {
 }
 function statusOf(c) {
   const ex = S.exams[c.id];
-  if (!hasSlot(ex)) return { bad: [], warn: [], moved: false, undecided: false, done: !!ex.done, noslot: true, keep: false };
+  if (!hasSlot(ex)) return { bad: [], warn: [], moved: false, undecided: false, done: !!ex.done, noslot: true, keep: false, combined: [] };
   const p = { date: ex.date, start: ex.start, len: ex.len, room: ex.room };
-  return { bad: conflictsOf(c, p), warn: warningsOf(c, p), moved: isMoved(c), undecided: ex.method === '미정', done: !!ex.done, noslot: false, keep: isKept(c) };
+  return { bad: conflictsOf(c, p), warn: warningsOf(c, p), moved: isMoved(c), undecided: ex.method === '미정', done: !!ex.done, noslot: false, keep: isKept(c), combined: combinedAt(c, p) };
 }
 /** 시험주차-2 이후 후보 날짜 중 (시험주차-1) 수업일 이후, 토요일 제외, 점심을 걸치지 않고 겹침 0인 시작 교시 */
 function freeSlots(c, len, room) {

@@ -249,3 +249,32 @@ test('보강 신청 목록(.xls 모양): 분반 칸 101·102·103 → 반', () =
     ['목-2B-3', '2026-12-10', '2026-12-10', 1, 2],
   ]);
 });
+
+test('합반 시험: 같은 과목 다른 반이 같은 날 같은 교시에 시작하면 교수·강의실 겹침 아님', () => {
+  const core = loadCore();
+  core.usePlan(seedPlan(core));
+  const S = core.get('S');
+  // 웹자바프로그래밍입문: 2A 목 6~8(이성욱, 212) / 2B 수 2~4(이성욱, 212). 2A 시험은 12/17 6교시
+  const b2 = SEED.classes.find(x => x.id === '수-2B-2');
+  const same = { date: '2026-12-17', start: 6, len: 3, room: '212' };
+  assert.deepEqual(Array.from(core.conflictsOf(b2, same)), []);
+  assert.deepEqual(Array.from(core.combinedAt(b2, same), x => x.c.id), ['목-2A-6']);
+  assert.deepEqual(Array.from(core.warningsOf(b2, same)), []);
+  // 시작 교시가 다르게 걸치면 합반 아님 → 교수·강의실 겹침
+  const kinds = Array.from(core.conflictsOf(b2, { ...same, start: 7 }), x => x.kinds.join('·'));
+  assert.deepEqual(Array.from(kinds), ['교수·강의실']);
+  assert.equal(core.combinedAt(b2, { ...same, start: 7 }).length, 0);
+  // 다른 과목(이성욱 커리어디자인 2C, 12/17 3~4교시)과 같은 시간이면 교수 겹침
+  const kc = core.conflictsOf(b2, { date: '2026-12-17', start: 3, len: 2, room: '999' });
+  assert.ok(kc.some(x => x.it.c.id === '목-2C-3' && x.kinds.includes('교수')));
+  // 같은 교수님인데 강의실을 다르게 잡으면 겹침은 아니지만 확인 필요
+  assert.match(core.warningsOf(b2, { ...same, room: '413' }).join(' '), /합반\(2A\)인데 강의실이 달라요\(413호·212호\)/);
+  // 교수님이 다른 합반(커리어디자인 2A 조동일 · 2B 박신성)은 강의실이 달라도 괜찮음
+  const k2a = SEED.classes.find(x => x.id === '목-2A-1');
+  S.exams['목-2B-3'] = { ...S.exams['목-2B-3'], start: 1, len: 2 };      // 2B를 2A와 같은 12/17 1교시로
+  assert.deepEqual(Array.from(core.combinedAt(k2a, { date: '2026-12-17', start: 1, len: 2, room: '산학관101' }), x => x.c.id), ['목-2B-3']);
+  assert.deepEqual(Array.from(core.statusOf(k2a).bad), []);
+  assert.equal(core.statusOf(k2a).combined.length, 1);
+  // 같은 반이 겹치는 건 합반이어도 여전히 겹침 (같은 반이 두 시험)
+  assert.equal(core.combinedAt(b2, { date: '2026-12-16', start: 2, len: 3, room: '212' }).length, 0);
+});

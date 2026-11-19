@@ -346,3 +346,8 @@ body.missing .summary,body.missing .tabs,body.missing main,body.missing #btnRegi
 .dropbox b{font-size:18px;color:var(--ink)}
 .dropbox span{font-size:13px;color:var(--muted)}
 .dropzone.over{border-color:var(--accent);background:var(--y2)}
+
+/* 합반 시험 */
+.badge.b-cb{background:#e7e0fb;color:#4b2fa3;border:1px solid #7d62d6}
+.pill.cb{background:#e7e0fb;color:#4b2fa3}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]) .badge.b-cb,:root:not([data-theme="light"]) .pill.cb{background:#2c2350;color:#c9b8ff;border-color:#7d62d6} }

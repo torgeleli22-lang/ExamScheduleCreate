@@ -62,7 +62,8 @@ function updateTarget(x, y) {
     $$('.cell', t.track).forEach(el => { const p = +el.dataset.p; if (p >= start && p < start + ex.len) el.classList.add(cls); });
     drag.target = place;
     tip.hidden = false;
-    tip.textContent = `${fmt(t.date)} ${pRange(start, ex.len)} ${tRange(start, ex.len)}` + (cf.length ? '\n' + cf.map(describeConflict).join('\n') : ' · 겹침 없음') + (wn.length ? '\n' + wn.join('\n') : '');
+    const cb = combinedAt(c, place);
+    tip.textContent = `${fmt(t.date)} ${pRange(start, ex.len)} ${tRange(start, ex.len)}` + (cf.length ? '\n' + cf.map(describeConflict).join('\n') : ' · 겹침 없음') + (cb.length ? `\n합반: ${combinedLabel(cb)}와 같은 시간에 한 시험` : '') + (wn.length ? '\n' + wn.join('\n') : '');
   }
   tip.style.whiteSpace = 'pre-line';
   tip.style.left = Math.min(window.innerWidth - 330, e.clientX + 14) + 'px';

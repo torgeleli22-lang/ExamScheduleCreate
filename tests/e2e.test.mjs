@@ -70,10 +70,19 @@ test('날짜별 시간표(주마다 한 줄) · 등록 폼 · 드래그 · 기�
   const after1 = await examOf(page, app3a);
   assert.equal(after1.date, '2026-12-22'); assert.equal(after1.start, 6);
 
-  // 같은 줄 옆 날짜로: 12/16 2B 웹자바 → 12/17 2B 6교시 (이성욱 교수 2A 시험과 겹침)
-  await dragBlock(page, '2026-12-16', '웹자바프로그래밍입문', '2026-12-17', '2B', 6);
+  // 같은 줄 옆 날짜로: 12/16 2B 웹자바 → 12/17 2B 7교시 = 이성욱 교수 2A 웹자바 시험(6~8교시)과 걸치기만 함 → 겹침
+  await dragBlock(page, '2026-12-16', '웹자바프로그래밍입문', '2026-12-17', '2B', 7);
   k = await p.counts();
   assert.equal(k.bad, 2);
+  // 같은 6교시로 맞추면 같은 과목 합반 시험 → 겹침 아님, 두 블록에 '합반'
+  await dragTo(page, page.locator('#board .day[data-day="2026-12-17"] .blk.exam[data-id="수-2B-2"]'), page.locator('#board .day[data-day="2026-12-17"] .cell[data-group="2B"][data-p="6"]'));
+  assert.equal((await examOf(page, '수-2B-2')).start, 6);
+  k = await p.counts();
+  assert.equal(k.bad, 0);
+  for (const id of ['수-2B-2', '목-2A-6']) assert.equal(await page.innerText(`#board .day[data-day="2026-12-17"] .blk.exam[data-id="${id}"] .badge`), '합반');
+  await page.click('#board .day[data-day="2026-12-17"] .blk.exam[data-id="수-2B-2"]');
+  assert.match(await page.innerText('#dChecks'), /합반 시험: 2A\(이성욱, 212호\)와 같은 시간 · 교수·강의실 겹침으로 보지 않아요/);
+  await page.click('#dClose');
 
   // 줄의 오른쪽 가장자리로 끌면 옆으로 넘어가서 화면 밖 날짜에 놓을 수 있음 (12/8 → 같은 주 뒤쪽 날짜)
   const row = page.locator('#board .weekrow[data-week="2026-12-07"] .weekdays');
@@ -92,13 +101,13 @@ test('날짜별 시간표(주마다 한 줄) · 등록 폼 · 드래그 · 기�
   // 옮기지 않은 과목 모두 '기존 시간표 수업 진행' 확정 (옮긴 3과목·겹침 과목은 빠짐)
   await page.click('#btnKeepAll');
   k = await p.counts();
-  assert.equal(k.keep, 50 - 3 - 1);
+  assert.equal(k.keep, 50 - 3);                // 옮긴 3과목만 빠짐 (합반은 겹침이 아니라 확정 대상)
   assert.ok(await page.locator('#board .day[data-day="2026-12-21"] .blk.exam .badge.b-ok', { hasText: '기존' }).count() > 0);
   // 블록을 눌러 서랍에서 확정 취소
   await page.locator('#board .day[data-day="2026-12-21"] .blk.exam >> nth=0').scrollIntoViewIfNeeded();
   await page.click('#board .day[data-day="2026-12-21"] .blk.exam >> nth=0');
   await page.click('#dKeep');
-  assert.equal((await p.counts()).keep, 50 - 3 - 1 - 1);
+  assert.equal((await p.counts()).keep, 50 - 3 - 1);
   await page.click('#dClose');
 
   const x = await download(page, () => page.click('#btnExport'));
@@ -108,7 +117,7 @@ test('날짜별 시간표(주마다 한 줄) · 등록 폼 · 드래그 · 기�
   const list = wb.getWorksheet('과목별 목록');
   assert.equal(list.rowCount, 51);
   const methods = []; list.eachRow((r, i) => { if (i > 1) methods.push(String(r.getCell(10).value)); });
-  assert.equal(methods.filter(m => m.startsWith('기존 시간표 수업 진행')).length, 45);
+  assert.equal(methods.filter(m => m.startsWith('기존 시간표 수업 진행')).length, 46);
   assert.deepEqual(errors, []);
   await ctx.close();
 });
