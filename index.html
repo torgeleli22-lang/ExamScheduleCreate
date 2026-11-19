@@ -476,6 +476,9 @@ const pRange = (s, len) => len <= 1 ? `${s}교시` : `${s}~${s + len - 1}교시`
 const tRange = (s, len) => { const e = Math.min(NP, s + len - 1); return `${PERIODS[s - 1]?.[0] ?? '?'}~${PERIODS[e - 1]?.[1] ?? '?'}`; };
 const opts = (arr, cur, lab = x => x) => arr.map(v => `<option value="${esc(v)}"${String(v) === String(cur) ? ' selected' : ''}>${esc(lab(v))}</option>`).join('');
 const safeName = s => String(s).replace(/[\\/:*?"<>|]/g, '').replace(/\s+/g, '_');
+/** '13:35' → '13시 35분', '17:00' → '17시' (엑셀 시험 시간표 글자) */
+const koTime = t => { const [h, m] = String(t).split(':'); return `${h.padStart(2, '0')}시${+m ? ` ${m}분` : ''}`; };
+const koRange = (from, to) => `${koTime(from)} ~ ${koTime(to)}`;
 const fmtStamp = t => { if (!t) return '-'; const d = new Date(t); return `${d.getFullYear()}.${d.getMonth() + 1}.${d.getDate()} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`; };
 
 /* ===== src/js/model.js ===== */
@@ -1660,7 +1663,153 @@ function bindGitHubCard() {
 
 /* ===== src/js/excel.js ===== */
 /* ---------- 엑셀 내보내기 · 파일 저장 ----------
-   시트: 시험시간표(공지) / 과목별 목록 / 교수님별. 공지 시트는 학과 강의시간표처럼 학년 색(1 노랑, 2 파랑, 3 초록). */
+   시트: 주차별 시험 시간표(① ② ③ …, 학과 2026-2 중간고사 시간표 양식) / 과목별 목록 / 교수님별.
+
+   주차별 시트 양식 (사용자가 손으로 만든 '중간고사 시험 진행 관련 3주치 시간표'를 그대로 따름):
+   - 시트 하나 = 한 주(월~금, 시험 있는 토요일만 포함). 날짜는 '날짜 선택'에서 고른 날(stripDates)
+   - 세로 = 학년·반, 가로 = 요일. 시험이 있는 날은 1~10교시 칸으로 펼치고, 없는 날은 한 칸에 '기존 수업 진행'
+   - 칸 글자: '과목\n(교수) 강의실\n13시 35분 ~ 16시 15분' / 기존 시간표대로면 '기존 수업시간 진행'
+   - 색: 1학년 주황 FAC090 · 2학년 연두 C3D69B · 3학년 하늘 92CDDC (그 파일의 Office 2007 테마 Accent6·3·5, 밝게 40%),
+         회색 A6A6A6 = 기존 수업(그날 정상 수업·보강·기존 시간대로 보는 시험), 점심 칸 F2DCDB */
+const WK = { navy: 'FF203864', dayHead: 'FF17375D', per: 'FFD9E1F2', gray: 'FFA6A6A6', lunch: 'FFF2DCDB', white: 'FFFFFFFF', red: 'FFC00000', clash: 'FFF8C9C9',
+  year: { 1: 'FFFAC090', 2: 'FFC3D69B', 3: 'FF92CDDC' } };
+const CIRCLED = '①②③④⑤⑥⑦⑧⑨⑩⑪⑫⑬⑭⑮';
+/** 엑셀 주차별 시트에 들어갈 날짜들: 고른 날짜를 주마다, 시험 없는 토요일은 뺀다 */
+function exportWeeks() {
+  const exDays = new Set(S.classes.map(c => S.exams[c.id]).filter(ex => hasSlot(ex) && ex.date).map(ex => ex.date));
+  const weeks = new Map();
+  for (const d of stripDates()) {
+    if (dowOf(d) === 6 && !exDays.has(d)) continue;
+    const m = mondayOf(d);
+    if (!weeks.has(m)) weeks.set(m, []);
+    weeks.get(m).push(d);
+  }
+  return [...weeks.values()];
+}
+/** 칸 하나의 글자·색 */
+function weekCellOf(it) {
+  const c = it.c;
+  if (it.kind === 'exam') {
+    const ex = S.exams[c.id], kept = isKept(c), tm = ex.time || periodTime(ex.start, ex.len);
+    const extra = [ex.method !== '미정' ? ex.method : '', combinedAt(c, ex).length ? '합반' : ''].filter(Boolean).join(' · ');
+    return { text: `${c.course}\n(${c.prof}) ${roomLabel(ex.room)}\n${kept ? '기존 수업시간 진행' : koRange(tm.from, tm.to)}${extra ? ` · ${extra}` : ''}`, fill: kept ? WK.gray : (WK.year[c.year] || WK.gray), exam: true };
+  }
+  const what = it.kind === 'makeup' ? (it.m && it.m.manual ? `${it.week || ''}주차 수업 옮김` : '보강 수업 진행') : '기존 수업 진행';
+  return { text: `${c.course}\n(${c.prof}) ${roomLabel(it.room)}\n${what}`, fill: WK.gray, exam: false };
+}
+function addWeekSheets(wb) {
+  const F = (o = {}) => ({ name: '맑은 고딕', size: 11, ...o });
+  const fill = argb => ({ type: 'pattern', pattern: 'solid', fgColor: { argb } });
+  const center = { vertical: 'middle', horizontal: 'center', wrapText: true };
+  const side = style => (style ? { style, color: { argb: 'FF000000' } } : undefined);
+  const weeks = exportWeeks();
+  const all = weeks.flat();
+  const label = KINDS[S.kind]?.label || '시험';
+  const title = all.length ? `${label} 시험 진행 관련 ${weeks.length}주치 시간표  ${fmt(all[0])} ~ ${fmt(all[all.length - 1])}` : `${label} 시험 시간표`;
+  weeks.forEach((days, wi) => {
+    const name = `${wi + 1}주차 (${days[0].slice(5).replace('-', '')}(${DOW[dowOf(days[0])]})-${days[days.length - 1].slice(5).replace('-', '')}(${DOW[dowOf(days[days.length - 1])]}))`;
+    const ws = wb.addWorksheet(name.slice(0, 31), { views: [{ state: 'frozen', xSplit: 1, ySplit: 7 }],
+      pageSetup: { paperSize: 8, orientation: 'landscape', fitToPage: true, fitToWidth: 1, fitToHeight: 1, horizontalCentered: true, margins: { left: 0.25, right: 0.25, top: 0.4, bottom: 0.4, header: 0.2, footer: 0.2 } } });
+    // 날짜마다 열: 시험 있으면 1~10교시, 없으면 한 칸
+    let col = 2;
+    const layout = days.map(d => {
+      const items = itemsOn(d, null);
+      const open = items.some(it => it.kind === 'exam');
+      const L = { d, items, open, col, n: open ? NP : 1 };
+      col += L.n;
+      return L;
+    });
+    const lastCol = col - 1;
+    ws.getColumn(1).width = 10;
+    for (const L of layout) {
+      if (!L.open) ws.getColumn(L.col).width = 20.6;
+      else for (let p = 1; p <= NP; p++) ws.getColumn(L.col + p - 1).width = p === LUNCH ? 5 : 12;
+    }
+    // 제목·안내
+    ws.getCell(1, 2).value = title; ws.getCell(1, 2).font = F({ size: 20, bold: true }); ws.getCell(1, 2).alignment = { vertical: 'middle' };
+    ws.getRow(1).height = 57;
+    ws.getCell(2, 2).value = '회색 칸은 기존 수업이 진행되는 시간.        색깔별로 1, 2, 3학년별 시험 구분.        시험일정 변경 시 공지예정';
+    ws.getCell(2, 2).font = F({ size: 14, bold: true, color: { argb: WK.red } });
+    ws.getCell(4, 2).value = `${CIRCLED[wi] || `(${wi + 1})`} ${fmt(days[0])} ~ ${fmt(days[days.length - 1])}`;
+    ws.getCell(4, 2).font = F({ size: 30, bold: true, color: { argb: WK.navy } });
+    ws.getRow(4).height = 45;
+    // 머리글: 학년·반 / 요일·날짜 / 교시 / 시작 시각
+    ws.mergeCells(5, 1, 7, 1);
+    Object.assign(ws.getCell(5, 1), { value: '학년·반', fill: fill(WK.navy), font: F({ bold: true, color: { argb: 'FFFFFFFF' } }), alignment: center });
+    ws.getRow(5).height = 30; ws.getRow(6).height = 16; ws.getRow(7).height = 14;
+    for (const L of layout) {
+      const info = D.dateMap[L.d], real = DOW[dowOf(L.d)];
+      if (L.n > 1) ws.mergeCells(5, L.col, 5, L.col + L.n - 1);
+      const head = ws.getCell(5, L.col);
+      head.value = `${real} ${+L.d.slice(5, 7)}/${+L.d.slice(8)}${info && info.col !== real ? ` (${info.col}요일 수업)` : ''}`;
+      head.fill = fill(WK.dayHead); head.font = F({ size: 14, bold: true, color: { argb: 'FFFFFFFF' } }); head.alignment = center;
+      head.border = { left: side('thick'), bottom: side('thin') };
+      for (let k = 0; k < L.n; k++) {
+        const p = k + 1;
+        for (const r of [6, 7]) {
+          const cell = ws.getCell(r, L.col + k);
+          cell.value = L.open ? (r === 6 ? `${p}교시` : PERIODS[p - 1][0].replace(/^0/, '')) : null;
+          cell.fill = fill(WK.per); cell.font = F({ size: r === 6 ? 8 : 7, bold: r === 6 }); cell.alignment = center;
+          cell.border = { left: side(k === 0 ? 'thick' : 'thin'), right: side('thin'), top: side('thin'), bottom: side('thin') };
+        }
+      }
+    }
+    // 반마다 한 줄
+    const first = 8;
+    D.groups.forEach((g, gi) => {
+      const r = first + gi, y = g.slice(0, -1), ban = g.slice(-1);
+      const yearTop = gi > 0 && D.groups[gi - 1].slice(0, -1) !== y;
+      ws.getRow(r).height = 42;
+      Object.assign(ws.getCell(r, 1), { value: `${y}학년 ${ban}반`, font: F({ bold: true }), alignment: center,
+        border: { left: side('thin'), right: side('thin'), top: side(yearTop ? 'thick' : 'thin'), bottom: side('thin') } });
+      for (const L of layout) {
+        if (!L.open) continue;
+        for (let p = 1; p <= NP; p++) {
+          const cell = ws.getCell(r, L.col + p - 1);
+          cell.fill = fill(p === LUNCH ? WK.lunch : WK.white);
+          cell.border = { left: side(p === 1 ? 'thick' : 'thin'), right: side('thin'), top: side(yearTop ? 'thick' : 'thin'), bottom: side('thin') };
+        }
+        // 시험 먼저, 그다음 그날 수업(회색). 같은 칸이 겹치면 앞 칸에 이어 쓰고 붉게
+        const mine = L.items.filter(it => groupOf(it.c) === g).sort((a, b) => (a.kind === 'exam' ? 0 : 1) - (b.kind === 'exam' ? 0 : 1) || a.s - b.s);
+        const used = new Array(NP + 2).fill(0);
+        for (const it of mine) {
+          const s = Math.max(1, it.s), e = Math.min(NP, it.e);
+          const cc = weekCellOf(it);
+          const clash = range(s, e).find(p => used[p]);
+          if (clash) {
+            const mc = ws.getCell(r, L.col + used[clash] - 1);
+            mc.value = `${mc.value}\n+ ${cc.text.replace(/\n/g, ' ')}`; mc.fill = fill(WK.clash);
+            ws.getRow(r).height = 64;
+            continue;
+          }
+          if (e > s) ws.mergeCells(r, L.col + s - 1, r, L.col + e - 1);
+          const cell = ws.getCell(r, L.col + s - 1);
+          cell.value = cc.text; cell.fill = fill(cc.fill); cell.font = F({ size: 9, bold: true }); cell.alignment = center;
+          for (let p = s; p <= e; p++) used[p] = s;
+        }
+      }
+    });
+    const last = first + D.groups.length - 1;
+    // 시험 없는 날: 한 칸으로 '기존 수업 진행'
+    for (const L of layout) {
+      if (L.open) continue;
+      ws.mergeCells(first, L.col, last, L.col);
+      const hasClass = L.items.length > 0;
+      Object.assign(ws.getCell(first, L.col), { value: hasClass ? '기존 수업\n진행' : '수업 없음', fill: fill(WK.white), font: F({ bold: true }), alignment: center,
+        border: { left: side('thick'), right: side('thick'), top: side('thin'), bottom: side('thin') } });
+    }
+    // 아래 색 안내
+    const lg = last + 3;
+    [['1학년', WK.year[1]], ['2학년', WK.year[2]], ['3학년', WK.year[3]], ['기존 수업', WK.gray]].forEach(([t, c], i) => {
+      ws.getRow(lg + i).height = 40;
+      ws.getCell(lg + i, 3).fill = fill(c);
+      Object.assign(ws.getCell(lg + i, 4), { value: `  ${t}`, font: F({ size: 14 }), alignment: { vertical: 'middle', horizontal: 'left' } });
+    });
+    if (lastCol < 4) ws.getColumn(4).width = 12;
+  });
+  if (!weeks.length) wb.addWorksheet('시험 시간표').getCell(1, 1).value = '날짜를 골라 주세요.';
+}
+
 function sortedExams() {
   return S.classes.slice().sort((a, b) => {
     const ea = S.exams[a.id], eb = S.exams[b.id];
@@ -1675,68 +1824,11 @@ async function buildWorkbook() {
   const thin = { style: 'thin', color: { argb: 'FF9AA3AF' } };
   const border = { top: thin, left: thin, bottom: thin, right: thin };
   const fill = argb => ({ type: 'pattern', pattern: 'solid', fgColor: { argb } });
-  const YF = { '1': ['FFFFF8E1', 'FFFFE08A'], '2': ['FFEAF2FC', 'FFBCD5F5'], '3': ['FFEBF6E6', 'FFC3E3B5'] };
-  const yf = y => YF[String(y)] || ['FFF5F5F5', 'FFDDDDDD'];
   const F = (o = {}) => ({ name: '맑은 고딕', size: 10, ...o });
   const center = { vertical: 'middle', horizontal: 'center', wrapText: true };
-  const lastCol = 4 + NP;
 
-  // 1) 학생 공지용 시간표
-  const ws = wb.addWorksheet('시험시간표(공지)', { views: [{ state: 'frozen', ySplit: 5 }],
-    pageSetup: { paperSize: 9, orientation: 'landscape', fitToPage: true, fitToWidth: 1, fitToHeight: 0, horizontalCentered: true, margins: { left: 0.3, right: 0.3, top: 0.4, bottom: 0.4, header: 0.2, footer: 0.2 } } });
-  ws.getColumn(1).width = 2; ws.getColumn(2).width = 10; ws.getColumn(3).width = 5; ws.getColumn(4).width = 5;
-  for (let p = 1; p <= NP; p++) ws.getColumn(4 + p).width = p === LUNCH ? 7 : 16;
-  ws.mergeCells(2, 2, 2, lastCol);
-  const tc = ws.getCell(2, 2); const tm = String(S.title).match(/^(.*학기)\s*(.*)$/);
-  tc.value = tm ? `${tm[1]} ${S.dept} ${tm[2]} 시간표`.replace(/\s+/g, ' ') : `${S.dept} ${S.title} 시간표`; tc.font = F({ size: 16, bold: true }); tc.alignment = center;
-  ws.getRow(2).height = 30;
-  ws.mergeCells(4, 2, 5, 2); ws.mergeCells(4, 3, 5, 3); ws.mergeCells(4, 4, 5, 4);
-  ws.getCell(4, 2).value = '날짜'; ws.getCell(4, 3).value = '학년'; ws.getCell(4, 4).value = '반';
-  for (let p = 1; p <= NP; p++) { ws.getCell(4, 4 + p).value = p; ws.getCell(5, 4 + p).value = p === LUNCH ? '점심' : `${PERIODS[p - 1][0]}-${PERIODS[p - 1][1]}`; }
-  for (let r = 4; r <= 5; r++) for (let c = 2; c <= lastCol; c++) { const cell = ws.getCell(r, c); cell.border = border; cell.alignment = center; cell.fill = fill('FFE5E8EE'); cell.font = F({ bold: r === 4, size: r === 4 ? 10 : 8.5 }); }
-  const exDates = [...new Set(S.classes.map(c => S.exams[c.id]).filter(ex => hasSlot(ex) && ex.date).map(ex => ex.date))].sort();
-  let r = 6;
-  for (const d of exDates) {
-    const top = r; let yStart = r, curY = null;
-    for (const g of D.groups) {
-      const y = g.slice(0, -1), ban = g.slice(-1);
-      if (curY !== y) { if (curY !== null && r - 1 > yStart) ws.mergeCells(yStart, 3, r - 1, 3); yStart = r; curY = y; ws.getCell(r, 3).value = +y; }
-      ws.getCell(r, 4).value = ban;
-      ws.getRow(r).height = 34;
-      for (let c = 2; c <= lastCol; c++) { const cell = ws.getCell(r, c); cell.border = border; cell.alignment = center; cell.font = F(); if (c >= 3) cell.fill = fill(c === 4 + LUNCH ? 'FFF2F2F2' : yf(y)[0]); }
-      const blocks = S.classes.filter(c => groupOf(c) === g && hasSlot(S.exams[c.id]) && S.exams[c.id].date === d).sort((a, b) => S.exams[a.id].start - S.exams[b.id].start);
-      const used = new Array(NP + 2).fill(0);
-      for (const c of blocks) {
-        const ex = S.exams[c.id];
-        const s = Math.max(1, ex.start), e = Math.min(NP, ex.start + ex.len - 1);
-        const text = `${c.course}(${c.prof})\n${ex.time ? examTime(ex) + ' · ' : ''}${roomLabel(ex.room)}${methodLabel(c) !== '미정' ? ' · ' + methodLabel(c) : ''}`;
-        const clashAt = range(s, e).find(p => used[p]);
-        if (clashAt) {
-          const mc = ws.getCell(r, 4 + used[clashAt]);
-          mc.value = `${mc.value}\n+ ${text.replace('\n', ' ')}`; mc.fill = fill('FFF8C9C9');
-          ws.getRow(r).height = 60;
-          continue;
-        }
-        if (e > s) ws.mergeCells(r, 4 + s, r, 4 + e);
-        const cell = ws.getCell(r, 4 + s);
-        cell.value = text; cell.fill = fill(yf(y)[1]); cell.font = F({ size: 9.5, bold: false }); cell.alignment = center;
-        for (let p = s; p <= e; p++) used[p] = s;
-      }
-      r++;
-    }
-    if (r - 1 > yStart) ws.mergeCells(yStart, 3, r - 1, 3);
-    ws.mergeCells(top, 2, r - 1, 2);
-    const dc = ws.getCell(top, 2);
-    const [, mm, dd] = d.split('-');
-    dc.value = `${+mm}/${+dd}\n(${DOW[dowOf(d)]})`; dc.font = F({ bold: true, size: 12 }); dc.alignment = center;
-    r++;
-  }
-  const none = S.classes.filter(c => !hasSlot(S.exams[c.id]));
-  if (none.length) {
-    ws.getCell(r, 2).value = `※ 시험 시간 없음: ` + none.map(c => `${c.course}(${c.prof}, ${groupOf(c)}) ${S.exams[c.id].method}`).join(' / ');
-    ws.getCell(r, 2).font = F({ size: 9 });
-    r++;
-  }
+  // 1) 시험 시간표: 학과 '중간고사 시험 진행 관련 3주치 시간표' 양식 (주마다 시트)
+  addWeekSheets(wb);
 
   // 2) 과목별 목록
   const ls = wb.addWorksheet('과목별 목록', { views: [{ state: 'frozen', ySplit: 1 }] });

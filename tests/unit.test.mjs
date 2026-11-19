@@ -305,3 +305,10 @@ test('시험 시간 직접 정하기: 시간 → 걸치는 교시, 교시 경계
   core.setExamTime(ex, '17:30', '18:30');
   assert.match(core.statusOf(c).warn.join(' '), /수업 시간\(09:00~18:05\) 밖이에요/);
 });
+
+test('엑셀 시간 글자: 13:35~16:15 → 13시 35분 ~ 16시 15분, 정시는 분 생략', () => {
+  const core = loadCore();
+  assert.equal(core.koRange('13:35', '16:15'), '13시 35분 ~ 16시 15분');
+  assert.equal(core.koRange('09:00', '12:35'), '09시 ~ 12시 35분');
+  assert.equal(core.koRange('17:00', '18:00'), '17시 ~ 18시');
+});

@@ -29,4 +29,7 @@ const pRange = (s, len) => len <= 1 ? `${s}교시` : `${s}~${s + len - 1}교시`
 const tRange = (s, len) => { const e = Math.min(NP, s + len - 1); return `${PERIODS[s - 1]?.[0] ?? '?'}~${PERIODS[e - 1]?.[1] ?? '?'}`; };
 const opts = (arr, cur, lab = x => x) => arr.map(v => `<option value="${esc(v)}"${String(v) === String(cur) ? ' selected' : ''}>${esc(lab(v))}</option>`).join('');
 const safeName = s => String(s).replace(/[\\/:*?"<>|]/g, '').replace(/\s+/g, '_');
+/** '13:35' → '13시 35분', '17:00' → '17시' (엑셀 시험 시간표 글자) */
+const koTime = t => { const [h, m] = String(t).split(':'); return `${h.padStart(2, '0')}시${+m ? ` ${m}분` : ''}`; };
+const koRange = (from, to) => `${koTime(from)} ~ ${koTime(to)}`;
 const fmtStamp = t => { if (!t) return '-'; const d = new Date(t); return `${d.getFullYear()}.${d.getMonth() + 1}.${d.getDate()} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`; };

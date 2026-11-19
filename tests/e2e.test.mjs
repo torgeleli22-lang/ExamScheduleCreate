@@ -113,7 +113,28 @@ test('날짜별 시간표(주마다 한 줄) · 등록 폼 · 드래그 · 기�
   const x = await download(page, () => page.click('#btnExport'));
   assert.equal(x.name, '2026학년도_2학기_기말고사_시간표.xlsx');
   const wb = await readXlsx(x.buf);
-  assert.deepEqual(wb.worksheets.map(w => w.name), ['시험시간표(공지)', '과목별 목록', '교수님별']);
+  // 학과 중간고사 시간표 양식: 주마다 시트(①②③) + 과목별 목록 + 교수님별
+  assert.deepEqual(wb.worksheets.map(w => w.name), ['1주차 (1207(월)-1211(금))', '2주차 (1214(월)-1218(금))', '3주차 (1221(월)-1225(금))', '과목별 목록', '교수님별']);
+  const w1 = wb.worksheets[0];
+  assert.equal(w1.getCell('B1').value, '기말고사 시험 진행 관련 3주치 시간표  12/7(월) ~ 12/25(금)');
+  assert.equal(w1.getCell('B4').value, '① 12/7(월) ~ 12/11(금)');
+  assert.equal(w1.getCell('A5').value, '학년·반');
+  // 시험 있는 화 12/8은 1~10교시로 펼침, 시험 없는 월 12/7은 한 칸 '기존 수업 진행'
+  assert.equal(w1.getCell('B5').value, '월 12/7'); assert.equal(w1.getCell('B8').value, '기존 수업\n진행');
+  assert.equal(w1.getCell('C5').value, '화 12/8'); assert.equal(w1.getCell('C6').value, '1교시'); assert.equal(w1.getCell('L6').value, '10교시');
+  assert.equal(w1.getCell('A8').value, '1학년 A반');
+  // 위에서 '기존 시간표 수업 진행'으로 확정한 시험은 회색 + '기존 수업시간 진행' (중간고사 시간표처럼)
+  assert.equal(w1.getCell('D8').value, '데이터베이스기초\n(정재헌) 212호\n기존 수업시간 진행');
+  assert.equal(w1.getCell('D8').fill.fgColor.argb, 'FFA6A6A6');
+  // 옮긴 시험(2C 앱프로그래밍기초 → 12/22)은 학년 색(2학년 연두) + 시간
+  const w3cells = []; wb.worksheets[2].eachRow(r => r.eachCell(c => w3cells.push(c)));
+  const moved = w3cells.find(c => String(c.value).startsWith('앱프로그래밍기초\n(정세일)'));
+  assert.ok(moved && /\d\d시/.test(String(moved.value)), String(moved && moved.value));
+  assert.equal(moved.fill.fgColor.argb, 'FFC3D69B');
+  // 2주차: 12/15(화)는 금요일 수업일이라 머리글에 표시, 시험 없는 날의 정상 수업은 회색으로
+  const w2 = wb.worksheets[1];
+  const heads = []; w2.getRow(5).eachCell(c => heads.push(String(c.value)));
+  assert.ok(heads.includes('화 12/15 (금요일 수업)'), heads.join(','));
   const list = wb.getWorksheet('과목별 목록');
   assert.equal(list.rowCount, 51);
   const methods = []; list.eachRow((r, i) => { if (i > 1) methods.push(String(r.getCell(10).value)); });
@@ -375,8 +396,8 @@ test('시험 상세에서 시작·종료 시간 직접 정하기 → 판·목록
   const wb = await readXlsx(x.buf);
   const rows = []; wb.getWorksheet('과목별 목록').eachRow((r, i) => { if (i > 1) rows.push([String(r.getCell(7).value), String(r.getCell(5).value) + r.getCell(6).value, String(r.getCell(4).value)]); });
   assert.deepEqual(rows.find(r => r[0] === 'JAVA프로그래밍응용' && r[1] === '2A'), ['JAVA프로그래밍응용', '2A', '13:40~15:10']);
-  const notice = []; wb.getWorksheet('시험시간표(공지)').eachRow(r => r.eachCell(cell => notice.push(String(cell.value))));
-  assert.ok(notice.some(t => t.startsWith('JAVA프로그래밍응용(양숙희)\n13:40~15:10')));
+  const notice = []; wb.worksheets[0].eachRow(r => r.eachCell(cell => notice.push(String(cell.value))));
+  assert.ok(notice.includes('JAVA프로그래밍응용\n(양숙희) 413호\n13시 40분 ~ 15시 10분'), notice.filter(t => t.startsWith('JAVA')).join(' | '));
   // 교시로 맞추기: 6교시 ~ 8교시 → 직접 정한 시간 없어지고 원래대로
   await blk.click();
   await page.selectOption('#dPEnd', '8');
