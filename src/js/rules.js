@@ -219,6 +219,19 @@ function applySession(ref, patch) {
   });
   return out;
 }
+/** 이 날짜에 손댄 것이 있는지(엑셀에서 '기존 수업 진행' 한 칸으로 접지 않고 교시별로 펼칠 날):
+   보강·직접 옮긴 수업이 들어오거나 빠짐, 이 날이 원래 시험 주차 수업일인데 시험을 옮김·방식을 정함(시험 없음 등),
+   메모를 적은 시험(시험 블록이 없으면 원래 수업일 기준) */
+function dayTouched(d) {
+  if ((D.makeups || []).some(m => m.to === d || m.from === d)) return true;
+  return S.classes.some(c => {
+    const ex = S.exams[c.id]; if (!ex) return false;
+    const home = defaultDate(c), at = hasSlot(ex) ? ex.date : home;
+    if (String(ex.note || '').trim() && at === d) return true;
+    if (home !== d) return false;
+    return hasSlot(ex) ? isMoved(c) : true;
+  });
+}
 /** 수업 시간 글자 (직접 정한 시간이 있으면 그것) */
 const sessionTime = cur => (cur.time ? `${cur.time.from}~${cur.time.to}` : tRange(cur.start, cur.len));
 function counts() {
