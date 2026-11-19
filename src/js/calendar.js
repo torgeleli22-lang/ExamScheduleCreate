@@ -56,6 +56,7 @@ function deriveMakeups() {
   const ewDates = Object.values(D.colDates).map(ds => ds[S.examWeek - 1]).filter(Boolean).sort();
   const lastEw = ewDates[ewDates.length - 1];
   for (const m of D.makeups) {
+    if (m.manual) continue;   // 판에서 직접 옮긴 수업은 시험을 끌고 가지 않는다(시험보다 뒤면 경고만)
     const c = D.byId[m.classId], ew = D.colDates[c.day]?.[S.examWeek - 1];
     if (!ew) continue;
     const replace = m.from && m.from === ew, push = !replace && m.to > ew && m.to <= lastEw;

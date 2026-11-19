@@ -305,3 +305,57 @@ test('시험 시간 직접 정하기: 시간 → 걸치는 교시, 교시 경계
   core.setExamTime(ex, '17:30', '18:30');
   assert.match(core.statusOf(c).warn.join(' '), /수업 시간\(09:00~18:05\) 밖이에요/);
 });
+
+test('엑셀 시간 글자: 13:35~16:15 → 13시 35분 ~ 16시 15분, 정시는 분 생략', () => {
+  const core = loadCore();
+  assert.equal(core.koRange('13:35', '16:15'), '13시 35분 ~ 16시 15분');
+  assert.equal(core.koRange('09:00', '12:35'), '09시 ~ 12시 35분');
+  assert.equal(core.koRange('17:00', '18:00'), '17시 ~ 18시');
+});
+
+test('다른 주차 수업 옮기기: 직접 옮긴 기록이 생기고, 원래 자리로 되돌리면 지워지며, 시험은 끌고 가지 않음', () => {
+  const core = loadCore();
+  core.usePlan(seedPlan(core));
+  const S = () => core.get('S'), dm = core.get('D.dateMap');
+  const c = SEED.classes.find(x => x.id === '화-2A-6');
+  const d14 = Object.keys(dm).find(k => dm[k].col === '화' && dm[k].week === 14);
+  const d8 = Object.keys(dm).find(k => dm[k].col === '화' && dm[k].week === 8);
+  const fixedOf = iso => core.itemsOn(iso).find(it => it.c.id === c.id && it.kind !== 'exam');
+  const it14 = fixedOf(d14);
+  assert.equal(it14.kind, 'fixed'); assert.equal(it14.week, 14);
+  assert.equal(core.sessionFree(it14), false);                  // 14주차: 꾹 눌러야 함
+  assert.equal(core.sessionFree(fixedOf(d8)), true);            // 8주차: 바로 옮길 수 있음
+  // 14주차 화요일 6~8교시 → 같은 주 목요일(수업일 현황상 목요일) 1교시로
+  const thu = Object.keys(dm).find(k => dm[k].col === '목' && dm[k].week === 14);
+  const ref = core.applySession(core.sessionRef(it14), { date: thu, start: 1 });
+  assert.equal(ref.mkId, `${c.id}|${d14}|m`);
+  const m = S().makeups.find(x => x.id === ref.mkId);
+  assert.deepEqual({ from: m.from, to: m.to, start: m.start, end: m.end, manual: m.manual }, { from: d14, to: thu, start: 1, end: 3, manual: true });
+  assert.equal(fixedOf(d14), undefined);                         // 원래 날짜에서 빠지고
+  const moved = fixedOf(thu);
+  assert.equal(moved.kind, 'makeup'); assert.equal(moved.week, 14); assert.equal(core.sessionFree(moved), true);
+  assert.match(core.describeConflict({ it: moved, kinds: ['반'] }), /14주차 수업\(.+에서 옮김\)/);
+  // 자기 자신(옮긴 자리·원래 자리)은 겹침이 아님. 그 자리에 같은 반 다른 수업이 있으면 겹침
+  const placeOf = r => { const s = core.sessionOf(r); return { date: s.date, start: s.start, len: s.len, room: s.room, self: r }; };
+  const cf = core.conflictsOf(c, placeOf(ref));
+  assert.ok(cf.length > 0 && cf.every(x => x.it.c.id !== c.id), cf.map(core.describeConflict).join(' / '));   // 목 1교시엔 2A 커리어디자인
+  assert.equal(core.conflictsOf(c, { date: d14, start: c.start, len: 3, room: c.room, self: ref }).length, 0);
+  // 시간 직접 정하기
+  const ref2 = core.applySession(ref, { start: 2, len: 2, time: { from: '10:00', to: '11:30' } });
+  assert.equal(ref2.mkId, ref.mkId);
+  assert.equal(core.sessionTime(core.sessionOf(ref2)), '10:00~11:30');
+  // 원래 자리로 → 기록 지움
+  const back = core.applySession(ref2, { date: d14, start: c.start, len: c.end - c.start + 1, time: null, room: c.room });
+  assert.equal(back.mkId, null);
+  assert.equal(S().makeups.length, 0);
+  assert.equal(fixedOf(d14).kind, 'fixed');
+  // 시험 주차 날짜보다 뒤(같은 시험 주차 안)로 직접 옮겨도 시험은 그대로, 경고만
+  const ex0 = { ...S().exams[c.id] };
+  const ew = core.defaultDate(c);
+  const fri15 = Object.keys(dm).find(k => dm[k].col === '금' && dm[k].week === 15);
+  assert.ok(fri15 > ew);
+  core.applySession(core.sessionRef(fixedOf(d14)), { date: fri15, start: 9 });
+  assert.equal(S().exams[c.id].date, ex0.date);
+  assert.equal(core.get('D.examPushed').has(c.id), false);
+  assert.match(core.statusOf(c).warn.join(' '), /옮긴 수업\(.+\)이 시험보다 뒤에 있어요/);
+});

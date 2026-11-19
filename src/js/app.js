@@ -1,6 +1,6 @@
 /* ---------- 앱: 공용 UI 상태, 변경 알림, 이벤트 연결, 시작 ---------- */
 const TABS = ['board', 'courses', 'history', 'setup'];
-const ui = { tab: 'board', filter: { group: '', prof: '', status: '', q: '' }, drawerId: null, reg: null, pending: {}, hist: {}, wiz: null };
+const ui = { tab: 'board', filter: { group: '', prof: '', status: '', q: '' }, drawerId: null, reg: null, sess: null, unlocked: new Set(), pending: {}, hist: {}, wiz: null };
 
 /** 지금 계획(S)을 고친 뒤 부른다: 저장 + 다시 그리기. 보관(잠금)된 계획은 저장하지 않는다. */
 function changed(opts = {}) {
@@ -84,6 +84,12 @@ function bind() {
   // 날짜별 배치: 주차×요일 판(카드는 날짜 칸으로) + 펼친 날짜의 반×교시 시간표(블록은 교시까지)
   const tb = $('#tab-board');
   tb.addEventListener('pointerdown', e => {
+    const sb = e.target.closest('.blk.session');
+    if (sb && e.button === 0 && !isLocked()) {      // 수업: 풀린 건 끌기, 고정된 건 꾹 눌러 풀기
+      e.preventDefault();
+      if (sb.classList.contains('movable')) beginSessionDrag(sb, e); else startLongPress(sb, e);
+      return;
+    }
     const b = e.target.closest('.blk.exam'); if (!b || e.button !== 0 || isLocked()) return;
     const id = b.dataset.id, ex = S.exams[id];
     let grabP = 0;
@@ -94,6 +100,7 @@ function bind() {
     window.addEventListener('pointerup', onUp);
     window.addEventListener('pointercancel', onCancel);
   });
+  tb.addEventListener('contextmenu', e => { if (e.target.closest('.blk.session')) e.preventDefault(); });   // 휴대폰 꾹 누르기 메뉴 막기
   tb.addEventListener('click', e => {
     if (e.target.closest('#btnKeepAll')) {
       if (isLocked()) return;
@@ -109,7 +116,7 @@ function bind() {
   });
   document.addEventListener('keydown', e => {
     if (e.key !== 'Escape') return;
-    if (drag) endDrag(e, true); else if (ui.rp?.open) closeRangePop(); else if (ui.drawerId || ui.reg) closeDrawer();
+    if (drag) endDrag(e, true); else if (ui.rp?.open) closeRangePop(); else if (ui.drawerId || ui.reg || ui.sess) closeDrawer();
   });
 
   const lt = $('#listTable');

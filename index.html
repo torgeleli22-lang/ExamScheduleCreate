@@ -363,6 +363,17 @@ body.missing .summary,body.missing .tabs,body.missing main,body.missing #btnRegi
 @media (prefers-color-scheme: dark){ :root:not([data-theme="light"]) .badge.b-cb,:root:not([data-theme="light"]) .pill.cb{background:#2c2350;color:#c9b8ff;border-color:#7d62d6} }
 .fgrid .prow{flex-wrap:nowrap}
 .fgrid .prow select{width:auto;flex:1 1 0;min-width:0}
+
+/* 수업(시험 아닌) 옮기기: 8·15주차는 바로, 다른 주차는 꾹 눌러 풀기 */
+.blk.fixed.session{user-select:none;-webkit-user-select:none;-webkit-touch-callout:none}
+.blk.fixed.session.movable{cursor:grab;touch-action:none}
+.blk.fixed.session.movable:hover{border-color:var(--accent)}
+.blk.fixed.session.pressing{animation:pressfill .6s linear forwards}
+@keyframes pressfill{from{box-shadow:inset 0 0 0 0 rgba(31,58,104,.0)}to{box-shadow:inset 0 0 0 40px rgba(31,58,104,.28)}}
+.blk.fixed.session.unlocked{border:2px dashed var(--accent)}
+.blk.fixed.session.manual{border:2px solid var(--warn);background:var(--warn-bg);color:var(--ink)}
+.badge.b-un{background:var(--accent);color:var(--accent-ink)}
+@media (prefers-reduced-motion: reduce){ .blk.fixed.session.pressing{animation:none;box-shadow:inset 0 0 0 40px rgba(31,58,104,.28)} }
 </style>
 </head>
 <body>
@@ -403,6 +414,7 @@ body.missing .summary,body.missing .tabs,body.missing main,body.missing #btnRegi
           <span class="rangetext" id="rangeText"></span>
           <button type="button" class="btn small" id="rangeReset">시험 주차에 맞추기</button>
           <label class="chkline"><input type="checkbox" id="showFixed" checked> 다른 주차 수업·보강도 보기</label>
+          <span class="hint" id="sessHint">8·15주차 수업은 바로, 다른 주차 수업은 꾹 눌러서(0.6초) 옮길 수 있어요.</span>
         </div>
         <button type="button" class="btn small" id="btnKeepAll"></button>
       </div>
@@ -476,6 +488,9 @@ const pRange = (s, len) => len <= 1 ? `${s}교시` : `${s}~${s + len - 1}교시`
 const tRange = (s, len) => { const e = Math.min(NP, s + len - 1); return `${PERIODS[s - 1]?.[0] ?? '?'}~${PERIODS[e - 1]?.[1] ?? '?'}`; };
 const opts = (arr, cur, lab = x => x) => arr.map(v => `<option value="${esc(v)}"${String(v) === String(cur) ? ' selected' : ''}>${esc(lab(v))}</option>`).join('');
 const safeName = s => String(s).replace(/[\\/:*?"<>|]/g, '').replace(/\s+/g, '_');
+/** '13:35' → '13시 35분', '17:00' → '17시' (엑셀 시험 시간표 글자) */
+const koTime = t => { const [h, m] = String(t).split(':'); return `${h.padStart(2, '0')}시${+m ? ` ${m}분` : ''}`; };
+const koRange = (from, to) => `${koTime(from)} ~ ${koTime(to)}`;
 const fmtStamp = t => { if (!t) return '-'; const d = new Date(t); return `${d.getFullYear()}.${d.getMonth() + 1}.${d.getDate()} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`; };
 
 /* ===== src/js/model.js ===== */
@@ -642,6 +657,7 @@ function deriveMakeups() {
   const ewDates = Object.values(D.colDates).map(ds => ds[S.examWeek - 1]).filter(Boolean).sort();
   const lastEw = ewDates[ewDates.length - 1];
   for (const m of D.makeups) {
+    if (m.manual) continue;   // 판에서 직접 옮긴 수업은 시험을 끌고 가지 않는다(시험보다 뒤면 경고만)
     const c = D.byId[m.classId], ew = D.colDates[c.day]?.[S.examWeek - 1];
     if (!ew) continue;
     const replace = m.from && m.from === ew, push = !replace && m.to > ew && m.to <= lastEw;
@@ -741,14 +757,14 @@ function itemsOn(iso, excludeId) {
       if (c.day !== info.col) continue;
       if (examWeekDay && hasSlot(S.exams[c.id]) && !D.examPushed?.has(c.id)) continue;   // 시험이 보강으로 밀렸으면 원래 시험 주차 수업은 평소 수업
       if (D.cancelled?.has(`${c.id}|${iso}`)) continue;
-      out.push({ kind: 'fixed', c, s: c.start, e: c.end, room: c.room, week: info.week });
+      out.push({ kind: 'fixed', c, s: c.start, e: c.end, room: c.room, week: info.week, date: iso });
     }
   }
   for (const m of D.makeups || []) {
     if (m.to !== iso) continue;
     const c = D.byId[m.classId];
     if (D.examMakeup[c.id] === m && hasSlot(S.exams[c.id])) continue;   // 시험 주차 보강 = 시험 자리
-    out.push({ kind: 'makeup', c, s: m.start, e: m.end, room: m.room || c.room, week: m.from ? D.dateMap[m.from]?.week : null, from: m.from, m });
+    out.push({ kind: 'makeup', c, s: m.start, e: m.end, room: m.room || c.room, week: m.from ? D.dateMap[m.from]?.week : null, from: m.from, m, date: iso });
   }
   for (const c of S.classes) {
     if (c.id === excludeId) continue;
@@ -770,12 +786,15 @@ function combinedAt(c, p) {
   return itemsOn(p.date, c.id).filter(it => isCombined(c, it, p.start)).map(it => ({ c: it.c, room: it.room }));
 }
 /** 겹침 = 교시 범위가 겹치면서 같은 반 / 같은 교수 / 같은 강의실 (합반이면 교수·강의실은 빼고) */
+/** p.self = 옮기는 수업의 참조 {cid, from, mkId}: 그 수업 자신(원래 자리·옮긴 자리)은 겹침에서 빼고, 같은 과목 시험은 넣는다 */
+const isSelfSession = (p, it) => !!p.self && it.kind !== 'exam' && it.c.id === p.self.cid
+  && ((it.kind === 'fixed' && it.date === p.self.from) || (it.kind === 'makeup' && it.m.id === p.self.mkId));
 function conflictsOf(c, p) {
   if (!p.date) return [];
   const s = p.start, e = p.start + p.len - 1, g = groupOf(c), rn = normRoom(p.room);
   const res = [];
-  for (const it of itemsOn(p.date, c.id)) {
-    if (it.s > e || it.e < s) continue;
+  for (const it of itemsOn(p.date, p.self ? null : c.id)) {
+    if (it.s > e || it.e < s || isSelfSession(p, it)) continue;
     const combined = isCombined(c, it, s);
     const kinds = [];
     if (groupOf(it.c) === g) kinds.push('반');
@@ -803,13 +822,13 @@ function warningsOf(c, p) {
   if (apart.length) w.push(`합반(${combinedLabel(apart)})인데 강의실이 달라요(${roomLabel(p.room)}·${[...new Set(apart.map(x => roomLabel(x.room)))].join('·')}). 같은 교수님이라 한 강의실로 맞춰 주세요`);
   for (const m of D.makeups || []) {
     if (m.classId !== c.id || D.examMakeup?.[c.id] === m) continue;
-    if (m.to > p.date) w.push(`보강(${fmt(m.to)} ${pRange(m.start, m.end - m.start + 1)})이 시험보다 뒤에 있어요`);
+    if (m.to > p.date) w.push(`${m.manual ? '옮긴 수업' : '보강'}(${fmt(m.to)} ${pRange(m.start, m.end - m.start + 1)})이 시험보다 뒤에 있어요`);
   }
   return w;
 }
 function describeConflict(x) {
   const it = x.it, o = it.c;
-  const what = it.kind === 'exam' ? '시험' : it.kind === 'makeup' ? `보강(${it.from ? `${fmt(it.from)} 결강분` : '추가'})` : `${it.week}주차 수업`;
+  const what = it.kind === 'exam' ? '시험' : it.kind === 'makeup' ? (it.m?.manual ? `${it.week}주차 수업(${fmt(it.from)}에서 옮김)` : `보강(${it.from ? `${fmt(it.from)} 결강분` : '추가'})`) : `${it.week}주차 수업`;
   const room = x.kinds.includes('강의실') ? ` · ${roomLabel(it.room)}` : '';
   return `${x.kinds.join('·')} 겹침: ${o.course}(${o.prof}, ${groupOf(o)}) ${what} ${pRange(it.s, it.e - it.s + 1)}${room}`;
 }
@@ -837,6 +856,47 @@ function shiftedByMakeup() {
     return { c, m, ew: D.colDates[c.day]?.[S.examWeek - 1], to: m.to, pushed: D.examPushed.has(c.id) };
   }).sort((a, b) => a.to.localeCompare(b.to) || groupOf(a.c).localeCompare(groupOf(b.c)));
 }
+/* ---------- 다른 주차 수업 옮기기 ----------
+   8·15주차(와 이 시험의 시험 주차) 수업은 바로 옮길 수 있고, 다른 주차 수업은 판에서 꾹 눌러 푼 뒤 옮긴다(사용자 요구).
+   옮긴 수업은 보강처럼 기록한다 → 겹침 검사·보강 목록·엑셀이 그대로 따라온다:
+     makeup {id: `${classId}|${원래 날짜}|m`, classId, from: 원래 날짜, to, start, end, room, time?, note: '직접 옮김', manual: true}
+   원래 날짜·시간·강의실로 되돌리면 기록을 지운다. 가져온 보강(manual 아님)은 그 보강을 고친다. */
+const freeWeeks = () => new Set([KINDS.mid.week, KINDS.final.week, S.examWeek]);
+/** 판의 수업 항목(itemsOn의 fixed·makeup) → 옮기기 참조 {cid, from, mkId} */
+const sessionRef = it => (it.kind === 'makeup' ? { cid: it.c.id, from: it.m.from || '', mkId: it.m.id } : { cid: it.c.id, from: it.date, mkId: null });
+const sessionKey = ref => (ref.mkId ? `mk:${ref.mkId}` : `${ref.cid}|${ref.from}`);
+/** 꾹 누르지 않아도 옮길 수 있는 수업인지 (8·15주차, 직접 옮긴 수업) */
+const sessionFree = it => (it.kind === 'makeup' && it.m.manual) || freeWeeks().has(it.week);
+/** 참조 → 지금 그 수업의 자리 {c, m, from, date, start, len, room, time, week} */
+function sessionOf(ref) {
+  const c = D.byId[ref.cid]; if (!c) return null;
+  const m = ref.mkId ? (S.makeups || []).find(x => x.id === ref.mkId) : null;
+  if (m) return { c, m, from: m.from, date: m.to, start: m.start, len: m.end - m.start + 1, room: m.room || c.room, time: m.time || null, week: m.from ? D.dateMap[m.from]?.week : null };
+  return { c, m: null, from: ref.from, date: ref.from, start: c.start, len: lenOf(c), room: c.room, time: null, week: D.dateMap[ref.from]?.week };
+}
+/** 수업 하나의 날짜·시작·길이·강의실·시간을 고친다 → 새 참조. 옮긴 기록을 만들거나 고치고, 원래 자리면 지운다 */
+function applySession(ref, patch) {
+  const cur = sessionOf(ref); if (!cur) return ref;
+  const c = cur.c;
+  const next = { date: cur.date, start: cur.start, len: cur.len, room: cur.room, time: cur.time, ...patch };
+  let out = ref;
+  rebaseUnmoved(() => {
+    S.makeups = S.makeups || [];
+    let m = cur.m;
+    if (!m) {
+      m = { id: `${c.id}|${cur.from}|m`, classId: c.id, from: cur.from, to: cur.from, start: c.start, end: c.end, room: c.room, note: '직접 옮김', manual: true };
+      S.makeups = S.makeups.filter(x => x.id !== m.id).concat([m]);
+    }
+    m.to = next.date; m.start = next.start; m.end = next.start + next.len - 1; m.room = cleanRoom(next.room) || c.room;
+    if (next.time) m.time = { ...next.time }; else delete m.time;
+    const back = m.manual && m.to === m.from && m.start === c.start && m.end === c.end && !m.time && normRoom(m.room) === normRoom(c.room);
+    if (back) { S.makeups = S.makeups.filter(x => x !== m); out = { cid: c.id, from: m.from, mkId: null }; }
+    else out = { cid: c.id, from: m.from, mkId: m.id };
+  });
+  return out;
+}
+/** 수업 시간 글자 (직접 정한 시간이 있으면 그것) */
+const sessionTime = cur => (cur.time ? `${cur.time.from}~${cur.time.to}` : tRange(cur.start, cur.len));
 function counts() {
   let total = 0, bad = 0, warn = 0, moved = 0, und = 0, done = 0, noslot = 0, keep = 0;
   for (const c of S.classes) {
@@ -1660,7 +1720,153 @@ function bindGitHubCard() {
 
 /* ===== src/js/excel.js ===== */
 /* ---------- 엑셀 내보내기 · 파일 저장 ----------
-   시트: 시험시간표(공지) / 과목별 목록 / 교수님별. 공지 시트는 학과 강의시간표처럼 학년 색(1 노랑, 2 파랑, 3 초록). */
+   시트: 주차별 시험 시간표(① ② ③ …, 학과 2026-2 중간고사 시간표 양식) / 과목별 목록 / 교수님별.
+
+   주차별 시트 양식 (사용자가 손으로 만든 '중간고사 시험 진행 관련 3주치 시간표'를 그대로 따름):
+   - 시트 하나 = 한 주(월~금, 시험 있는 토요일만 포함). 날짜는 '날짜 선택'에서 고른 날(stripDates)
+   - 세로 = 학년·반, 가로 = 요일. 시험이 있는 날은 1~10교시 칸으로 펼치고, 없는 날은 한 칸에 '기존 수업 진행'
+   - 칸 글자: '과목\n(교수) 강의실\n13시 35분 ~ 16시 15분' / 기존 시간표대로면 '기존 수업시간 진행'
+   - 색: 1학년 주황 FAC090 · 2학년 연두 C3D69B · 3학년 하늘 92CDDC (그 파일의 Office 2007 테마 Accent6·3·5, 밝게 40%),
+         회색 A6A6A6 = 기존 수업(그날 정상 수업·보강·기존 시간대로 보는 시험), 점심 칸 F2DCDB */
+const WK = { navy: 'FF203864', dayHead: 'FF17375D', per: 'FFD9E1F2', gray: 'FFA6A6A6', lunch: 'FFF2DCDB', white: 'FFFFFFFF', red: 'FFC00000', clash: 'FFF8C9C9',
+  year: { 1: 'FFFAC090', 2: 'FFC3D69B', 3: 'FF92CDDC' } };
+const CIRCLED = '①②③④⑤⑥⑦⑧⑨⑩⑪⑫⑬⑭⑮';
+/** 엑셀 주차별 시트에 들어갈 날짜들: 고른 날짜를 주마다, 시험 없는 토요일은 뺀다 */
+function exportWeeks() {
+  const exDays = new Set(S.classes.map(c => S.exams[c.id]).filter(ex => hasSlot(ex) && ex.date).map(ex => ex.date));
+  const weeks = new Map();
+  for (const d of stripDates()) {
+    if (dowOf(d) === 6 && !exDays.has(d)) continue;
+    const m = mondayOf(d);
+    if (!weeks.has(m)) weeks.set(m, []);
+    weeks.get(m).push(d);
+  }
+  return [...weeks.values()];
+}
+/** 칸 하나의 글자·색 */
+function weekCellOf(it) {
+  const c = it.c;
+  if (it.kind === 'exam') {
+    const ex = S.exams[c.id], kept = isKept(c), tm = ex.time || periodTime(ex.start, ex.len);
+    const extra = [ex.method !== '미정' ? ex.method : '', combinedAt(c, ex).length ? '합반' : ''].filter(Boolean).join(' · ');
+    return { text: `${c.course}\n(${c.prof}) ${roomLabel(ex.room)}\n${kept ? '기존 수업시간 진행' : koRange(tm.from, tm.to)}${extra ? ` · ${extra}` : ''}`, fill: kept ? WK.gray : (WK.year[c.year] || WK.gray), exam: true };
+  }
+  const what = it.kind === 'makeup' ? (it.m && it.m.manual ? `${it.week || ''}주차 수업 옮김` : '보강 수업 진행') : '기존 수업 진행';
+  return { text: `${c.course}\n(${c.prof}) ${roomLabel(it.room)}\n${what}`, fill: WK.gray, exam: false };
+}
+function addWeekSheets(wb) {
+  const F = (o = {}) => ({ name: '맑은 고딕', size: 11, ...o });
+  const fill = argb => ({ type: 'pattern', pattern: 'solid', fgColor: { argb } });
+  const center = { vertical: 'middle', horizontal: 'center', wrapText: true };
+  const side = style => (style ? { style, color: { argb: 'FF000000' } } : undefined);
+  const weeks = exportWeeks();
+  const all = weeks.flat();
+  const label = KINDS[S.kind]?.label || '시험';
+  const title = all.length ? `${label} 시험 진행 관련 ${weeks.length}주치 시간표  ${fmt(all[0])} ~ ${fmt(all[all.length - 1])}` : `${label} 시험 시간표`;
+  weeks.forEach((days, wi) => {
+    const name = `${wi + 1}주차 (${days[0].slice(5).replace('-', '')}(${DOW[dowOf(days[0])]})-${days[days.length - 1].slice(5).replace('-', '')}(${DOW[dowOf(days[days.length - 1])]}))`;
+    const ws = wb.addWorksheet(name.slice(0, 31), { views: [{ state: 'frozen', xSplit: 1, ySplit: 7 }],
+      pageSetup: { paperSize: 8, orientation: 'landscape', fitToPage: true, fitToWidth: 1, fitToHeight: 1, horizontalCentered: true, margins: { left: 0.25, right: 0.25, top: 0.4, bottom: 0.4, header: 0.2, footer: 0.2 } } });
+    // 날짜마다 열: 시험 있으면 1~10교시, 없으면 한 칸
+    let col = 2;
+    const layout = days.map(d => {
+      const items = itemsOn(d, null);
+      const open = items.some(it => it.kind === 'exam');
+      const L = { d, items, open, col, n: open ? NP : 1 };
+      col += L.n;
+      return L;
+    });
+    const lastCol = col - 1;
+    ws.getColumn(1).width = 10;
+    for (const L of layout) {
+      if (!L.open) ws.getColumn(L.col).width = 20.6;
+      else for (let p = 1; p <= NP; p++) ws.getColumn(L.col + p - 1).width = p === LUNCH ? 5 : 12;
+    }
+    // 제목·안내
+    ws.getCell(1, 2).value = title; ws.getCell(1, 2).font = F({ size: 20, bold: true }); ws.getCell(1, 2).alignment = { vertical: 'middle' };
+    ws.getRow(1).height = 57;
+    ws.getCell(2, 2).value = '회색 칸은 기존 수업이 진행되는 시간.        색깔별로 1, 2, 3학년별 시험 구분.        시험일정 변경 시 공지예정';
+    ws.getCell(2, 2).font = F({ size: 14, bold: true, color: { argb: WK.red } });
+    ws.getCell(4, 2).value = `${CIRCLED[wi] || `(${wi + 1})`} ${fmt(days[0])} ~ ${fmt(days[days.length - 1])}`;
+    ws.getCell(4, 2).font = F({ size: 30, bold: true, color: { argb: WK.navy } });
+    ws.getRow(4).height = 45;
+    // 머리글: 학년·반 / 요일·날짜 / 교시 / 시작 시각
+    ws.mergeCells(5, 1, 7, 1);
+    Object.assign(ws.getCell(5, 1), { value: '학년·반', fill: fill(WK.navy), font: F({ bold: true, color: { argb: 'FFFFFFFF' } }), alignment: center });
+    ws.getRow(5).height = 30; ws.getRow(6).height = 16; ws.getRow(7).height = 14;
+    for (const L of layout) {
+      const info = D.dateMap[L.d], real = DOW[dowOf(L.d)];
+      if (L.n > 1) ws.mergeCells(5, L.col, 5, L.col + L.n - 1);
+      const head = ws.getCell(5, L.col);
+      head.value = `${real} ${+L.d.slice(5, 7)}/${+L.d.slice(8)}${info && info.col !== real ? ` (${info.col}요일 수업)` : ''}`;
+      head.fill = fill(WK.dayHead); head.font = F({ size: 14, bold: true, color: { argb: 'FFFFFFFF' } }); head.alignment = center;
+      head.border = { left: side('thick'), bottom: side('thin') };
+      for (let k = 0; k < L.n; k++) {
+        const p = k + 1;
+        for (const r of [6, 7]) {
+          const cell = ws.getCell(r, L.col + k);
+          cell.value = L.open ? (r === 6 ? `${p}교시` : PERIODS[p - 1][0].replace(/^0/, '')) : null;
+          cell.fill = fill(WK.per); cell.font = F({ size: r === 6 ? 8 : 7, bold: r === 6 }); cell.alignment = center;
+          cell.border = { left: side(k === 0 ? 'thick' : 'thin'), right: side('thin'), top: side('thin'), bottom: side('thin') };
+        }
+      }
+    }
+    // 반마다 한 줄
+    const first = 8;
+    D.groups.forEach((g, gi) => {
+      const r = first + gi, y = g.slice(0, -1), ban = g.slice(-1);
+      const yearTop = gi > 0 && D.groups[gi - 1].slice(0, -1) !== y;
+      ws.getRow(r).height = 42;
+      Object.assign(ws.getCell(r, 1), { value: `${y}학년 ${ban}반`, font: F({ bold: true }), alignment: center,
+        border: { left: side('thin'), right: side('thin'), top: side(yearTop ? 'thick' : 'thin'), bottom: side('thin') } });
+      for (const L of layout) {
+        if (!L.open) continue;
+        for (let p = 1; p <= NP; p++) {
+          const cell = ws.getCell(r, L.col + p - 1);
+          cell.fill = fill(p === LUNCH ? WK.lunch : WK.white);
+          cell.border = { left: side(p === 1 ? 'thick' : 'thin'), right: side('thin'), top: side(yearTop ? 'thick' : 'thin'), bottom: side('thin') };
+        }
+        // 시험 먼저, 그다음 그날 수업(회색). 같은 칸이 겹치면 앞 칸에 이어 쓰고 붉게
+        const mine = L.items.filter(it => groupOf(it.c) === g).sort((a, b) => (a.kind === 'exam' ? 0 : 1) - (b.kind === 'exam' ? 0 : 1) || a.s - b.s);
+        const used = new Array(NP + 2).fill(0);
+        for (const it of mine) {
+          const s = Math.max(1, it.s), e = Math.min(NP, it.e);
+          const cc = weekCellOf(it);
+          const clash = range(s, e).find(p => used[p]);
+          if (clash) {
+            const mc = ws.getCell(r, L.col + used[clash] - 1);
+            mc.value = `${mc.value}\n+ ${cc.text.replace(/\n/g, ' ')}`; mc.fill = fill(WK.clash);
+            ws.getRow(r).height = 64;
+            continue;
+          }
+          if (e > s) ws.mergeCells(r, L.col + s - 1, r, L.col + e - 1);
+          const cell = ws.getCell(r, L.col + s - 1);
+          cell.value = cc.text; cell.fill = fill(cc.fill); cell.font = F({ size: 9, bold: true }); cell.alignment = center;
+          for (let p = s; p <= e; p++) used[p] = s;
+        }
+      }
+    });
+    const last = first + D.groups.length - 1;
+    // 시험 없는 날: 한 칸으로 '기존 수업 진행'
+    for (const L of layout) {
+      if (L.open) continue;
+      ws.mergeCells(first, L.col, last, L.col);
+      const hasClass = L.items.length > 0;
+      Object.assign(ws.getCell(first, L.col), { value: hasClass ? '기존 수업\n진행' : '수업 없음', fill: fill(WK.white), font: F({ bold: true }), alignment: center,
+        border: { left: side('thick'), right: side('thick'), top: side('thin'), bottom: side('thin') } });
+    }
+    // 아래 색 안내
+    const lg = last + 3;
+    [['1학년', WK.year[1]], ['2학년', WK.year[2]], ['3학년', WK.year[3]], ['기존 수업', WK.gray]].forEach(([t, c], i) => {
+      ws.getRow(lg + i).height = 40;
+      ws.getCell(lg + i, 3).fill = fill(c);
+      Object.assign(ws.getCell(lg + i, 4), { value: `  ${t}`, font: F({ size: 14 }), alignment: { vertical: 'middle', horizontal: 'left' } });
+    });
+    if (lastCol < 4) ws.getColumn(4).width = 12;
+  });
+  if (!weeks.length) wb.addWorksheet('시험 시간표').getCell(1, 1).value = '날짜를 골라 주세요.';
+}
+
 function sortedExams() {
   return S.classes.slice().sort((a, b) => {
     const ea = S.exams[a.id], eb = S.exams[b.id];
@@ -1675,68 +1881,11 @@ async function buildWorkbook() {
   const thin = { style: 'thin', color: { argb: 'FF9AA3AF' } };
   const border = { top: thin, left: thin, bottom: thin, right: thin };
   const fill = argb => ({ type: 'pattern', pattern: 'solid', fgColor: { argb } });
-  const YF = { '1': ['FFFFF8E1', 'FFFFE08A'], '2': ['FFEAF2FC', 'FFBCD5F5'], '3': ['FFEBF6E6', 'FFC3E3B5'] };
-  const yf = y => YF[String(y)] || ['FFF5F5F5', 'FFDDDDDD'];
   const F = (o = {}) => ({ name: '맑은 고딕', size: 10, ...o });
   const center = { vertical: 'middle', horizontal: 'center', wrapText: true };
-  const lastCol = 4 + NP;
 
-  // 1) 학생 공지용 시간표
-  const ws = wb.addWorksheet('시험시간표(공지)', { views: [{ state: 'frozen', ySplit: 5 }],
-    pageSetup: { paperSize: 9, orientation: 'landscape', fitToPage: true, fitToWidth: 1, fitToHeight: 0, horizontalCentered: true, margins: { left: 0.3, right: 0.3, top: 0.4, bottom: 0.4, header: 0.2, footer: 0.2 } } });
-  ws.getColumn(1).width = 2; ws.getColumn(2).width = 10; ws.getColumn(3).width = 5; ws.getColumn(4).width = 5;
-  for (let p = 1; p <= NP; p++) ws.getColumn(4 + p).width = p === LUNCH ? 7 : 16;
-  ws.mergeCells(2, 2, 2, lastCol);
-  const tc = ws.getCell(2, 2); const tm = String(S.title).match(/^(.*학기)\s*(.*)$/);
-  tc.value = tm ? `${tm[1]} ${S.dept} ${tm[2]} 시간표`.replace(/\s+/g, ' ') : `${S.dept} ${S.title} 시간표`; tc.font = F({ size: 16, bold: true }); tc.alignment = center;
-  ws.getRow(2).height = 30;
-  ws.mergeCells(4, 2, 5, 2); ws.mergeCells(4, 3, 5, 3); ws.mergeCells(4, 4, 5, 4);
-  ws.getCell(4, 2).value = '날짜'; ws.getCell(4, 3).value = '학년'; ws.getCell(4, 4).value = '반';
-  for (let p = 1; p <= NP; p++) { ws.getCell(4, 4 + p).value = p; ws.getCell(5, 4 + p).value = p === LUNCH ? '점심' : `${PERIODS[p - 1][0]}-${PERIODS[p - 1][1]}`; }
-  for (let r = 4; r <= 5; r++) for (let c = 2; c <= lastCol; c++) { const cell = ws.getCell(r, c); cell.border = border; cell.alignment = center; cell.fill = fill('FFE5E8EE'); cell.font = F({ bold: r === 4, size: r === 4 ? 10 : 8.5 }); }
-  const exDates = [...new Set(S.classes.map(c => S.exams[c.id]).filter(ex => hasSlot(ex) && ex.date).map(ex => ex.date))].sort();
-  let r = 6;
-  for (const d of exDates) {
-    const top = r; let yStart = r, curY = null;
-    for (const g of D.groups) {
-      const y = g.slice(0, -1), ban = g.slice(-1);
-      if (curY !== y) { if (curY !== null && r - 1 > yStart) ws.mergeCells(yStart, 3, r - 1, 3); yStart = r; curY = y; ws.getCell(r, 3).value = +y; }
-      ws.getCell(r, 4).value = ban;
-      ws.getRow(r).height = 34;
-      for (let c = 2; c <= lastCol; c++) { const cell = ws.getCell(r, c); cell.border = border; cell.alignment = center; cell.font = F(); if (c >= 3) cell.fill = fill(c === 4 + LUNCH ? 'FFF2F2F2' : yf(y)[0]); }
-      const blocks = S.classes.filter(c => groupOf(c) === g && hasSlot(S.exams[c.id]) && S.exams[c.id].date === d).sort((a, b) => S.exams[a.id].start - S.exams[b.id].start);
-      const used = new Array(NP + 2).fill(0);
-      for (const c of blocks) {
-        const ex = S.exams[c.id];
-        const s = Math.max(1, ex.start), e = Math.min(NP, ex.start + ex.len - 1);
-        const text = `${c.course}(${c.prof})\n${ex.time ? examTime(ex) + ' · ' : ''}${roomLabel(ex.room)}${methodLabel(c) !== '미정' ? ' · ' + methodLabel(c) : ''}`;
-        const clashAt = range(s, e).find(p => used[p]);
-        if (clashAt) {
-          const mc = ws.getCell(r, 4 + used[clashAt]);
-          mc.value = `${mc.value}\n+ ${text.replace('\n', ' ')}`; mc.fill = fill('FFF8C9C9');
-          ws.getRow(r).height = 60;
-          continue;
-        }
-        if (e > s) ws.mergeCells(r, 4 + s, r, 4 + e);
-        const cell = ws.getCell(r, 4 + s);
-        cell.value = text; cell.fill = fill(yf(y)[1]); cell.font = F({ size: 9.5, bold: false }); cell.alignment = center;
-        for (let p = s; p <= e; p++) used[p] = s;
-      }
-      r++;
-    }
-    if (r - 1 > yStart) ws.mergeCells(yStart, 3, r - 1, 3);
-    ws.mergeCells(top, 2, r - 1, 2);
-    const dc = ws.getCell(top, 2);
-    const [, mm, dd] = d.split('-');
-    dc.value = `${+mm}/${+dd}\n(${DOW[dowOf(d)]})`; dc.font = F({ bold: true, size: 12 }); dc.alignment = center;
-    r++;
-  }
-  const none = S.classes.filter(c => !hasSlot(S.exams[c.id]));
-  if (none.length) {
-    ws.getCell(r, 2).value = `※ 시험 시간 없음: ` + none.map(c => `${c.course}(${c.prof}, ${groupOf(c)}) ${S.exams[c.id].method}`).join(' / ');
-    ws.getCell(r, 2).font = F({ size: 9 });
-    r++;
-  }
+  // 1) 시험 시간표: 학과 '중간고사 시험 진행 관련 3주치 시간표' 양식 (주마다 시트)
+  addWeekSheets(wb);
 
   // 2) 과목별 목록
   const ls = wb.addWorksheet('과목별 목록', { views: [{ state: 'frozen', ySplit: 1 }] });
@@ -1841,12 +1990,13 @@ function render() {
   if (ui.tab === 'history') renderHistory();
   if (ui.tab === 'setup') renderSetup();
   if (ui.drawerId) refreshDrawerChecks();
+  if (ui.sess) refreshSessionChecks();
   if (ui.reg) refreshRegister();
   if (locked) lockControls();
 }
 /** 보관(잠금)된 계획: 입력 칸을 모두 막는다. 탭 이동·필터·복사·내보내기는 그대로 */
 function lockControls() {
-  $$('#listTable input, #listTable select, #drawer input, #drawer select, #drawer textarea, #drawer .slotbtn, #drawer #dReset, #drawer #dToReg, #setupGrid .editable, #btnKeepAll, #rangeBtn, #rangeReset, #createPanel button')
+  $$('#listTable input, #listTable select, #drawer input, #drawer select, #drawer textarea, #drawer .slotbtn, #drawer #dReset, #drawer #dToReg, #drawer #sxReset, #setupGrid .editable, #btnKeepAll, #rangeBtn, #rangeReset, #createPanel button')
     .forEach(el => { el.disabled = true; });
 }
 /* 위쪽 학년도·학기·시험 선택칸. 없는 조합을 고르면 ui.missing → 자료 넣기 화면 */
@@ -1878,8 +2028,8 @@ function roomUse(c, place) {
   const out = {};
   if (!c || !place || !place.date) return out;
   const s = +place.start, e = s + +place.len - 1;
-  for (const it of itemsOn(place.date, c.id)) {
-    if (it.s > e || it.e < s || !it.room || isCombined(c, it, s)) continue;
+  for (const it of itemsOn(place.date, place.self ? null : c.id)) {
+    if (it.s > e || it.e < s || !it.room || isSelfSession(place, it) || isCombined(c, it, s)) continue;
     (out[normRoom(it.room)] = out[normRoom(it.room)] || []).push(`${groupOf(it.c)} ${it.c.course}`);
   }
   return out;
@@ -1957,9 +2107,14 @@ function renderDaySection(d, statusCache) {
     const cells = range(1, NP).map(p => `<div class="cell${p === LUNCH ? ' lunch' : ''}" style="grid-column:${p}" data-date="${d}" data-group="${g}" data-p="${p}"></div>`).join('');
     const blocks = gi.map(it => {
       const pos = `grid-column:${it.s} / span ${Math.min(NP, it.e) - it.s + 1};grid-row:${it.lane + 1}`;
-      if (it.kind !== 'exam') {
-        const what = it.kind === 'makeup' ? `보강${it.week ? `(${it.week}주차분)` : ''}` : `${it.week}주차 수업`;
-        return `<div class="blk fixed" style="${pos}" title="${esc(`${what}: ${it.c.course}(${it.c.prof}) ${roomLabel(it.room)}`)}"><span class="t">${esc(it.c.course)}</span><span class="s">${esc(what)} · ${esc(it.c.prof)}</span></div>`;
+      if (it.kind !== 'exam') {   // 수업·보강: 8·15주차는 바로, 그 밖은 꾹 눌러 풀어야 옮길 수 있다
+        const manual = it.kind === 'makeup' && it.m.manual;
+        const what = manual ? `${it.week ? `${it.week}주차 ` : ''}수업 · 옮김` : it.kind === 'makeup' ? `보강${it.week ? `(${it.week}주차분)` : ''}` : `${it.week}주차 수업`;
+        const ref = sessionRef(it), key = sessionKey(ref), free = sessionFree(it), open = !isLocked() && (free || !!ui.unlocked?.has(key));
+        const tm = it.kind === 'makeup' && it.m.time ? `${it.m.time.from}~${it.m.time.to} · ` : '';
+        const tip = `${what}: ${it.c.course}(${it.c.prof}) ${roomLabel(it.room)}${isLocked() ? '' : open ? '\n끌어서 옮기거나 눌러서 날짜·시간을 고치세요' : '\n고정된 수업이에요. 꾹 누르면 옮길 수 있어요'}`;
+        const un = open && !free;
+        return `<div class="blk fixed session${open ? ' movable' : ''}${un ? ' unlocked has-badge' : ''}${manual ? ' manual' : ''}" style="${pos}" data-cid="${esc(ref.cid)}" data-from="${esc(ref.from)}" data-mk="${esc(ref.mkId || '')}" data-key="${esc(key)}" title="${esc(tip)}"><span class="t">${esc(it.c.course)}</span><span class="s">${esc(tm)}${esc(what)} · ${esc(it.c.prof)}</span>${un ? '<span class="badge b-un">옮기기</span>' : ''}</div>`;
       }
       const ex = S.exams[it.c.id], st = statusCache[it.c.id];
       const badge = st.bad.length ? `<span class="badge b-bad">겹침</span>` : st.combined.length ? `<span class="badge b-cb">합반</span>` : st.keep ? `<span class="badge b-ok">기존</span>` : st.done ? `<span class="badge b-ok">확정</span>` : st.moved ? `<span class="badge b-mv">이동</span>` : '';
@@ -2484,7 +2639,7 @@ function applyRestore(st) {
 function switchPlan(id) {
   const p = Store.plans[id]; if (!p) return;
   Store.currentId = id; usePlan(p);
-  ui.pending = {}; ui.filter = { group: '', prof: '', status: '', q: '' }; ui.rp = null; ui.missing = null; ui.wiz = null;
+  ui.pending = {}; ui.filter = { group: '', prof: '', status: '', q: '' }; ui.rp = null; ui.unlocked = new Set(); ui.sess = null; ui.missing = null; ui.wiz = null;
   closeDrawer(); persistLocal(); render();
 }
 
@@ -2740,7 +2895,7 @@ function bindWizard() {
 /* ---------- 오른쪽 서랍: 과목 편집 · 시험 일정 등록 폼 ---------- */
 function openDrawer(id) {
   const c = D.byId[id]; if (!c) return;
-  ui.drawerId = id; ui.reg = null;
+  ui.drawerId = id; ui.reg = null; ui.sess = null;
   const ex = S.exams[id];
   const dis = hasSlot(ex) ? '' : ' disabled';
   const tm = ex.time || periodTime(ex.start, ex.len);
@@ -2776,7 +2931,43 @@ function openDrawer(id) {
   refreshDrawerChecks();
   if (isLocked()) lockControls();
 }
-function closeDrawer() { ui.drawerId = null; ui.reg = null; $('#drawer').hidden = true; $('#drawer').innerHTML = ''; }
+function closeDrawer() { ui.drawerId = null; ui.reg = null; ui.sess = null; $('#drawer').hidden = true; $('#drawer').innerHTML = ''; }
+
+/* ---------- 수업 서랍 (시험이 아닌 수업·보강을 옮기거나 시간 고치기) ---------- */
+function openSessionDrawer(ref) {
+  const cur = sessionOf(ref); if (!cur) return;
+  ui.drawerId = null; ui.reg = null; ui.sess = ref;
+  const c = cur.c, tm = cur.time || periodTime(cur.start, cur.len), m = cur.m;
+  const kind = m && !m.manual ? '보강' : '수업';
+  $('#drawer').innerHTML = `
+    <div class="dhead"><div><h2>${esc(c.course)}</h2><p>${esc(groupOf(c))} · ${esc(c.prof)} · <span class="wk">${cur.week ? `${cur.week}주차 ` : ''}${kind}</span></p>
+      <p>원래 ${fmt(cur.from)} ${pRange(c.start, lenOf(c))} ${tRange(c.start, lenOf(c))}, ${esc(roomLabel(c.room))}</p>
+      ${m ? `<p class="mvnote">↪ ${fmt(cur.date)} ${sessionTime(cur)}${m.manual ? '(으)로 옮겼어요' : '에 보강'}</p>` : ''}</div>
+      <button type="button" class="btn small" id="dClose" aria-label="닫기">닫기</button></div>
+    <div class="dbody">
+      <div class="fgrid">
+        <label class="field full" for="sxDate"><span>날짜</span><input type="date" id="sxDate" data-s="date" value="${esc(cur.date)}"></label>
+        <label class="field" for="sxFrom"><span>시작 시간</span><input type="time" id="sxFrom" data-s="tfrom" step="300" value="${esc(tm.from)}"></label>
+        <label class="field" for="sxTo"><span>종료 시간</span><input type="time" id="sxTo" data-s="tto" step="300" value="${esc(tm.to)}"></label>
+        <div class="field full"><span>교시로 맞추기</span><span class="row prow"><select id="sxPStart" data-s="pstart" aria-label="시작 교시">${opts(range(1, NP), cur.start, v => `${v}교시 (${PERIODS[v - 1][0]}~)`)}</select> ~
+          <select id="sxPEnd" data-s="pend" aria-label="끝 교시">${opts(range(cur.start, NP), Math.min(NP, cur.start + cur.len - 1), v => `${v}교시 (~${PERIODS[v - 1][1]})`)}</select></span></div>
+        <label class="field full" for="sxRoom"><span>강의실</span><select id="sxRoom" data-s="room">${roomOptions(cur.room, c, { date: cur.date, start: cur.start, len: cur.len, self: ref }, { custom: false })}</select></label>
+      </div>
+      <div class="dsec"><h3>검사 결과</h3><div class="checks" id="sxChecks"></div></div>
+      ${m && m.manual ? '<div class="row"><button type="button" class="btn small" id="sxReset">원래 자리로 되돌리기</button></div>' : ''}
+      <p class="hint">시험이 아닌 ${cur.week ? `${cur.week}주차 ` : ''}${kind}이에요. 옮긴 수업은 보강처럼 기록되고(설정 → 보강), 겹침 검사·엑셀에 그대로 반영돼요.</p>
+    </div>`;
+  $('#drawer').hidden = false;
+  refreshSessionChecks();
+  if (isLocked()) lockControls();
+}
+function refreshSessionChecks() {
+  const box = $('#sxChecks'); if (!ui.sess || !box) return;
+  const cur = sessionOf(ui.sess); if (!cur) return;
+  const cf = conflictsOf(cur.c, { date: cur.date, start: cur.start, len: cur.len, room: cur.room, self: ui.sess });
+  box.innerHTML = [`<div class="it ${cf.length ? 'bad' : 'ok'}">${fmt(cur.date)} ${sessionTime(cur)} (${pRange(cur.start, cur.len)}) · ${esc(roomLabel(cur.room))}${cf.length ? '' : ' · 겹치는 일정 없음'}</div>`,
+    ...cf.map(x => `<div class="it bad">${esc(describeConflict(x))}</div>`)].join('');
+}
 /** 합반 안내 줄: 같은 시간에 한 시험을 보는 다른 반들 */
 function combinedLines(list) {
   if (!list.length) return [];
@@ -2813,7 +3004,7 @@ function setExamField(id, f, raw) {
 /* ---------- register form ---------- */
 function openRegister(preId) {
   const id = preId || ui.reg?.id || '';
-  ui.drawerId = null;
+  ui.drawerId = null; ui.sess = null;
   ui.reg = { id };
   if (id) { const ex = S.exams[id]; Object.assign(ui.reg, { method: ex.method, date: ex.date, start: ex.start, len: ex.len, room: ex.room, note: ex.note }); }
   const r = ui.reg;
@@ -2885,6 +3076,21 @@ function bindDrawer() {
   const dr = $('#drawer');
   dr.addEventListener('change', e => {
     if (isLocked()) return;
+    if (ui.sess && e.target.dataset.s) {          // 수업 서랍
+      const k = e.target.dataset.s, cur = sessionOf(ui.sess); if (!cur) return;
+      let patch = null;
+      if (k === 'date') { if (!e.target.value) return; patch = { date: e.target.value }; }
+      else if (k === 'tfrom' || k === 'tto') {
+        const t = { start: cur.start, len: cur.len };
+        if (!setExamTime(t, $('#sxFrom').value, $('#sxTo').value)) { toast('종료 시간이 시작 시간보다 늦어야 해요.'); openSessionDrawer(ui.sess); return; }
+        patch = { start: t.start, len: t.len, time: t.time || null };
+      } else if (k === 'pstart' || k === 'pend') { const s = +$('#sxPStart').value, en = Math.max(s, +$('#sxPEnd').value); patch = { start: s, len: en - s + 1, time: null }; }
+      else if (k === 'room') patch = { room: e.target.value };
+      if (!patch) return;
+      ui.sess = applySession(ui.sess, patch);
+      (ui.unlocked = ui.unlocked || new Set()).add(sessionKey(ui.sess));
+      changed(); openSessionDrawer(ui.sess); return;
+    }
     if (ui.reg && e.target.dataset.r) {
       const k = e.target.dataset.r, v = e.target.value;
       if (k === 'id') { openRegister(v); return; }
@@ -2929,6 +3135,12 @@ function bindDrawer() {
   dr.addEventListener('focusout', e => { if (!isLocked() && e.target.dataset && e.target.dataset.f === 'note') { clearTimeout(noteT); changed(); } });
   dr.addEventListener('click', e => {
     if (e.target.closest('#dClose')) { closeDrawer(); return; }
+    if (e.target.closest('#sxReset') && ui.sess && !isLocked()) {
+      const cur = sessionOf(ui.sess);
+      ui.sess = applySession(ui.sess, { date: cur.from, start: cur.c.start, len: lenOf(cur.c), time: null, room: cur.c.room });
+      (ui.unlocked = ui.unlocked || new Set()).add(sessionKey(ui.sess));
+      changed(); openSessionDrawer(ui.sess); toast('원래 자리로 되돌렸어요.'); return;
+    }
     if (isLocked()) return;
     if (e.target.closest('#dToReg')) { openRegister(ui.drawerId); return; }
     if (e.target.closest('#rSave')) { saveRegister(); return; }
@@ -2999,6 +3211,7 @@ function updateTarget(x, y) {
   const e = { clientX: x, clientY: y };
   const t = dragTarget(e.clientX, e.clientY);
   const tip = $('#dragTip');
+  if (drag.kind === 'session') { updateSessionTarget(t, e, tip); return; }
   const c = D.byId[drag.id], ex = S.exams[drag.id];
   drag.target = null;
   if (!t) { tip.hidden = true; return; }
@@ -3033,6 +3246,7 @@ function endDrag(e, cancelled) {
   if (d.ghost) d.ghost.remove();
   if (d.el) d.el.classList.remove('src');
   if (cancelled) return;
+  if (d.kind === 'session') { endSessionDrag(d); return; }
   if (!d.started) { openDrawer(d.id); return; }
   if (d.target) {
     const ex = S.exams[d.id];
@@ -3049,10 +3263,90 @@ function endDrag(e, cancelled) {
 const onUp = e => endDrag(e, false);
 const onCancel = e => endDrag(e, true);
 
+/* ---------- 수업(시험 아닌) 끌기 ----------
+   8·15주차 수업·직접 옮긴 수업은 바로, 다른 주차 수업은 꾹 눌러(LONG_PRESS_MS) 푼 뒤. 놓으면 applySession()으로 기록 */
+const LONG_PRESS_MS = 600;
+function sessionDragFrom(el, e) {
+  const ref = { cid: el.dataset.cid, from: el.dataset.from, mkId: el.dataset.mk || null };
+  const cur = sessionOf(ref); if (!cur) return null;
+  const r = el.getBoundingClientRect();
+  const grabP = Math.max(0, Math.min(cur.len - 1, Math.floor((e.clientX - r.left) / (r.width / cur.len))));
+  return { kind: 'session', ref, el, x0: e.clientX, y0: e.clientY, started: false, grabP };
+}
+function listenDrag() {
+  window.addEventListener('pointermove', onDragMove);
+  window.addEventListener('pointerup', onUp);
+  window.addEventListener('pointercancel', onCancel);
+}
+function beginSessionDrag(el, e) { drag = sessionDragFrom(el, e); if (drag) listenDrag(); }
+function updateSessionTarget(t, e, tip) {
+  const cur = sessionOf(drag.ref), c = cur.c;
+  drag.target = null;
+  if (!t) { tip.hidden = true; return; }
+  if (t.group !== groupOf(c)) { tip.hidden = false; tip.textContent = `${groupOf(c)} 줄 안에서만 옮길 수 있어요`; }
+  else {
+    const start = Math.max(1, Math.min(NP - cur.len + 1, t.p - drag.grabP));
+    const place = { date: t.date, start, len: cur.len, room: cur.room, self: drag.ref };
+    const cf = conflictsOf(c, place);
+    $$('.cell', t.track).forEach(el => { const p = +el.dataset.p; if (p >= start && p < start + cur.len) el.classList.add(cf.length ? 'bad' : 'ok'); });
+    drag.target = place;
+    const tt = { start: cur.start, len: cur.len, time: cur.time }; moveExamStart(tt, start);
+    tip.hidden = false;
+    tip.textContent = `${cur.week ? `${cur.week}주차 ` : ''}수업 → ${fmt(t.date)} ${pRange(start, cur.len)} ${sessionTime(tt)}` + (cf.length ? '\n' + cf.map(describeConflict).join('\n') : ' · 겹침 없음');
+  }
+  tip.style.whiteSpace = 'pre-line';
+  tip.style.left = Math.min(window.innerWidth - 330, e.clientX + 14) + 'px';
+  tip.style.top = (e.clientY + 18) + 'px';
+}
+function endSessionDrag(d) {
+  if (!d.started) { if (d.justUnlocked) render(); else openSessionDrawer(d.ref); return; }
+  if (!d.target) return;
+  const cur = sessionOf(d.ref);
+  if (cur.date === d.target.date && cur.start === d.target.start) return;
+  const before = `${fmt(cur.date)} ${sessionTime(cur)}`;
+  const tt = { start: cur.start, len: cur.len, time: cur.time }; moveExamStart(tt, d.target.start);
+  const ref = applySession(d.ref, { date: d.target.date, start: tt.start, len: tt.len, time: tt.time || null });
+  (ui.unlocked = ui.unlocked || new Set()).add(sessionKey(ref));
+  changed();
+  const now = sessionOf(ref);
+  const n = conflictsOf(now.c, { date: now.date, start: now.start, len: now.len, room: now.room, self: ref }).length;
+  toast(`${now.c.course}(${groupOf(now.c)}) ${now.week ? `${now.week}주차 ` : ''}수업 ${before} → ${fmt(now.date)} ${sessionTime(now)}${n ? ` · 겹침 ${n}건` : ''}`);
+}
+/* 꾹 누르기: 고정된 수업을 풀어서 옮길 수 있게. 누른 채로 움직이면 바로 끌기 */
+let press = null;
+function startLongPress(el, e) {
+  cancelPress();
+  press = { el, x0: e.clientX, y0: e.clientY, timer: setTimeout(firePress, LONG_PRESS_MS) };
+  el.classList.add('pressing');
+  window.addEventListener('pointermove', onPressMove);
+  window.addEventListener('pointerup', onPressUp);
+  window.addEventListener('pointercancel', onPressCancel);
+}
+function stopPressListen() {
+  window.removeEventListener('pointermove', onPressMove);
+  window.removeEventListener('pointerup', onPressUp);
+  window.removeEventListener('pointercancel', onPressCancel);
+}
+function cancelPress() { if (!press) return; clearTimeout(press.timer); press.el.classList.remove('pressing'); stopPressListen(); press = null; }
+function onPressMove(e) { if (press && Math.hypot(e.clientX - press.x0, e.clientY - press.y0) > 8) cancelPress(); }
+function onPressUp() { if (!press) return; cancelPress(); toast('고정된 수업이에요. 꾹 누르면(0.6초) 옮길 수 있어요.'); }
+function onPressCancel() { cancelPress(); }
+function firePress() {
+  const p = press; if (!p) return;
+  stopPressListen(); press = null;
+  const el = p.el;
+  (ui.unlocked = ui.unlocked || new Set()).add(el.dataset.key);
+  el.classList.remove('pressing'); el.classList.add('movable', 'unlocked', 'has-badge');
+  const cur = sessionOf({ cid: el.dataset.cid, from: el.dataset.from, mkId: el.dataset.mk || null });
+  if (cur) toast(`${cur.c.course}(${groupOf(cur.c)}) ${cur.week ? `${cur.week}주차 ` : ''}수업을 옮길 수 있어요. 끌어서 옮기거나 눌러서 날짜·시간을 고치세요.`);
+  drag = sessionDragFrom(el, { clientX: p.x0, clientY: p.y0 });   // 누른 채로 움직이면 바로 끌기
+  if (drag) { drag.justUnlocked = true; listenDrag(); }
+}
+
 /* ===== src/js/app.js ===== */
 /* ---------- 앱: 공용 UI 상태, 변경 알림, 이벤트 연결, 시작 ---------- */
 const TABS = ['board', 'courses', 'history', 'setup'];
-const ui = { tab: 'board', filter: { group: '', prof: '', status: '', q: '' }, drawerId: null, reg: null, pending: {}, hist: {}, wiz: null };
+const ui = { tab: 'board', filter: { group: '', prof: '', status: '', q: '' }, drawerId: null, reg: null, sess: null, unlocked: new Set(), pending: {}, hist: {}, wiz: null };
 
 /** 지금 계획(S)을 고친 뒤 부른다: 저장 + 다시 그리기. 보관(잠금)된 계획은 저장하지 않는다. */
 function changed(opts = {}) {
@@ -3136,6 +3430,12 @@ function bind() {
   // 날짜별 배치: 주차×요일 판(카드는 날짜 칸으로) + 펼친 날짜의 반×교시 시간표(블록은 교시까지)
   const tb = $('#tab-board');
   tb.addEventListener('pointerdown', e => {
+    const sb = e.target.closest('.blk.session');
+    if (sb && e.button === 0 && !isLocked()) {      // 수업: 풀린 건 끌기, 고정된 건 꾹 눌러 풀기
+      e.preventDefault();
+      if (sb.classList.contains('movable')) beginSessionDrag(sb, e); else startLongPress(sb, e);
+      return;
+    }
     const b = e.target.closest('.blk.exam'); if (!b || e.button !== 0 || isLocked()) return;
     const id = b.dataset.id, ex = S.exams[id];
     let grabP = 0;
@@ -3146,6 +3446,7 @@ function bind() {
     window.addEventListener('pointerup', onUp);
     window.addEventListener('pointercancel', onCancel);
   });
+  tb.addEventListener('contextmenu', e => { if (e.target.closest('.blk.session')) e.preventDefault(); });   // 휴대폰 꾹 누르기 메뉴 막기
   tb.addEventListener('click', e => {
     if (e.target.closest('#btnKeepAll')) {
       if (isLocked()) return;
@@ -3161,7 +3462,7 @@ function bind() {
   });
   document.addEventListener('keydown', e => {
     if (e.key !== 'Escape') return;
-    if (drag) endDrag(e, true); else if (ui.rp?.open) closeRangePop(); else if (ui.drawerId || ui.reg) closeDrawer();
+    if (drag) endDrag(e, true); else if (ui.rp?.open) closeRangePop(); else if (ui.drawerId || ui.reg || ui.sess) closeDrawer();
   });
 
   const lt = $('#listTable');

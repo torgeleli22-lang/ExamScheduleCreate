@@ -1,7 +1,7 @@
 /* ---------- 오른쪽 서랍: 과목 편집 · 시험 일정 등록 폼 ---------- */
 function openDrawer(id) {
   const c = D.byId[id]; if (!c) return;
-  ui.drawerId = id; ui.reg = null;
+  ui.drawerId = id; ui.reg = null; ui.sess = null;
   const ex = S.exams[id];
   const dis = hasSlot(ex) ? '' : ' disabled';
   const tm = ex.time || periodTime(ex.start, ex.len);
@@ -37,7 +37,43 @@ function openDrawer(id) {
   refreshDrawerChecks();
   if (isLocked()) lockControls();
 }
-function closeDrawer() { ui.drawerId = null; ui.reg = null; $('#drawer').hidden = true; $('#drawer').innerHTML = ''; }
+function closeDrawer() { ui.drawerId = null; ui.reg = null; ui.sess = null; $('#drawer').hidden = true; $('#drawer').innerHTML = ''; }
+
+/* ---------- 수업 서랍 (시험이 아닌 수업·보강을 옮기거나 시간 고치기) ---------- */
+function openSessionDrawer(ref) {
+  const cur = sessionOf(ref); if (!cur) return;
+  ui.drawerId = null; ui.reg = null; ui.sess = ref;
+  const c = cur.c, tm = cur.time || periodTime(cur.start, cur.len), m = cur.m;
+  const kind = m && !m.manual ? '보강' : '수업';
+  $('#drawer').innerHTML = `
+    <div class="dhead"><div><h2>${esc(c.course)}</h2><p>${esc(groupOf(c))} · ${esc(c.prof)} · <span class="wk">${cur.week ? `${cur.week}주차 ` : ''}${kind}</span></p>
+      <p>원래 ${fmt(cur.from)} ${pRange(c.start, lenOf(c))} ${tRange(c.start, lenOf(c))}, ${esc(roomLabel(c.room))}</p>
+      ${m ? `<p class="mvnote">↪ ${fmt(cur.date)} ${sessionTime(cur)}${m.manual ? '(으)로 옮겼어요' : '에 보강'}</p>` : ''}</div>
+      <button type="button" class="btn small" id="dClose" aria-label="닫기">닫기</button></div>
+    <div class="dbody">
+      <div class="fgrid">
+        <label class="field full" for="sxDate"><span>날짜</span><input type="date" id="sxDate" data-s="date" value="${esc(cur.date)}"></label>
+        <label class="field" for="sxFrom"><span>시작 시간</span><input type="time" id="sxFrom" data-s="tfrom" step="300" value="${esc(tm.from)}"></label>
+        <label class="field" for="sxTo"><span>종료 시간</span><input type="time" id="sxTo" data-s="tto" step="300" value="${esc(tm.to)}"></label>
+        <div class="field full"><span>교시로 맞추기</span><span class="row prow"><select id="sxPStart" data-s="pstart" aria-label="시작 교시">${opts(range(1, NP), cur.start, v => `${v}교시 (${PERIODS[v - 1][0]}~)`)}</select> ~
+          <select id="sxPEnd" data-s="pend" aria-label="끝 교시">${opts(range(cur.start, NP), Math.min(NP, cur.start + cur.len - 1), v => `${v}교시 (~${PERIODS[v - 1][1]})`)}</select></span></div>
+        <label class="field full" for="sxRoom"><span>강의실</span><select id="sxRoom" data-s="room">${roomOptions(cur.room, c, { date: cur.date, start: cur.start, len: cur.len, self: ref }, { custom: false })}</select></label>
+      </div>
+      <div class="dsec"><h3>검사 결과</h3><div class="checks" id="sxChecks"></div></div>
+      ${m && m.manual ? '<div class="row"><button type="button" class="btn small" id="sxReset">원래 자리로 되돌리기</button></div>' : ''}
+      <p class="hint">시험이 아닌 ${cur.week ? `${cur.week}주차 ` : ''}${kind}이에요. 옮긴 수업은 보강처럼 기록되고(설정 → 보강), 겹침 검사·엑셀에 그대로 반영돼요.</p>
+    </div>`;
+  $('#drawer').hidden = false;
+  refreshSessionChecks();
+  if (isLocked()) lockControls();
+}
+function refreshSessionChecks() {
+  const box = $('#sxChecks'); if (!ui.sess || !box) return;
+  const cur = sessionOf(ui.sess); if (!cur) return;
+  const cf = conflictsOf(cur.c, { date: cur.date, start: cur.start, len: cur.len, room: cur.room, self: ui.sess });
+  box.innerHTML = [`<div class="it ${cf.length ? 'bad' : 'ok'}">${fmt(cur.date)} ${sessionTime(cur)} (${pRange(cur.start, cur.len)}) · ${esc(roomLabel(cur.room))}${cf.length ? '' : ' · 겹치는 일정 없음'}</div>`,
+    ...cf.map(x => `<div class="it bad">${esc(describeConflict(x))}</div>`)].join('');
+}
 /** 합반 안내 줄: 같은 시간에 한 시험을 보는 다른 반들 */
 function combinedLines(list) {
   if (!list.length) return [];
@@ -74,7 +110,7 @@ function setExamField(id, f, raw) {
 /* ---------- register form ---------- */
 function openRegister(preId) {
   const id = preId || ui.reg?.id || '';
-  ui.drawerId = null;
+  ui.drawerId = null; ui.sess = null;
   ui.reg = { id };
   if (id) { const ex = S.exams[id]; Object.assign(ui.reg, { method: ex.method, date: ex.date, start: ex.start, len: ex.len, room: ex.room, note: ex.note }); }
   const r = ui.reg;
@@ -146,6 +182,21 @@ function bindDrawer() {
   const dr = $('#drawer');
   dr.addEventListener('change', e => {
     if (isLocked()) return;
+    if (ui.sess && e.target.dataset.s) {          // 수업 서랍
+      const k = e.target.dataset.s, cur = sessionOf(ui.sess); if (!cur) return;
+      let patch = null;
+      if (k === 'date') { if (!e.target.value) return; patch = { date: e.target.value }; }
+      else if (k === 'tfrom' || k === 'tto') {
+        const t = { start: cur.start, len: cur.len };
+        if (!setExamTime(t, $('#sxFrom').value, $('#sxTo').value)) { toast('종료 시간이 시작 시간보다 늦어야 해요.'); openSessionDrawer(ui.sess); return; }
+        patch = { start: t.start, len: t.len, time: t.time || null };
+      } else if (k === 'pstart' || k === 'pend') { const s = +$('#sxPStart').value, en = Math.max(s, +$('#sxPEnd').value); patch = { start: s, len: en - s + 1, time: null }; }
+      else if (k === 'room') patch = { room: e.target.value };
+      if (!patch) return;
+      ui.sess = applySession(ui.sess, patch);
+      (ui.unlocked = ui.unlocked || new Set()).add(sessionKey(ui.sess));
+      changed(); openSessionDrawer(ui.sess); return;
+    }
     if (ui.reg && e.target.dataset.r) {
       const k = e.target.dataset.r, v = e.target.value;
       if (k === 'id') { openRegister(v); return; }
@@ -190,6 +241,12 @@ function bindDrawer() {
   dr.addEventListener('focusout', e => { if (!isLocked() && e.target.dataset && e.target.dataset.f === 'note') { clearTimeout(noteT); changed(); } });
   dr.addEventListener('click', e => {
     if (e.target.closest('#dClose')) { closeDrawer(); return; }
+    if (e.target.closest('#sxReset') && ui.sess && !isLocked()) {
+      const cur = sessionOf(ui.sess);
+      ui.sess = applySession(ui.sess, { date: cur.from, start: cur.c.start, len: lenOf(cur.c), time: null, room: cur.c.room });
+      (ui.unlocked = ui.unlocked || new Set()).add(sessionKey(ui.sess));
+      changed(); openSessionDrawer(ui.sess); toast('원래 자리로 되돌렸어요.'); return;
+    }
     if (isLocked()) return;
     if (e.target.closest('#dToReg')) { openRegister(ui.drawerId); return; }
     if (e.target.closest('#rSave')) { saveRegister(); return; }

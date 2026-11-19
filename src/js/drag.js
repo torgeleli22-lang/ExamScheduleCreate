@@ -49,6 +49,7 @@ function updateTarget(x, y) {
   const e = { clientX: x, clientY: y };
   const t = dragTarget(e.clientX, e.clientY);
   const tip = $('#dragTip');
+  if (drag.kind === 'session') { updateSessionTarget(t, e, tip); return; }
   const c = D.byId[drag.id], ex = S.exams[drag.id];
   drag.target = null;
   if (!t) { tip.hidden = true; return; }
@@ -83,6 +84,7 @@ function endDrag(e, cancelled) {
   if (d.ghost) d.ghost.remove();
   if (d.el) d.el.classList.remove('src');
   if (cancelled) return;
+  if (d.kind === 'session') { endSessionDrag(d); return; }
   if (!d.started) { openDrawer(d.id); return; }
   if (d.target) {
     const ex = S.exams[d.id];
@@ -98,3 +100,83 @@ function endDrag(e, cancelled) {
 }
 const onUp = e => endDrag(e, false);
 const onCancel = e => endDrag(e, true);
+
+/* ---------- 수업(시험 아닌) 끌기 ----------
+   8·15주차 수업·직접 옮긴 수업은 바로, 다른 주차 수업은 꾹 눌러(LONG_PRESS_MS) 푼 뒤. 놓으면 applySession()으로 기록 */
+const LONG_PRESS_MS = 600;
+function sessionDragFrom(el, e) {
+  const ref = { cid: el.dataset.cid, from: el.dataset.from, mkId: el.dataset.mk || null };
+  const cur = sessionOf(ref); if (!cur) return null;
+  const r = el.getBoundingClientRect();
+  const grabP = Math.max(0, Math.min(cur.len - 1, Math.floor((e.clientX - r.left) / (r.width / cur.len))));
+  return { kind: 'session', ref, el, x0: e.clientX, y0: e.clientY, started: false, grabP };
+}
+function listenDrag() {
+  window.addEventListener('pointermove', onDragMove);
+  window.addEventListener('pointerup', onUp);
+  window.addEventListener('pointercancel', onCancel);
+}
+function beginSessionDrag(el, e) { drag = sessionDragFrom(el, e); if (drag) listenDrag(); }
+function updateSessionTarget(t, e, tip) {
+  const cur = sessionOf(drag.ref), c = cur.c;
+  drag.target = null;
+  if (!t) { tip.hidden = true; return; }
+  if (t.group !== groupOf(c)) { tip.hidden = false; tip.textContent = `${groupOf(c)} 줄 안에서만 옮길 수 있어요`; }
+  else {
+    const start = Math.max(1, Math.min(NP - cur.len + 1, t.p - drag.grabP));
+    const place = { date: t.date, start, len: cur.len, room: cur.room, self: drag.ref };
+    const cf = conflictsOf(c, place);
+    $$('.cell', t.track).forEach(el => { const p = +el.dataset.p; if (p >= start && p < start + cur.len) el.classList.add(cf.length ? 'bad' : 'ok'); });
+    drag.target = place;
+    const tt = { start: cur.start, len: cur.len, time: cur.time }; moveExamStart(tt, start);
+    tip.hidden = false;
+    tip.textContent = `${cur.week ? `${cur.week}주차 ` : ''}수업 → ${fmt(t.date)} ${pRange(start, cur.len)} ${sessionTime(tt)}` + (cf.length ? '\n' + cf.map(describeConflict).join('\n') : ' · 겹침 없음');
+  }
+  tip.style.whiteSpace = 'pre-line';
+  tip.style.left = Math.min(window.innerWidth - 330, e.clientX + 14) + 'px';
+  tip.style.top = (e.clientY + 18) + 'px';
+}
+function endSessionDrag(d) {
+  if (!d.started) { if (d.justUnlocked) render(); else openSessionDrawer(d.ref); return; }
+  if (!d.target) return;
+  const cur = sessionOf(d.ref);
+  if (cur.date === d.target.date && cur.start === d.target.start) return;
+  const before = `${fmt(cur.date)} ${sessionTime(cur)}`;
+  const tt = { start: cur.start, len: cur.len, time: cur.time }; moveExamStart(tt, d.target.start);
+  const ref = applySession(d.ref, { date: d.target.date, start: tt.start, len: tt.len, time: tt.time || null });
+  (ui.unlocked = ui.unlocked || new Set()).add(sessionKey(ref));
+  changed();
+  const now = sessionOf(ref);
+  const n = conflictsOf(now.c, { date: now.date, start: now.start, len: now.len, room: now.room, self: ref }).length;
+  toast(`${now.c.course}(${groupOf(now.c)}) ${now.week ? `${now.week}주차 ` : ''}수업 ${before} → ${fmt(now.date)} ${sessionTime(now)}${n ? ` · 겹침 ${n}건` : ''}`);
+}
+/* 꾹 누르기: 고정된 수업을 풀어서 옮길 수 있게. 누른 채로 움직이면 바로 끌기 */
+let press = null;
+function startLongPress(el, e) {
+  cancelPress();
+  press = { el, x0: e.clientX, y0: e.clientY, timer: setTimeout(firePress, LONG_PRESS_MS) };
+  el.classList.add('pressing');
+  window.addEventListener('pointermove', onPressMove);
+  window.addEventListener('pointerup', onPressUp);
+  window.addEventListener('pointercancel', onPressCancel);
+}
+function stopPressListen() {
+  window.removeEventListener('pointermove', onPressMove);
+  window.removeEventListener('pointerup', onPressUp);
+  window.removeEventListener('pointercancel', onPressCancel);
+}
+function cancelPress() { if (!press) return; clearTimeout(press.timer); press.el.classList.remove('pressing'); stopPressListen(); press = null; }
+function onPressMove(e) { if (press && Math.hypot(e.clientX - press.x0, e.clientY - press.y0) > 8) cancelPress(); }
+function onPressUp() { if (!press) return; cancelPress(); toast('고정된 수업이에요. 꾹 누르면(0.6초) 옮길 수 있어요.'); }
+function onPressCancel() { cancelPress(); }
+function firePress() {
+  const p = press; if (!p) return;
+  stopPressListen(); press = null;
+  const el = p.el;
+  (ui.unlocked = ui.unlocked || new Set()).add(el.dataset.key);
+  el.classList.remove('pressing'); el.classList.add('movable', 'unlocked', 'has-badge');
+  const cur = sessionOf({ cid: el.dataset.cid, from: el.dataset.from, mkId: el.dataset.mk || null });
+  if (cur) toast(`${cur.c.course}(${groupOf(cur.c)}) ${cur.week ? `${cur.week}주차 ` : ''}수업을 옮길 수 있어요. 끌어서 옮기거나 눌러서 날짜·시간을 고치세요.`);
+  drag = sessionDragFrom(el, { clientX: p.x0, clientY: p.y0 });   // 누른 채로 움직이면 바로 끌기
+  if (drag) { drag.justUnlocked = true; listenDrag(); }
+}
