@@ -20,7 +20,8 @@ function openDrawer(id) {
         <div class="field full"><span>교시로 맞추기</span><span class="row prow"><select id="dPStart" data-f="pstart" aria-label="시작 교시"${dis}>${opts(range(1, NP), ex.start, v => `${v}교시 (${PERIODS[v - 1][0]}~)`)}</select> ~
           <select id="dPEnd" data-f="pend" aria-label="끝 교시"${dis}>${opts(range(ex.start, NP), Math.min(NP, ex.start + ex.len - 1), v => `${v}교시 (~${PERIODS[v - 1][1]})`)}</select></span>
           <small class="hint">${hasSlot(ex) ? `${toMin(tm.to) - toMin(tm.from)}분 · ${ex.time ? `직접 정한 시간 · 겹침은 ${pRange(ex.start, ex.len)} 기준으로 검사해요` : '교시 시간 그대로'}` : ''}</small></div>
-        <label class="field" for="dRoom"><span>강의실</span><input type="text" id="dRoom" data-f="room" value="${esc(ex.room)}" list="roomList"${dis}></label>
+        <label class="field full" for="dRoom"><span>강의실</span><select id="dRoom" data-f="roomsel"${dis}>${roomOptions(ex.room, c, ex)}</select>
+          <input type="text" id="dRoomCustom" data-f="room" placeholder="강의실 직접 입력 (예: 515, 산학관203)" hidden></label>
         <label class="field" for="dDone" style="justify-content:flex-end"><span>교수님 확인</span><span class="chk"><input type="checkbox" id="dDone" data-f="done"${ex.done ? ' checked' : ''}>확정</span></label>
         <label class="field full" for="dNote"><span>요청사항 · 메모</span><textarea id="dNote" data-f="note" rows="3" placeholder="예: 실기 2시간, 노트북 지참, 412호 희망">${esc(ex.note)}</textarea></label>
       </div>
@@ -91,7 +92,8 @@ function openRegister(preId) {
         <label class="field full" for="rDate"><span>날짜</span><select id="rDate" data-r="date"${dis}>${dateOptions(r.date)}</select></label>
         <label class="field" for="rStart"><span>시작 교시</span><select id="rStart" data-r="start"${dis}>${opts(range(1, NP), r.start || 1, v => `${v}교시 (${PERIODS[v - 1][0]})`)}</select></label>
         <label class="field" for="rLen"><span>시험 길이</span><select id="rLen" data-r="len"${dis}>${opts(range(1, 6), r.len || 2, v => `${v}교시 (${v * 50}분)`)}</select></label>
-        <label class="field full" for="rRoom"><span>강의실</span><input type="text" id="rRoom" data-r="room" value="${esc(r.room || '')}" list="roomList"${dis}></label>
+        <label class="field full" for="rRoom"><span>강의실</span><select id="rRoom" data-r="room"${dis}>${roomOptions(r.room || '', id ? D.byId[id] : null, r.date ? { date: r.date, start: r.start || 1, len: r.len || 2 } : null)}</select>
+          <input type="text" id="rRoomCustom" data-r="roomtext" placeholder="강의실 직접 입력 (예: 515, 산학관203)" hidden></label>
         <label class="field full" for="rNote"><span>요청사항 · 메모</span><textarea id="rNote" data-r="note" rows="2"${id ? '' : ' disabled'}>${esc(r.note || '')}</textarea></label>
       </div>
       <div class="dsec"><h3>등록하면 이렇게 돼요</h3><div class="checks" id="rChecks"></div></div>
@@ -119,6 +121,7 @@ function refreshRegister() {
   const c = D.byId[r.id];
   if (NO_SLOT.has(r.method)) { box.innerHTML = `<div class="it ok">${esc(r.method)}: 시험 시간을 잡지 않아요.</div>`; sl.innerHTML = ''; return; }
   const p = { date: r.date, start: +r.start, len: +r.len, room: String(r.room || '').replace(/호/g, '').trim() };
+  const rs = $('#rRoom'); if (rs && rs.value !== '__custom') rs.innerHTML = roomOptions(p.room, c, p);
   const cf = conflictsOf(c, p), wn = warningsOf(c, p);
   box.innerHTML = [`<div class="it ${cf.length ? 'bad' : 'ok'}">${fmt(p.date)} ${pRange(p.start, p.len)} ${tRange(p.start, p.len)} · ${esc(roomLabel(p.room))}${cf.length ? '' : ' · 겹치는 일정 없음'}</div>`,
     ...combinedLines(combinedAt(c, p)), ...cf.map(x => `<div class="it bad">${esc(describeConflict(x))}</div>`), ...wn.map(w => `<div class="it warn">${esc(w)}</div>`)].join('');
@@ -146,6 +149,8 @@ function bindDrawer() {
     if (ui.reg && e.target.dataset.r) {
       const k = e.target.dataset.r, v = e.target.value;
       if (k === 'id') { openRegister(v); return; }
+      if (k === 'room' && v === '__custom') { const t = $('#rRoomCustom'); t.hidden = false; t.focus(); return; }
+      if (k === 'roomtext') { ui.reg.room = cleanRoom(v); refreshRegister(); return; }
       ui.reg[k] = v;
       if (k === 'method') { const keep = { ...ui.reg }; openRegister(keep.id); Object.assign(ui.reg, keep); openRegisterValues(); return; }
       refreshRegister(); return;
@@ -159,6 +164,11 @@ function bindDrawer() {
       if (!setExamTime(ex, from, to)) { toast('종료 시간이 시작 시간보다 늦어야 해요.'); openDrawer(ui.drawerId); return; }
       changed(); openDrawer(ui.drawerId); return;
     }
+    if (f === 'roomsel') {                        // 강의실 고르기 (직접 입력…은 칸을 보여 줌)
+      if (el.value === '__custom') { const t = $('#dRoomCustom'); t.hidden = false; t.focus(); return; }
+      setExamField(ui.drawerId, 'room', el.value); changed(); openDrawer(ui.drawerId); return;
+    }
+    if (f === 'room') { if (!cleanRoom(el.value)) return; setExamField(ui.drawerId, 'room', el.value); changed(); openDrawer(ui.drawerId); return; }
     if (f === 'pstart' || f === 'pend') {         // 교시로 맞추기
       const s = +$('#dPStart').value, e2 = Math.max(s, +$('#dPEnd').value);
       ex.start = s; ex.len = e2 - s + 1; delete ex.time;
@@ -172,7 +182,7 @@ function bindDrawer() {
   dr.addEventListener('input', e => {
     if (isLocked()) return;
     if (ui.reg && e.target.dataset.r === 'note') { ui.reg.note = e.target.value; return; }
-    if (ui.reg && e.target.dataset.r === 'room') { ui.reg.room = e.target.value; refreshRegister(); return; }
+    if (ui.reg && e.target.dataset.r === 'roomtext') { ui.reg.room = cleanRoom(e.target.value); return; }
     if (e.target.dataset.f !== 'note' || !ui.drawerId) return;
     S.exams[ui.drawerId].note = e.target.value;
     clearTimeout(noteT); noteT = setTimeout(() => changed({ noRender: true }), 500);

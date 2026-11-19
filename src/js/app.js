@@ -24,7 +24,6 @@ function listTsv() {
     return [ok ? fmt(ex.date).replace(/\(.\)/, '') : '', ok ? DOW[dowOf(ex.date)] : '', ok ? pRange(ex.start, ex.len) : '', ok ? examTime(ex) : '', groupOf(c), c.course, c.prof, ok ? roomLabel(ex.room) : '', ex.method, ex.done ? 'O' : '', ex.note.replace(/\s+/g, ' ')]; });
   return [head, ...rows].map(r => r.join('\t')).join('\n');
 }
-function refreshRoomList() { $('#roomList').innerHTML = D.rooms.map(r => `<option value="${esc(r)}"></option>`).join(''); }
 function setTab(tab, push = true) {
   ui.tab = tab;
   for (const b of $$('.tabs button')) b.setAttribute('aria-selected', String(b.dataset.tab === tab));
@@ -148,7 +147,6 @@ function bind() {
   if (!Store.plans[Store.currentId]) Store.currentId = latestPlanId(Store);
   usePlan(Store.plans[Store.currentId]);
   persistLocal();
-  refreshRoomList();
   bind();
   const h = location.hash.slice(1);
   setTab(TABS.includes(h) ? h : 'board', false);

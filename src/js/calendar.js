@@ -35,7 +35,6 @@ function derive() {
   D.byId = Object.fromEntries(S.classes.map(c => [c.id, c]));
   D.groups = [...new Set(S.classes.map(groupOf))].sort();
   D.profs = [...new Set(S.classes.map(c => c.prof).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'ko'));
-  D.rooms = [...new Set(S.classes.map(c => c.room).filter(Boolean))].sort();
   D.candDates = D.allDates.filter(d => D.dateMap[d].week >= S.examWeek - 2 && dowOf(d) !== 0);
   deriveMakeups();
   for (const c of S.classes) if (!S.exams[c.id]) S.exams[c.id] = defaultExam(c);

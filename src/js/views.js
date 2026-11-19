@@ -42,6 +42,47 @@ function renderPlanPicker() {
   $('#selTerm').value = String(cur.term);
   $('#selKind').innerHTML = ['mid', 'final'].map(k => `<option value="${k}"${k === cur.kind ? ' selected' : ''}>${KINDS[k].label}${has(+cur.termYear, +cur.term, k) ? '' : ' (자료 없음)'}</option>`).join('');
 }
+/* ---------- 강의실 선택 ----------
+   예전엔 글자 칸 + 추천 목록(datalist)이라, 칸에 '413'이 있으면 '413'만 보였다 → 선택 상자로 전부 보여 준다.
+   강의실 목록 = 모든 학기 시험의 시간표·시험·보강에 나온 강의실 전부(직접 입력한 강의실도 쓰이면 들어감). */
+const roomSort = (a, b) => { const na = /^\d+$/.test(a), nb = /^\d+$/.test(b); return na && nb ? +a - +b : na ? -1 : nb ? 1 : a.localeCompare(b, 'ko'); };
+function allRooms() {
+  const set = new Set();
+  const add = r => { const v = cleanRoom(r); if (v) set.add(v); };
+  for (const p of Object.values(Store.plans)) {
+    for (const c of p.classes || []) add(c.room);
+    for (const ex of Object.values(p.exams || {})) add(ex.room);
+    for (const m of p.makeups || []) add(m.room);
+  }
+  return [...set].sort(roomSort);
+}
+/** 그 날짜·교시에 강의실을 쓰는 수업·시험 → { 강의실: ['2C JAVA프로그래밍응용', …] } (합반 상대는 뺌) */
+function roomUse(c, place) {
+  const out = {};
+  if (!c || !place || !place.date) return out;
+  const s = +place.start, e = s + +place.len - 1;
+  for (const it of itemsOn(place.date, c.id)) {
+    if (it.s > e || it.e < s || !it.room || isCombined(c, it, s)) continue;
+    (out[normRoom(it.room)] = out[normRoom(it.room)] || []).push(`${groupOf(it.c)} ${it.c.course}`);
+  }
+  return out;
+}
+/** 강의실 선택 상자의 항목. place가 있으면 '비어 있는 강의실 / 사용 중'으로 나눠 보여 준다 */
+function roomOptions(cur, c, place, { custom = true, blank = null } = {}) {
+  const curV = cleanRoom(cur);
+  let list = allRooms();
+  if (curV && !list.includes(curV)) list = [...list, curV].sort(roomSort);
+  const use = c && place && place.date ? roomUse(c, place) : null;
+  const o = r => { const u = use && use[normRoom(r)]; return `<option value="${esc(r)}"${r === curV ? ' selected' : ''}>${esc(roomLabel(r))}${u ? ` — 사용 중: ${esc(u.join(', '))}` : ''}</option>`; };
+  let html = blank !== null ? `<option value=""${curV ? '' : ' selected'}>${esc(blank)}</option>` : '';
+  if (use) {
+    const free = list.filter(r => !use[normRoom(r)]), busy = list.filter(r => use[normRoom(r)]);
+    html += `<optgroup label="이 시간에 비어 있는 강의실 (${free.length})">${free.map(o).join('')}</optgroup>`;
+    if (busy.length) html += `<optgroup label="이 시간에 사용 중 (${busy.length})">${busy.map(o).join('')}</optgroup>`;
+  } else html += list.map(o).join('');
+  if (custom) html += `<option value="__custom">직접 입력…</option>`;
+  return html;
+}
 function renderSummary() {
   const k = counts();
   $('#summary').innerHTML = `
@@ -228,7 +269,7 @@ function renderList() {
       <td><select aria-label="날짜" data-f="date"${dis}>${dateOptions(ex.date)}</select></td>
       <td><select aria-label="시작 교시" data-f="start"${dis}>${opts(range(1, NP), ex.start, v => `${v}교시`)}</select></td>
       <td><select aria-label="교시 수" data-f="len"${dis}>${opts(range(1, 6), ex.len, v => `${v}교시`)}</select><span class="sub">${st.noslot ? '' : examTime(ex)}</span></td>
-      <td><input type="text" aria-label="강의실" data-f="room" value="${esc(ex.room)}" size="7" list="roomList"${dis}></td>
+      <td><select aria-label="강의실" data-f="room"${dis}>${roomOptions(ex.room, null, null, { custom: false })}</select></td>
       <td><input type="text" class="note" aria-label="요청사항" data-f="note" value="${esc(ex.note)}" placeholder="교수님 요청사항"></td>
       <td><input type="checkbox" aria-label="확정" data-f="done"${ex.done ? ' checked' : ''}></td>
     </tr>`;
