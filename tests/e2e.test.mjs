@@ -557,6 +557,46 @@ test('시험으로 등록: 14주차 수업 → 시험, 15주차 수업은 평소
   await ctx.close();
 });
 
+test('엑셀: 한 교시를 나눠 쓰는 수업(09:55~12:10)과 시험(12:20~13:10)이 둘 다 제자리에 보임', async () => {
+  const { ctx, page, errors } = await openApp(browser);
+  // 3A IT응용: 14주차 12/9(수) 2~4교시 → 꾹 눌러 09:55~12:10으로 줄임
+  const s14 = page.locator('#board .day[data-day="2026-12-09"] .blk.session[data-cid="수-3A-2"]');
+  await s14.scrollIntoViewIfNeeded();
+  const r = await s14.boundingBox();
+  await page.mouse.move(r.x + 6, r.y + r.height / 2); await page.mouse.down(); await page.waitForTimeout(800); await page.mouse.up();
+  await s14.click();
+  await page.fill('#sxTo', '12:10');
+  await page.click('#dClose');
+  // 15주차 시험(12/16)을 12/9 12:20~13:10으로
+  const exb = page.locator('#board .day[data-day="2026-12-16"] .blk.exam[data-id="수-3A-2"]');
+  await exb.scrollIntoViewIfNeeded(); await exb.click();
+  await page.selectOption('#dDate', '2026-12-09');
+  await page.fill('#dFrom', '12:20'); await page.fill('#dTo', '13:10');
+  const ex = await examOf(page, '수-3A-2');
+  assert.deepEqual([ex.date, ex.time], ['2026-12-09', { from: '12:20', to: '13:10' }]);
+  assert.equal((await P(page).state(() => window.__planner.statusOf(window.__planner.state.classes.find(c => c.id === '수-3A-2')).bad.length)), 0);   // 분 단위로는 안 겹침
+  await page.click('#dClose');
+  const wb = await readXlsx((await download(page, () => page.click('#btnExport'))).buf);
+  const ws = wb.worksheets[0];
+  const cells = []; ws.eachRow((row, ri) => row.eachCell((cell, ci) => cells.push({ ri, ci, t: String(cell.value), m: cell.isMerged ? cell.master.address : cell.address })));
+  const one = re => { const xs = cells.filter(x => re.test(x.t)); assert.ok(xs.length, `${re} 없음`); return xs; };
+  const cls = one(/^IT응용\n\(안해리\) .+\n14주차 수업 시간 변경 · 09시 55분 ~ 12시 10분$/);
+  const exm = one(/^IT응용\n\(안해리\) .+\n12시 20분 ~ 13시 10분$/);
+  assert.ok(!cells.some(x => x.t.includes('+ IT응용')), '겹침으로 합쳐지면 안 됨');
+  assert.notEqual(cls[0].m, exm[0].m);
+  assert.equal(cls[0].ri, exm[0].ri);                                   // 같은 3A 줄에
+  assert.ok(Math.max(...cls.map(x => x.ci)) < Math.min(...exm.map(x => x.ci)));   // 수업이 시험보다 앞 칸
+  // 4교시를 12:10·12:20에서 나눔: 7행에 그 시각, 6행 '4교시'는 합침
+  const heads = {}; ws.getRow(5).eachCell((cell, col) => { heads[String(cell.value)] ??= col; });
+  const c9 = heads['수 12/9'], times = [];
+  for (let k = 0; k < 16; k++) times.push(String(ws.getCell(7, c9 + k).value));
+  assert.deepEqual(times.slice(0, 7), ['9:00', '9:55', '10:50', '11:45', '12:10', '12:20', '12:40']);
+  assert.equal(ws.getCell(6, c9 + 3).value, '4교시'); assert.equal(ws.getCell(6, c9 + 5).value, '4교시');
+  assert.equal(ws.getCell(6, c9 + 3).master.address, ws.getCell(6, c9 + 5).master.address);
+  assert.deepEqual(errors, []);
+  await ctx.close();
+});
+
 test('강의실 고르기: 가진 강의실 전부, 그 시간에 비어 있음/사용 중, 직접 입력, 목록·등록 폼', async () => {
   const { ctx, page, errors } = await openApp(browser);
   const rooms = [...new Set(SEED.classes.map(c => c.room))];
