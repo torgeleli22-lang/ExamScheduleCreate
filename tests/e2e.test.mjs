@@ -387,6 +387,53 @@ test('시험 상세에서 시작·종료 시간 직접 정하기 → 판·목록
   await ctx.close();
 });
 
+test('강의실 고르기: 가진 강의실 전부, 그 시간에 비어 있음/사용 중, 직접 입력, 목록·등록 폼', async () => {
+  const { ctx, page, errors } = await openApp(browser);
+  const rooms = [...new Set(SEED.classes.map(c => c.room))];
+  const opts = sel => page.$$eval(`${sel} option`, os => os.map(o => o.value).filter(v => v && v !== '__custom'));
+  // 2A JAVA (12/8 화 6~8교시, 413호) 서랍
+  await page.evaluate(() => window.__planner.openDrawer('화-2A-6'));
+  assert.deepEqual((await opts('#dRoom')).sort(), rooms.slice().sort());            // 강의실 전부
+  assert.equal(await page.inputValue('#dRoom'), '413');
+  const groups = await page.$$eval('#dRoom optgroup', gs => gs.map(g => g.label));
+  assert.match(groups[0], /^이 시간에 비어 있는 강의실/); assert.match(groups[1], /^이 시간에 사용 중/);
+  // 12/8 6~8교시에 412호는 2C 앱프로그래밍기초 시험이 씀
+  assert.match(await page.$eval('#dRoom option[value="412"]', o => o.textContent), /412호 — 사용 중: 2C 앱프로그래밍기초/);
+  assert.equal(await page.$eval('#dRoom option[value="412"]', o => o.parentElement.label.startsWith('이 시간에 사용 중')), true);
+  // 고르기
+  await page.selectOption('#dRoom', '401');
+  assert.equal((await examOf(page, '화-2A-6')).room, '401');
+  // 직접 입력 → 다음부터 목록에 나옴
+  await page.selectOption('#dRoom', '__custom');
+  assert.ok(await page.isVisible('#dRoomCustom'));
+  await page.fill('#dRoomCustom', '515호'); await page.press('#dRoomCustom', 'Enter');
+  assert.equal((await examOf(page, '화-2A-6')).room, '515');
+  assert.equal(await page.inputValue('#dRoom'), '515');
+  await page.click('#dClose');
+  // 과목 목록의 강의실 상자에도 전부 + 새로 넣은 515
+  await page.click('[data-tab="courses"]');
+  const listOpts = await opts('#listTable tr[data-id="월-2A-2"] select[data-f="room"]');
+  assert.deepEqual(listOpts.sort(), [...rooms, '515'].sort());
+  await page.selectOption('#listTable tr[data-id="월-2A-2"] select[data-f="room"]', '111');
+  assert.equal((await examOf(page, '월-2A-2')).room, '111');
+  // 시험 일정 등록 폼: 날짜·교시를 바꾸면 '사용 중'도 그 시간 기준으로
+  await page.click('#btnRegister');
+  await page.selectOption('#rCourse', { label: '2C 앱프로그래밍기초 (정세일) · 화 6교시' });
+  await page.selectOption('#rDate', '2026-12-08'); await page.selectOption('#rStart', '6');
+  assert.match(await page.$eval('#rRoom option[value="401"]', o => o.textContent), /사용 중: 2B 프로젝트분석설계/);
+  // 6교시엔 413호가 비어 있음(2A JAVA를 515호로 옮김) → 1교시로 바꾸면 2B JAVA(2~4교시, 413호)가 씀
+  assert.doesNotMatch(await page.$eval('#rRoom option[value="413"]', o => o.textContent), /사용 중/);
+  await page.selectOption('#rStart', '1');
+  assert.match(await page.$eval('#rRoom option[value="413"]', o => o.textContent), /사용 중: 2B JAVA프로그래밍응용/);
+  const free = await page.$eval('#rRoom optgroup', g => g.querySelector('option').value);   // 비어 있는 강의실 중 첫째
+  await page.selectOption('#rRoom', free);
+  await page.click('#rSave');
+  assert.equal((await examOf(page, '화-2C-6')).room, free);
+  assert.doesNotMatch(await page.innerText('#rChecks'), /강의실 겹침/);                // 비어 있는 강의실을 골랐으니 강의실 겹침은 없음
+  assert.deepEqual(errors, []);
+  await ctx.close();
+});
+
 test('예전 버전(v1) 브라우저 저장 내용을 그대로 이어받는다', async () => {
   const c = SEED.classes[0];
   const v1 = { v: 1, ...SEED, exams: { [c.id]: { method: '실기', date: '2026-12-18', start: 6, len: 2, room: '412', note: '노트북 지참', done: true } }, extraDates: [], rev: 5, updatedAt: 1 };

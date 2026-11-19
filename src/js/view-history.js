@@ -65,7 +65,7 @@ function switchPlan(id) {
   const p = Store.plans[id]; if (!p) return;
   Store.currentId = id; usePlan(p);
   ui.pending = {}; ui.filter = { group: '', prof: '', status: '', q: '' }; ui.rp = null; ui.missing = null; ui.wiz = null;
-  closeDrawer(); refreshRoomList(); persistLocal(); render();
+  closeDrawer(); persistLocal(); render();
 }
 
 /** 백업(.json) 파일 → 불러오기 확인 (파일 고르기·끌어다 놓기 공통) */

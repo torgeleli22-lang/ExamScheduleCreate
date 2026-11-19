@@ -52,7 +52,7 @@ function renderSetup() {
         <label class="field"><span>결강일 (없으면 비움)</span><input type="date" id="mkFrom" class="editable"></label>
         <label class="field"><span>보강일</span><input type="date" id="mkTo" class="editable"></label>
         <label class="field"><span>교시</span><span class="row"><select id="mkStart" class="editable">${opts(range(1, 14), 1)}</select>~<select id="mkEnd" class="editable">${opts(range(1, 14), 2)}</select></span></label>
-        <label class="field"><span>강의실 (비우면 원래 강의실)</span><input type="text" id="mkRoom" class="editable" size="8" list="roomList"></label>
+        <label class="field"><span>강의실</span><select id="mkRoom" class="editable">${roomOptions('', null, null, { custom: false, blank: '원래 강의실' })}</select></label>
         <button type="button" class="btn small primary editable" id="mkAdd" style="align-self:flex-end">추가</button>
       </div>
     </details>
@@ -86,7 +86,6 @@ function applyFound(f) {
       S.exams[c.id] = old[c.id]; kept++;
       if (unmoved.has(c.id)) Object.assign(S.exams[c.id], { date: defaultDate(c), start: defaultStart(c), len: defaultLen(c), room: defaultRoom(c) });
     }
-    refreshRoomList();
     return `시간표를 바꿨어요. 수업 ${S.classes.length}개 중 ${kept}개는 입력해 둔 내용을 이어받았어요.`;
   }
   if (f.type === 'calendar') {
