@@ -56,7 +56,20 @@ function moveExamStart(ex, start) {
     if (!setExamTime(ex, fromMin(toMin(ex.time.from) + d), fromMin(toMin(ex.time.to) + d))) { delete ex.time; ex.start = start; }
   } else ex.start = start;
 }
-const isMoved = c => { const ex = S.exams[c.id]; return hasSlot(ex) && (ex.date !== defaultDate(c) || ex.start !== defaultStart(c) || !!ex.time); };
+const sameTime = (a, b) => (!a && !b) || (!!a && !!b && a.from === b.from && a.to === b.to);
+const isMoved = c => { const ex = S.exams[c.id]; return hasSlot(ex) && (ex.date !== defaultDate(c) || ex.start !== defaultStart(c) || !sameTime(ex.time, defaultTime(c))); };
+/** 이 날짜의 이 과목 수업이 시험 자리로 쓰이는지(그러면 평소 수업으로 세지 않음) */
+function examTakesFixed(c, iso) {
+  const ex = S.exams[c.id]; if (!ex || !hasSlot(ex)) return false;
+  const s = srcSession(c);
+  if (s) return !s.mk && s.from === iso;
+  return D.dateMap[iso]?.week === S.examWeek && !D.examPushed?.has(c.id);   // 시험이 보강으로 밀렸으면 원래 시험 주차 수업은 평소 수업
+}
+function examTakesMakeup(c, m) {
+  const ex = S.exams[c.id]; if (!ex || !hasSlot(ex)) return false;
+  const s = srcSession(c);
+  return s ? s.mk === m : D.examMakeup?.[c.id] === m;
+}
 /** 공지·엑셀에 쓰는 방식 글자: '기존 시간표 수업 진행'으로 확정했으면 그것을 앞에 */
 const methodLabel = c => { const ex = S.exams[c.id]; return isKept(c) ? `기존 시간표 수업 진행${ex.method !== '미정' ? ` (${ex.method})` : ''}` : ex.method; };
 /** '기존 시간표 수업 진행'으로 확정했고 그 뒤로 옮기지 않았는지 */
@@ -70,10 +83,9 @@ function itemsOn(iso, excludeId) {
   const out = [];
   const info = D.dateMap[iso];
   if (info) {
-    const examWeekDay = info.week === S.examWeek;
     for (const c of S.classes) {
       if (c.day !== info.col) continue;
-      if (examWeekDay && hasSlot(S.exams[c.id]) && !D.examPushed?.has(c.id)) continue;   // 시험이 보강으로 밀렸으면 원래 시험 주차 수업은 평소 수업
+      if (examTakesFixed(c, iso)) continue;
       if (D.cancelled?.has(`${c.id}|${iso}`)) continue;
       const [t0, t1] = spanOf(c.start, lenOf(c));
       out.push({ kind: 'fixed', c, s: c.start, e: c.end, t0, t1, tm: null, room: c.room, week: info.week, date: iso });
@@ -82,7 +94,7 @@ function itemsOn(iso, excludeId) {
   for (const m of D.makeups || []) {
     if (m.to !== iso) continue;
     const c = D.byId[m.classId];
-    if (D.examMakeup[c.id] === m && hasSlot(S.exams[c.id])) continue;   // 시험 주차 보강 = 시험 자리
+    if (examTakesMakeup(c, m)) continue;   // 시험 자리로 쓰는 보강
     const [t0, t1] = spanOf(m.start, m.end - m.start + 1, m.time);
     out.push({ kind: 'makeup', c, s: m.start, e: m.end, t0, t1, tm: m.time || null, room: m.room || c.room, week: m.from ? D.dateMap[m.from]?.week : null, from: m.from, m, date: iso });
   }
@@ -135,7 +147,7 @@ function warningsOf(c, p) {
   if (!D.dateMap[p.date]) w.push('수업일 현황에 없는 날짜예요');
   if (D.lastDate && p.date > D.lastDate) w.push(`학기 마지막 수업일(${fmt(D.lastDate)}) 이후예요`);
   const pv = prevDate(c);
-  if (pv && p.date <= pv) w.push(`${S.examWeek - 1}주차 수업(${fmt(pv)})보다 이르거나 같은 날이에요`);
+  if (pv && p.date <= pv) w.push(`${examWeekOf(c) - 1}주차 수업(${fmt(pv)})보다 이르거나 같은 날이에요`);
   const [pa, pb] = placeSpan(p), lunch = spanOf(LUNCH, 1);
   if (pa < lunch[1] && pb > lunch[0]) w.push('점심시간(5교시)이 끼어 있어요');
   if (p.start + p.len - 1 > NP) w.push('10교시를 넘어가요');
@@ -144,7 +156,7 @@ function warningsOf(c, p) {
   const apart = combinedAt(c, p).filter(x => x.c.prof && x.c.prof === c.prof && normRoom(x.room) !== normRoom(p.room));
   if (apart.length) w.push(`합반(${combinedLabel(apart)})인데 강의실이 달라요(${roomLabel(p.room)}·${[...new Set(apart.map(x => roomLabel(x.room)))].join('·')}). 같은 교수님이라 한 강의실로 맞춰 주세요`);
   for (const m of D.makeups || []) {
-    if (m.classId !== c.id || D.examMakeup?.[c.id] === m) continue;
+    if (m.classId !== c.id || D.examMakeup?.[c.id] === m || srcSession(c)?.mk === m) continue;
     if (m.to > p.date) w.push(`${m.manual ? '옮긴 수업' : '보강'}(${fmt(m.to)} ${pRange(m.start, m.end - m.start + 1)})이 시험보다 뒤에 있어요`);
   }
   return w;
@@ -175,7 +187,7 @@ function freeSlots(c, len, room) {
 }
 /** 보강 때문에 시험 주차 수업(기본 시험 시간)이 다른 날로 옮겨진 과목들 */
 function shiftedByMakeup() {
-  return S.classes.filter(c => D.examMakeup?.[c.id]).map(c => {
+  return S.classes.filter(c => D.examMakeup?.[c.id] && !srcSession(c)).map(c => {
     const m = D.examMakeup[c.id];
     return { c, m, ew: D.colDates[c.day]?.[S.examWeek - 1], to: m.to, pushed: D.examPushed.has(c.id) };
   }).sort((a, b) => a.to.localeCompare(b.to) || groupOf(a.c).localeCompare(groupOf(b.c)));
@@ -228,10 +240,30 @@ function dayTouched(d) {
     const ex = S.exams[c.id]; if (!ex) return false;
     const home = defaultDate(c), at = hasSlot(ex) ? ex.date : home;
     if (String(ex.note || '').trim() && at === d) return true;
+    if (ex.src && D.colDates[c.day]?.[S.examWeek - 1] === d) return true;   // 다른 수업을 시험으로 등록 → 시험 주차 수업이 평소 수업으로
     if (home !== d) return false;
     return hasSlot(ex) ? isMoved(c) : true;
   });
 }
+/** 수업 하나를 이 과목의 '시험으로 등록': 그 수업 자리(날짜·시간·강의실)에서 시험을 보고, 원래 시험 주차 수업은 평소 수업이 된다.
+   기본 자리(시험 주차 수업·그것을 대신한 보강)를 고르면 등록을 지운다. 방식이 '시험 없음'·'과제 대체'였으면 '미정'으로 */
+function registerAsExam(ref) {
+  const cur = sessionOf(ref); if (!cur) return false;
+  const c = cur.c, ex = S.exams[c.id];
+  delete ex.src;
+  derive();
+  const def = D.examMakeup?.[c.id], ew = D.colDates[c.day]?.[S.examWeek - 1];
+  const isDefault = def ? ref.mkId === def.id : (!ref.mkId && ref.from === ew);
+  if (!isDefault) ex.src = { from: ref.from || '', mkId: ref.mkId || null };
+  derive();
+  if (!hasSlot(ex)) ex.method = '미정';
+  Object.assign(ex, { date: cur.date, start: cur.start, len: cur.len, room: cur.room });
+  if (cur.time) ex.time = { ...cur.time }; else delete ex.time;
+  ex.keep = false;
+  return true;
+}
+/** 시험으로 등록한 것을 지우고 시험 주차 수업에서 시험 보기 (옮기지 않은 시험이면 기본 자리로) */
+function clearExamSrc(c) { rebaseUnmoved(() => { delete S.exams[c.id].src; }); }
 /** 수업 시간 글자 (직접 정한 시간이 있으면 그것) */
 const sessionTime = cur => (cur.time ? `${cur.time.from}~${cur.time.to}` : tRange(cur.start, cur.len));
 function counts() {

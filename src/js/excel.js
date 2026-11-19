@@ -30,7 +30,7 @@ function weekCellOf(it) {
     const extra = [ex.method !== '미정' ? ex.method : '', combinedAt(c, ex).length ? '합반' : ''].filter(Boolean).join(' · ');
     return { text: `${c.course}\n(${c.prof}) ${roomLabel(ex.room)}\n${kept ? '기존 수업시간 진행' : koRange(tm.from, tm.to)}${extra ? ` · ${extra}` : ''}`, fill: kept ? WK.gray : (WK.year[c.year] || WK.gray), exam: true };
   }
-  const what = it.kind === 'makeup' ? (it.m && it.m.manual ? `${it.week || ''}주차 수업 옮김` : '보강 수업 진행') : '기존 수업 진행';
+  const what = it.kind === 'makeup' ? (it.m && it.m.manual ? `${it.week || ''}주차 수업 ${it.m.to === it.m.from ? '시간 변경' : '옮김'}` : '보강 수업 진행') : '기존 수업 진행';
   return { text: `${c.course}\n(${c.prof}) ${roomLabel(it.room)}\n${what}${it.tm ? ` · ${koRange(it.tm.from, it.tm.to)}` : ''}`, fill: WK.gray, exam: false };
 }
 function addWeekSheets(wb) {
@@ -172,14 +172,14 @@ async function buildWorkbook() {
     { header: '날짜', key: 'date', width: 11 }, { header: '요일', key: 'dow', width: 6 }, { header: '교시', key: 'per', width: 10 },
     { header: '시간', key: 'time', width: 13 }, { header: '학년', key: 'year', width: 6 }, { header: '반', key: 'ban', width: 5 },
     { header: '과목', key: 'course', width: 24 }, { header: '교수', key: 'prof', width: 10 }, { header: '강의실', key: 'room', width: 11 },
-    { header: '방식', key: 'method', width: 11 }, { header: `원래 ${S.examWeek}주차`, key: 'orig', width: 22 }, { header: '변경', key: 'moved', width: 6 },
+    { header: '방식', key: 'method', width: 11 }, { header: '시험 보는 수업', key: 'orig', width: 24 }, { header: '변경', key: 'moved', width: 6 },
     { header: '확정', key: 'done', width: 6 }, { header: '겹침·확인 필요', key: 'issues', width: 44 }, { header: '요청사항·메모', key: 'note', width: 36 }];
   for (const c of sortedExams()) {
     const ex = S.exams[c.id], st = statusOf(c), ok = hasSlot(ex);
     const row = ls.addRow({
       date: ok && ex.date ? `${+ex.date.split('-')[1]}/${+ex.date.split('-')[2]}` : '', dow: ok && ex.date ? DOW[dowOf(ex.date)] : '',
       per: ok ? pRange(ex.start, ex.len) : '', time: ok ? examTime(ex) : '', year: c.year, ban: c.ban, course: c.course, prof: c.prof,
-      room: ok ? roomLabel(ex.room) : '', method: methodLabel(c), orig: `${fmt(defaultDate(c))} ${pRange(defaultStart(c), defaultLen(c))}`,
+      room: ok ? roomLabel(ex.room) : '', method: methodLabel(c), orig: `${examWeekOf(c)}주차 ${fmt(defaultDate(c))} ${pRange(defaultStart(c), defaultLen(c))}`,
       moved: st.moved ? 'O' : '', done: ex.done ? 'O' : '', issues: [...st.bad.map(describeConflict), ...st.warn].join('\n'), note: ex.note });
     row.alignment = { vertical: 'middle', wrapText: true };
     if (st.bad.length) row.getCell('issues').font = F({ color: { argb: 'FFC42B2B' } });

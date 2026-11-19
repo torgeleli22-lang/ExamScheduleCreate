@@ -421,3 +421,48 @@ test('엑셀에서 펼칠 날(dayTouched): 보강·옮긴 수업이 들고 나�
   S.exams[w.id].note = '교수님 출장';
   assert.equal(core.dayTouched(wd), true);
 });
+
+test('시험으로 등록: 14주차 수업 자리에서 시험, 15주차 수업은 평소 수업으로 · 시간 줄인 수업도 · 되돌리기', () => {
+  const core = loadCore();
+  core.usePlan(seedPlan(core));
+  const S = core.get('S'), dm = core.get('D.dateMap');
+  const c = SEED.classes.find(x => x.id === '화-2A-6'), ex = S.exams[c.id];
+  const ew = core.defaultDate(c);                                         // 12/8(화) 15주차
+  const d14 = Object.keys(dm).find(k => dm[k].col === '화' && dm[k].week === 14);
+  const mine = (iso, kind) => core.itemsOn(iso).filter(it => it.c.id === c.id && it.kind === kind);
+  assert.equal(mine(ew, 'fixed').length, 0);                                // 처음엔 15주차 수업 = 시험 자리
+  assert.equal(mine(d14, 'fixed').length, 1);
+  // 14주차 수업을 시험으로 등록
+  assert.ok(core.registerAsExam(core.sessionRef(mine(d14, 'fixed')[0])));
+  assert.deepEqual({ ...ex.src }, { from: d14, mkId: null });
+  assert.deepEqual([ex.date, ex.start, ex.len], [d14, c.start, c.end - c.start + 1]);
+  assert.equal(core.examWeekOf(c), 14);
+  assert.equal(core.isMoved(c), false);                                    // 등록한 수업 자리 그대로 = 옮긴 게 아님
+  assert.equal(mine(d14, 'fixed').length, 0);                               // 14주차 수업 → 시험
+  assert.equal(mine(d14, 'exam').length, 1);
+  assert.equal(mine(ew, 'fixed').length, 1);                                // 15주차 수업 → 평소 수업
+  assert.equal(mine(ew, 'fixed')[0].week, 15);
+  assert.equal(core.statusOf(c).bad.length, 0);                             // 자기 수업과 겹침 아님
+  assert.doesNotMatch(core.statusOf(c).warn.join(' '), /주차 수업\(.+\)보다 이르거나/);
+  assert.equal(core.dayTouched(ew), true);
+  // 15주차 수업을 다시 시험으로 등록 → 기본으로 (등록 지움)
+  core.registerAsExam(core.sessionRef(mine(ew, 'fixed')[0]));
+  assert.equal(ex.src, undefined);
+  assert.equal(ex.date, ew); assert.equal(mine(ew, 'fixed').length, 0); assert.equal(mine(d14, 'fixed').length, 1);
+  // 14주차 수업을 꾹 눌러 시간을 줄이고(13:35~15:00) 그 수업을 시험으로 등록 → 시험도 그 시간
+  const ref = core.applySession(core.sessionRef(mine(d14, 'fixed')[0]), { start: 6, len: 2, time: { from: '13:35', to: '15:00' } });
+  assert.equal(mine(d14, 'makeup').length, 1);
+  core.registerAsExam(ref);
+  assert.deepEqual({ ...ex.src }, { from: d14, mkId: ref.mkId });
+  assert.deepEqual({ ...ex.time }, { from: '13:35', to: '15:00' });
+  assert.equal(core.isMoved(c), false);
+  assert.equal(mine(d14, 'makeup').length, 0); assert.equal(mine(d14, 'exam').length, 1);
+  // 되돌리기: 15주차 수업에서 시험, 줄인 14주차 수업은 다시 평소(줄인 시간 그대로)
+  core.clearExamSrc(c);
+  assert.equal(ex.src, undefined); assert.equal(ex.date, ew); assert.equal(ex.time, undefined);
+  assert.equal(mine(d14, 'makeup').length, 1);
+  // '시험 없음' 과목도 수업을 시험으로 등록하면 방식이 '미정'으로
+  ex.method = '시험 없음';
+  core.registerAsExam(core.sessionRef(mine(d14, 'makeup')[0]));
+  assert.equal(ex.method, '미정');
+});

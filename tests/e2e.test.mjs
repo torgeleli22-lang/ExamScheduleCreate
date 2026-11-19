@@ -432,7 +432,7 @@ test('다른 주차 수업: 짧게 누르면 안내, 꾹 누르면 풀려서 끌
   let m = (await mks())[0];
   assert.deepEqual({ id: m.id, from: m.from, to: m.to, start: m.start, end: m.end, manual: m.manual }, { id: '수-1A-6|2026-12-09|m', from: '2026-12-09', to: '2026-12-09', start: 1, end: 3, manual: true });
   const moved = page.locator('#board .day[data-day="2026-12-09"] .blk.session.manual[data-cid="수-1A-6"]');
-  assert.match(await moved.innerText(), /14주차 수업 · 옮김/);
+  assert.match(await moved.innerText(), /14주차 수업 · 시간 변경/);     // 같은 날 다른 시간
   assert.match(await moved.getAttribute('class'), /movable/);          // 옮긴 수업은 바로 다시 옮길 수 있음
   // 엑셀: 시험이 없는 12/9도 손댄 날이라 '기존 수업 진행'으로 접지 않고 교시별로 그날 수업을 모두
   {
@@ -443,7 +443,7 @@ test('다른 주차 수업: 짧게 누르면 안내, 꾹 누르면 풀려서 끌
     assert.ok(c9, Object.keys(heads).join(','));
     assert.equal(ws.getCell(6, c9).value, '1교시'); assert.equal(ws.getCell(6, c9 + 9).value, '10교시');
     const vals = []; ws.eachRow(r => r.eachCell(cell => vals.push(String(cell.value))));
-    assert.ok(vals.includes('마이크로프로세서실습\n(박신성) 412호\n14주차 수업 옮김'), vals.filter(v => v.startsWith('마이크로')).join(' | '));
+    assert.ok(vals.includes('마이크로프로세서실습\n(박신성) 412호\n14주차 수업 시간 변경'), vals.filter(v => v.startsWith('마이크로')).join(' | '));
     assert.ok(vals.some(v => /^Python프로그래밍\n\(장준국\) .+\n기존 수업 진행$/.test(v)));
     // 손대지 않은 12/7(월)은 그대로 한 칸
     assert.equal(ws.getCell('B5').value, '월 12/7'); assert.equal(ws.getCell('B8').value, '기존 수업\n진행');
@@ -503,6 +503,56 @@ test('다른 주차 수업: 짧게 누르면 안내, 꾹 누르면 풀려서 끌
   await page.mouse.move(b2.x + 60, b2.y + b2.height / 2 + 40, { steps: 6 }); await page.mouse.up();
   assert.doesNotMatch(await page.locator(sel).getAttribute('class'), /unlocked/);
   assert.deepEqual(await mks(), []);
+  assert.deepEqual(errors, []);
+  await ctx.close();
+});
+
+test('시험으로 등록: 14주차 수업 → 시험, 15주차 수업은 평소 수업 · 되돌리기 · 시간 줄인 수업도 엑셀에', async () => {
+  const { ctx, page, errors } = await openApp(browser);
+  const hold = async (loc, ms = 800) => { await loc.scrollIntoViewIfNeeded(); const r = await loc.boundingBox(); await page.mouse.move(r.x + 6, r.y + r.height / 2); await page.mouse.down(); await page.waitForTimeout(ms); await page.mouse.up(); };
+  // 1A 마이크로프로세서실습: 14주차 12/9(수) 6~8교시, 15주차 12/16(수)
+  const s14 = page.locator('#board .day[data-day="2026-12-09"] .blk.session[data-cid="수-1A-6"]');
+  assert.equal(await page.locator('#board .day[data-day="2026-12-16"] .blk.exam[data-id="수-1A-6"]').count(), 1);
+  await hold(s14); await s14.click();
+  assert.match(await page.innerText('#drawer'), /원래 시험 주차\(15주차\) 수업은 평소 수업으로 바뀌어요/);
+  await page.click('#sxExam');
+  // 서랍이 시험 편집으로 바뀌고, 12/9에 시험 블록 · 12/16엔 평소 수업
+  assert.match(await page.innerText('#drawer'), /14주차 수업 12\/9\(수\) 6~8교시 시험으로 등록함/);
+  assert.match(await page.innerText('#toast'), /14주차 수업을 시험으로 등록했어요/);
+  const ex = await examOf(page, '수-1A-6');
+  assert.deepEqual([ex.date, ex.start, ex.len, ex.src], ['2026-12-09', 6, 3, { from: '2026-12-09', mkId: null }]);
+  const exBlk = page.locator('#board .day[data-day="2026-12-09"] .blk.exam[data-id="수-1A-6"]');
+  assert.match(await exBlk.innerText(), /14주차 수업 시험/);
+  assert.equal(await page.locator('#board .day[data-day="2026-12-09"] .blk.session[data-cid="수-1A-6"]').count(), 0);
+  assert.match(await page.innerText('#board .day[data-day="2026-12-16"] .blk.session[data-cid="수-1A-6"]'), /15주차 수업/);
+  assert.equal(await page.locator('#board .day[data-day="2026-12-16"] .blk.exam[data-id="수-1A-6"]').count(), 0);
+  assert.equal((await P(page).counts()).bad, 0);
+  // 엑셀: 12/9에 시험(1학년 색), 12/16엔 평소 수업(회색)
+  await page.click('#dClose');
+  let wb = await readXlsx((await download(page, () => page.click('#btnExport'))).buf);
+  const cellsOf = ws => { const v = []; ws.eachRow(r => r.eachCell(cell => v.push({ t: String(cell.value), f: cell.fill?.fgColor?.argb }))); return v; };
+  let w1 = cellsOf(wb.worksheets[0]), w2 = cellsOf(wb.worksheets[1]);
+  assert.ok(w1.some(x => x.t === '마이크로프로세서실습\n(박신성) 412호\n13시 35분 ~ 16시 15분' && x.f === 'FFFAC090'), w1.filter(x => x.t.startsWith('마이크로')).map(x => x.t).join(' | '));
+  assert.ok(w2.some(x => x.t === '마이크로프로세서실습\n(박신성) 412호\n기존 수업 진행' && x.f === 'FFA6A6A6'));
+  assert.equal((await wb.getWorksheet('과목별 목록')).getRow(1).getCell(11).value, '시험 보는 수업');
+  // 되돌리기 (시험 블록을 눌러 서랍에서)
+  await exBlk.click();
+  await page.click('#dSrcReset');
+  const ex2 = await examOf(page, '수-1A-6');
+  assert.deepEqual([ex2.date, ex2.src], ['2026-12-16', undefined]);
+  assert.equal(await page.locator('#board .day[data-day="2026-12-16"] .blk.exam[data-id="수-1A-6"]').count(), 1);
+  assert.equal(await page.locator('#board .day[data-day="2026-12-09"] .blk.session[data-cid="수-1A-6"]').count(), 1);
+  await page.click('#dClose');
+  // 평소 수업 시간 줄이기(꾹 눌러서): 1B 자바프로그래밍기초 12/9 6~8교시 → 13:35~15:00 → 엑셀에도 그 수업이 보임
+  const jb = page.locator('#board .day[data-day="2026-12-09"] .blk.session[data-cid="수-1B-6"]');
+  await hold(jb); await jb.click();
+  await page.fill('#sxTo', '15:00');
+  const short = page.locator('#board .day[data-day="2026-12-09"] .blk.session.manual[data-cid="수-1B-6"]');
+  assert.match(await short.innerText(), /13:35~15:00 · 14주차 수업 · 시간 변경/);
+  await page.click('#dClose');
+  wb = await readXlsx((await download(page, () => page.click('#btnExport'))).buf);
+  w1 = cellsOf(wb.worksheets[0]);
+  assert.ok(w1.some(x => /^자바프로그래밍기초\n\(한정수\) .+\n14주차 수업 시간 변경 · 13시 35분 ~ 15시$/.test(x.t)), w1.filter(x => x.t.startsWith('자바')).map(x => x.t).join(' | '));
   assert.deepEqual(errors, []);
   await ctx.close();
 });
