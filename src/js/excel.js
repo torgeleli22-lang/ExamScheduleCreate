@@ -33,6 +33,34 @@ function weekCellOf(it) {
   const what = it.kind === 'makeup' ? (it.m && it.m.manual ? `${it.week || ''}주차 수업 ${it.m.to === it.m.from ? '시간 변경' : '옮김'}` : '보강 수업 진행') : '기존 수업 진행';
   return { text: `${c.course}\n(${c.prof}) ${roomLabel(it.room)}\n${what}${it.tm ? ` · ${koRange(it.tm.from, it.tm.to)}` : ''}`, fill: WK.gray, exam: false };
 }
+/** 펼친 날의 열: 교시마다 한 칸. 그날 어떤 칸(시험·수업)이 교시 중간에서 시작·끝나면(직접 정한 시간) 그 교시를 그 시각에서 나눈다.
+   → [{p, a, b, w}] (a·b = 분, w = 열 너비). 그래야 09:55~12:10 수업과 12:20~13:10 시험이 4교시를 나눠 쓰고 둘 다 보인다.
+   점심 칸은 그날 아무것도 안 걸치면 좁게(5), 걸치면 보통 너비 */
+function daySegments(items) {
+  const cuts = [...new Set(items.flatMap(it => [it.t0, it.t1]))].sort((x, y) => x - y);
+  const [l0, l1] = spanOf(LUNCH, 1);
+  const lunchUsed = items.some(it => it.t0 < l1 && it.t1 > l0);
+  const segs = [];
+  for (let p = 1; p <= NP; p++) {
+    const [f, e] = spanOf(p, 1), full = p === LUNCH && !lunchUsed ? 5 : 12;
+    const pts = [f, ...cuts.filter(t => t > f && t < e), e];
+    for (let i = 0; i < pts.length - 1; i++) segs.push({ p, a: pts[i], b: pts[i + 1], w: Math.max(3.4, Math.round(full * (pts[i + 1] - pts[i]) / (e - f) * 10) / 10) });
+  }
+  return segs;
+}
+/** 칸(항목)이 차지하는 열 범위 [k0, k1] (실제 시간이 겹치는 열들) */
+function segRange(segs, it) {
+  const ks = segs.map((sg, k) => (sg.a < it.t1 && sg.b > it.t0 ? k : -1)).filter(k => k >= 0);
+  if (ks.length) return [ks[0], ks[ks.length - 1]];
+  const s = Math.max(1, it.s), e = Math.min(NP, it.e);   // 쉬는 시간 안에만 있는 이상한 시간 → 교시로
+  return [segs.findIndex(sg => sg.p === s), segs.map(sg => sg.p).lastIndexOf(e)];
+}
+/** 칸 글자가 들어가려면 필요한 줄 높이(pt) 어림: 9pt 굵게, 한글 ≈ 1.6, 그 밖 ≈ 0.8 열 너비 단위 */
+function cellHeight(text, width) {
+  const w = ln => [...ln].reduce((n, ch) => n + (/[\u1100-\u11FF\u3130-\u318F\uAC00-\uD7AF]/.test(ch) ? 1.6 : 0.8), 0);
+  const lines = String(text).split('\n').reduce((n, ln) => n + Math.max(1, Math.ceil(w(ln) / Math.max(1, width - 0.6))), 0);
+  return Math.min(170, lines * 12 + 6);
+}
 function addWeekSheets(wb) {
   const F = (o = {}) => ({ name: '맑은 고딕', size: 11, ...o });
   const fill = argb => ({ type: 'pattern', pattern: 'solid', fgColor: { argb } });
@@ -51,7 +79,8 @@ function addWeekSheets(wb) {
     const layout = days.map(d => {
       const items = itemsOn(d, null);
       const open = items.some(it => it.kind === 'exam') || dayTouched(d);   // 시험이 없어도 손댄 날은 수업을 다 보여 준다
-      const L = { d, items, open, col, n: open ? NP : 1 };
+      const segs = open ? daySegments(items) : [];
+      const L = { d, items, open, col, segs, n: open ? segs.length : 1 };
       col += L.n;
       return L;
     });
@@ -59,7 +88,7 @@ function addWeekSheets(wb) {
     ws.getColumn(1).width = 10;
     for (const L of layout) {
       if (!L.open) ws.getColumn(L.col).width = 20.6;
-      else for (let p = 1; p <= NP; p++) ws.getColumn(L.col + p - 1).width = p === LUNCH ? 5 : 12;
+      else L.segs.forEach((sg, k) => { ws.getColumn(L.col + k).width = sg.w; });
     }
     // 제목·안내
     ws.getCell(1, 2).value = title; ws.getCell(1, 2).font = F({ size: 20, bold: true }); ws.getCell(1, 2).alignment = { vertical: 'middle' };
@@ -81,13 +110,17 @@ function addWeekSheets(wb) {
       head.fill = fill(WK.dayHead); head.font = F({ size: 14, bold: true, color: { argb: 'FFFFFFFF' } }); head.alignment = center;
       head.border = { left: side('thick'), bottom: side('thin') };
       for (let k = 0; k < L.n; k++) {
-        const p = k + 1;
+        const sg = L.open ? L.segs[k] : null;
         for (const r of [6, 7]) {
           const cell = ws.getCell(r, L.col + k);
-          cell.value = L.open ? (r === 6 ? `${p}교시` : PERIODS[p - 1][0].replace(/^0/, '')) : null;
-          cell.fill = fill(WK.per); cell.font = F({ size: r === 6 ? 8 : 7, bold: r === 6 }); cell.alignment = center;
+          cell.value = sg ? (r === 6 ? `${sg.p}교시` : fromMin(sg.a).replace(/^0/, '')) : null;   // 나눈 교시는 칸마다 시작 시각
+          cell.fill = fill(WK.per); cell.font = F({ size: r === 6 ? 8 : 7, bold: r === 6 }); cell.alignment = r === 7 ? { vertical: 'middle', horizontal: 'center', shrinkToFit: true } : center;
           cell.border = { left: side(k === 0 ? 'thick' : 'thin'), right: side('thin'), top: side('thin'), bottom: side('thin') };
         }
+      }
+      if (L.open) for (let p = 1; p <= NP; p++) {   // 나눈 교시: 'N교시' 머리글을 합친다
+        const ks = L.segs.map((sg, k) => (sg.p === p ? k : -1)).filter(k => k >= 0);
+        if (ks.length > 1) ws.mergeCells(6, L.col + ks[0], 6, L.col + ks[ks.length - 1]);
       }
     }
     // 반마다 한 줄
@@ -95,35 +128,38 @@ function addWeekSheets(wb) {
     D.groups.forEach((g, gi) => {
       const r = first + gi, y = g.slice(0, -1), ban = g.slice(-1);
       const yearTop = gi > 0 && D.groups[gi - 1].slice(0, -1) !== y;
-      ws.getRow(r).height = 42;
+      let need = 42;   // 칸 글자가 다 보이게 줄 높이를 늘린다
       Object.assign(ws.getCell(r, 1), { value: `${y}학년 ${ban}반`, font: F({ bold: true }), alignment: center,
         border: { left: side('thin'), right: side('thin'), top: side(yearTop ? 'thick' : 'thin'), bottom: side('thin') } });
       for (const L of layout) {
         if (!L.open) continue;
-        for (let p = 1; p <= NP; p++) {
-          const cell = ws.getCell(r, L.col + p - 1);
-          cell.fill = fill(p === LUNCH ? WK.lunch : WK.white);
-          cell.border = { left: side(p === 1 ? 'thick' : 'thin'), right: side('thin'), top: side(yearTop ? 'thick' : 'thin'), bottom: side('thin') };
-        }
-        // 시험 먼저, 그다음 그날 수업(회색). 같은 칸이 겹치면 앞 칸에 이어 쓰고 붉게
-        const mine = L.items.filter(it => groupOf(it.c) === g).sort((a, b) => (a.kind === 'exam' ? 0 : 1) - (b.kind === 'exam' ? 0 : 1) || a.s - b.s);
-        const used = new Array(NP + 2).fill(0);
+        L.segs.forEach((sg, k) => {
+          const cell = ws.getCell(r, L.col + k);
+          cell.fill = fill(sg.p === LUNCH ? WK.lunch : WK.white);
+          cell.border = { left: side(k === 0 ? 'thick' : 'thin'), right: side('thin'), top: side(yearTop ? 'thick' : 'thin'), bottom: side('thin') };
+        });
+        // 시험 먼저, 그다음 그날 수업(회색). 실제 시간이 겹치면 앞 칸에 이어 쓰고 붉게
+        const mine = L.items.filter(it => groupOf(it.c) === g).sort((a, b) => (a.kind === 'exam' ? 0 : 1) - (b.kind === 'exam' ? 0 : 1) || a.t0 - b.t0);
+        const used = new Array(L.n).fill(-1), widthOf = (k0, k1) => L.segs.slice(k0, k1 + 1).reduce((n, sg) => n + sg.w, 0);
         for (const it of mine) {
-          const s = Math.max(1, it.s), e = Math.min(NP, it.e);
+          const [k0, k1] = segRange(L.segs, it);
+          if (k0 < 0 || k1 < k0) continue;
           const cc = weekCellOf(it);
-          const clash = range(s, e).find(p => used[p]);
-          if (clash) {
-            const mc = ws.getCell(r, L.col + used[clash] - 1);
+          const clash = range(k0, k1).find(k => used[k] >= 0);
+          if (clash !== undefined) {
+            const m0 = used[clash], m1 = used.lastIndexOf(m0), mc = ws.getCell(r, L.col + m0);
             mc.value = `${mc.value}\n+ ${cc.text.replace(/\n/g, ' ')}`; mc.fill = fill(WK.clash);
-            ws.getRow(r).height = 64;
+            need = Math.max(need, cellHeight(mc.value, widthOf(m0, m1)));
             continue;
           }
-          if (e > s) ws.mergeCells(r, L.col + s - 1, r, L.col + e - 1);
-          const cell = ws.getCell(r, L.col + s - 1);
+          if (k1 > k0) ws.mergeCells(r, L.col + k0, r, L.col + k1);
+          const cell = ws.getCell(r, L.col + k0);
           cell.value = cc.text; cell.fill = fill(cc.fill); cell.font = F({ size: 9, bold: true }); cell.alignment = center;
-          for (let p = s; p <= e; p++) used[p] = s;
+          for (let k = k0; k <= k1; k++) used[k] = k0;
+          need = Math.max(need, cellHeight(cc.text, widthOf(k0, k1)));
         }
       }
+      ws.getRow(r).height = need;
     });
     const last = first + D.groups.length - 1;
     // 시험도 없고 손댄 것도 없는 날: 한 칸으로 '기존 수업 진행'
