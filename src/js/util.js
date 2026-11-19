@@ -22,9 +22,27 @@ const dowOf = iso => new Date(iso + 'T00:00:00Z').getUTCDay();
 function fmt(iso) { if (!iso) return '-'; const [, m, d] = iso.split('-'); return `${+m}/${+d}(${DOW[dowOf(iso)]})`; }
 const groupOf = c => `${c.year}${c.ban}`;
 const lenOf = c => c.end - c.start + 1;
-const roomLabel = r => !r ? '-' : (/^\d+$/.test(r) ? r + '호' : r);
-const normRoom = r => String(r || '').replace(/호/g, '').replace(/\s+/g, '').toUpperCase();
-const cleanRoom = r => String(r || '').replace(/호/g, '').trim();
+/** 학과 보유 강의실 (사용자: 남관 111·212·401·404·412·413호, 산학관 101호). 강의실이 바뀌면 여기를 고친다.
+   저장은 기본 건물(남관)이면 번호만('412'), 다른 건물이면 건물+번호('산학관101') */
+const ROOMS = [{ building: '남관', rooms: ['111', '212', '401', '404', '412', '413'] }, { building: '산학관', rooms: ['101'] }];
+const MAIN_BUILDING = ROOMS[0].building;
+const OWNED_ROOMS = ROOMS.flatMap(b => b.rooms.map(n => (b.building === MAIN_BUILDING ? n : b.building + n)));
+/** 강의실 이름 → 저장 형태: '남관 412호'·'412호' → '412', '산학관 101호' → '산학관101', 번호만 '101' → 보유 강의실 중 하나뿐이면 '산학관101' */
+function canonRoom(r) {
+  let v = String(r || '').replace(/호/g, '').replace(/\s+/g, '');
+  if (v.startsWith(MAIN_BUILDING) && /^\d+$/.test(v.slice(MAIN_BUILDING.length))) v = v.slice(MAIN_BUILDING.length);
+  if (/^\d+$/.test(v) && !OWNED_ROOMS.includes(v)) {
+    const hit = OWNED_ROOMS.filter(x => x.length > v.length && x.endsWith(v) && /^\D+$/.test(x.slice(0, -v.length)));
+    if (hit.length === 1) v = hit[0];
+  }
+  return v;
+}
+/** 표시: '412' → '412호', '산학관101' → '산학관 101호' */
+const roomLabel = r => { const v = canonRoom(r); if (!v) return '-'; if (/^\d+$/.test(v)) return v + '호'; const m = v.match(/^(\D+?)(\d+)$/); return m ? `${m[1]} ${m[2]}호` : v; };
+/** 강의실 고르기 상자용: 건물까지 ('남관 412호') */
+const roomFull = r => { const v = canonRoom(r); return /^\d+$/.test(v) && OWNED_ROOMS.includes(v) ? `${MAIN_BUILDING} ${v}호` : roomLabel(v); };
+const normRoom = r => canonRoom(r).toUpperCase();
+const cleanRoom = r => canonRoom(r);
 const pRange = (s, len) => len <= 1 ? `${s}교시` : `${s}~${s + len - 1}교시`;
 const tRange = (s, len) => { const e = Math.min(NP, s + len - 1); return `${PERIODS[s - 1]?.[0] ?? '?'}~${PERIODS[e - 1]?.[1] ?? '?'}`; };
 const opts = (arr, cur, lab = x => x) => arr.map(v => `<option value="${esc(v)}"${String(v) === String(cur) ? ' selected' : ''}>${esc(lab(v))}</option>`).join('');

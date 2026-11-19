@@ -82,7 +82,7 @@ function parseMakeups(text, classes, calendar, year) {
     const c = cands[0];
     if (cands.length > 1 && score(cands[1]) === score(c) && cands[1].ban !== c.ban) { unmatched.push({ line, why: `어느 반인지 알 수 없어요 (${cands.map(groupOf).join('/')})` }); continue; }
     const p = periods[periods.length - 1] || [c.start, c.end];
-    const room = (line.match(/(?<!\d)(\d{3,4})\s*호/) || [])[1] || c.room;
+    const room = cleanRoom((line.match(/(?<!\d)(\d{3,4})\s*호/) || [])[1]) || c.room;
     makeups.push({ id: `${c.id}|${from}|${to}|${p[0]}`, classId: c.id, from, to, start: p[0], end: p[1], room, note: line.replace(/\t+/g, ' ') });
   }
   return { makeups, unmatched };

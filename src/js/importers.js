@@ -134,7 +134,7 @@ async function parseTimetableXlsx(buf) {
         let span = 1;
         while (k + span < np) { const nx = ws.getCell(r, hdr.c + 3 + k + span); if (nx.isMerged && nx.master && nx.master.address === cell.address) span++; else break; }
         const m = t.match(/^(.+?)\s*\(([^)]+)\)\s*-?\s*(.*)$/);
-        out.push({ day, year, ban: ban.toUpperCase(), start: k + 1, end: k + span, course: (m ? m[1] : t).trim(), prof: m ? m[2].trim() : '', room: (m ? m[3] : '').replace(/호/g, '').replace(/\s+/g, '') });
+        out.push({ day, year, ban: ban.toUpperCase(), start: k + 1, end: k + span, course: (m ? m[1] : t).trim(), prof: m ? m[2].trim() : '', room: cleanRoom(m ? m[3] : '') });
         k += span - 1;
       }
     }
