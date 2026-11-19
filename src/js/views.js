@@ -30,7 +30,7 @@ function render() {
 }
 /** 보관(잠금)된 계획: 입력 칸을 모두 막는다. 탭 이동·필터·복사·내보내기는 그대로 */
 function lockControls() {
-  $$('#listTable input, #listTable select, #drawer input, #drawer select, #drawer textarea, #drawer .slotbtn, #drawer #dReset, #drawer #dToReg, #drawer #sxReset, #setupGrid .editable, #btnKeepAll, #rangeBtn, #rangeReset, #createPanel button')
+  $$('#listTable input, #listTable select, #drawer input, #drawer select, #drawer textarea, #drawer .slotbtn, #drawer #dReset, #drawer #dToReg, #drawer #sxReset, #drawer #dSrcReset, #drawer #sxExam, #setupGrid .editable, #btnKeepAll, #rangeBtn, #rangeReset, #createPanel button')
     .forEach(el => { el.disabled = true; });
 }
 /* 위쪽 학년도·학기·시험 선택칸. 없는 조합을 고르면 ui.missing → 자료 넣기 화면 */
@@ -147,7 +147,7 @@ function renderDaySection(d, statusCache) {
       const nar = timePct(it.t1) - timePct(it.t0) < 12 ? ' narrow' : '';   // 한 교시 남짓: 배지는 점으로
       if (it.kind !== 'exam') {   // 수업·보강: 8·15주차는 바로, 그 밖은 꾹 눌러 풀어야 옮길 수 있다
         const manual = it.kind === 'makeup' && it.m.manual;
-        const what = manual ? `${it.week ? `${it.week}주차 ` : ''}수업 · 옮김` : it.kind === 'makeup' ? `보강${it.week ? `(${it.week}주차분)` : ''}` : `${it.week}주차 수업`;
+        const what = manual ? `${it.week ? `${it.week}주차 ` : ''}수업 · ${it.m.to === it.m.from ? '시간 변경' : '옮김'}` : it.kind === 'makeup' ? `보강${it.week ? `(${it.week}주차분)` : ''}` : `${it.week}주차 수업`;
         const ref = sessionRef(it), key = sessionKey(ref), free = sessionFree(it), open = !isLocked() && (free || !!ui.unlocked?.has(key));
         const tm = it.kind === 'makeup' && it.m.time ? `${it.m.time.from}~${it.m.time.to} · ` : '';
         const tip = `${what}: ${it.c.course}(${it.c.prof}) ${roomLabel(it.room)}${isLocked() ? '' : free ? '\n끌어서 옮기거나 눌러서 날짜·시간을 고치세요' : open ? '\n끌어서 옮기거나 눌러서 날짜·시간을 고치세요. 다시 꾹 누르면 고정돼요' : '\n고정된 수업이에요. 꾹 누르면 옮길 수 있어요'}`;
@@ -157,8 +157,9 @@ function renderDaySection(d, statusCache) {
       const ex = S.exams[it.c.id], st = statusCache[it.c.id];
       const badge = st.bad.length ? `<span class="badge b-bad">겹침</span>` : st.combined.length ? `<span class="badge b-cb">합반</span>` : st.keep ? `<span class="badge b-ok">기존</span>` : st.done ? `<span class="badge b-ok">확정</span>` : st.moved ? `<span class="badge b-mv">이동</span>` : '';
       const tip = [`${it.c.course} (${it.c.prof}) ${g}`, `${fmt(ex.date)} ${examTime(ex)} (${pRange(ex.start, ex.len)}) · ${roomLabel(ex.room)} · ${ex.method}`,
-        st.moved ? `↪ ${S.examWeek}주차 수업 ${fmt(defaultDate(it.c))} ${pRange(defaultStart(it.c), defaultLen(it.c))}에서 옮김` : '', st.keep ? '✓ 기존 시간표 수업 진행' : '', st.combined.length ? `합반: ${combinedLabel(st.combined)}와 같은 시간에 한 시험` : '', ...st.bad.map(describeConflict), ...st.warn].filter(Boolean).join('\n');
-      return `<button type="button" class="blk exam${nar} y${esc(year)}${st.bad.length ? ' bad' : ''}${badge ? ' has-badge' : ''}" style="${pos}" data-id="${esc(it.c.id)}" title="${esc(tip)}"><span class="t">${esc(it.c.course)}</span><span class="s">${ex.time ? `${esc(examTime(ex))} · ` : ''}${st.moved && (ex.date !== defaultDate(it.c) || ex.start !== defaultStart(it.c)) ? `${S.examWeek}주차 · ${esc(fmt(defaultDate(it.c)))}에서 옮김` : st.moved ? `${S.examWeek}주차 · 시간 변경` : `${S.examWeek}주차${D.examMakeup[it.c.id] ? '(보강)' : ''} · ${esc(it.c.prof)} · ${esc(roomLabel(ex.room))}`}</span>${badge}</button>`;
+        srcSession(it.c) ? `${examWeekOf(it.c)}주차 수업을 시험으로 등록함 (${S.examWeek}주차 수업은 평소 수업)` : '',
+        st.moved ? `↪ ${examWeekOf(it.c)}주차 수업 ${fmt(defaultDate(it.c))} ${pRange(defaultStart(it.c), defaultLen(it.c))}에서 옮김` : '', st.keep ? '✓ 기존 시간표 수업 진행' : '', st.combined.length ? `합반: ${combinedLabel(st.combined)}와 같은 시간에 한 시험` : '', ...st.bad.map(describeConflict), ...st.warn].filter(Boolean).join('\n');
+      return `<button type="button" class="blk exam${nar} y${esc(year)}${st.bad.length ? ' bad' : ''}${badge ? ' has-badge' : ''}" style="${pos}" data-id="${esc(it.c.id)}" title="${esc(tip)}"><span class="t">${esc(it.c.course)}</span><span class="s">${ex.time ? `${esc(examTime(ex))} · ` : ''}${st.moved && (ex.date !== defaultDate(it.c) || ex.start !== defaultStart(it.c)) ? `${examWeekOf(it.c)}주차 · ${esc(fmt(defaultDate(it.c)))}에서 옮김` : st.moved ? `${examWeekOf(it.c)}주차 · 시간 변경` : `${examWeekOf(it.c)}주차${srcSession(it.c) ? ' 수업 시험' : D.examMakeup[it.c.id] ? '(보강)' : ''} · ${esc(it.c.prof)} · ${esc(roomLabel(ex.room))}`}</span>${badge}</button>`;
     }).join('');
     rows += `<div class="grow${prevYear !== null && prevYear !== year ? ' yb' : ''}"><div class="glabel y${esc(year)}">${esc(g)}</div><div class="track" style="grid-template-rows:repeat(${lanes},minmax(30px,auto))">${cells}${blocks}</div></div>`;
     prevYear = year;
@@ -276,7 +277,7 @@ function renderList() {
       <td>${statusPills(st)}</td>
       <td class="gtag">${esc(groupOf(c))}</td>
       <td><button type="button" class="linkbtn" data-open="${id}">${esc(c.course)}</button><span class="sub">${esc(c.prof)}</span></td>
-      <td>${esc(c.day)} ${pRange(c.start, lenOf(c))}<span class="sub">${S.examWeek}주차 ${fmt(defaultDate(c))}</span></td>
+      <td>${esc(c.day)} ${pRange(c.start, lenOf(c))}<span class="sub">${examWeekOf(c)}주차 ${fmt(defaultDate(c))}</span></td>
       <td><select aria-label="방식" data-f="method">${opts(METHODS, ex.method)}</select></td>
       <td><select aria-label="날짜" data-f="date"${dis}>${dateOptions(ex.date)}</select></td>
       <td><select aria-label="시작 교시" data-f="start"${dis}>${opts(range(1, NP), ex.start, v => `${v}교시`)}</select></td>

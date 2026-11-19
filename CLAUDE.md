@@ -65,6 +65,7 @@ tests/helpers.mjs     vm 로더, 테스트용 xlsx/PDF/한글(makeHwp) 생성, �
 - `Store` (저장 단위): `{v:2, plans:{[planId]: Plan}, currentId}`. localStorage 키 `exam-planner:v2`.
 - `Plan` (시험 하나): `{v:2, id:"2027-1-mid", termYear, term(1|2), kind('mid'|'final'), title, dept, year, examWeek, calendar:{cols, weeks}, classes:[...], exams:{[classId]: {method, date(YYYY-MM-DD), start, len, room, note, done}}, extraDates, locked, sources:{timetable, calendar, makeups}, makeups:[...], range:{from,to}, createdAt, updatedAt, rev}`
   - exam에 `time: {from:'13:40', to:'15:10'}`(선택) = 서랍에서 **시작·종료 시간을 직접** 정한 경우. `setExamTime()`이 걸치는 교시로 start·len을 다시 계산(엑셀 칸·끌기 칸·빈 시간 찾기용), 교시 경계와 같으면 time을 지운다. **겹침·점심 경고·합반·판 블록 위치/크기는 실제 시간(분) 기준**: `spanOf/placeSpan`(분 범위), itemsOn 항목의 `t0/t1/tm`, `timePct`(판 가로 %, 점심 칸 0.55배·쉬는 시간은 칸 경계, styles.css `.track` 열 폭과 맞출 것). 표시는 `examTime(ex)`. 끌기·빈 시간 누르기는 `moveExamStart()`로 같은 만큼 같이 옮기고, 교시로 고치는 곳(목록 select·등록 폼·교시로 맞추기·되돌리기)은 time을 지운다. time이 있으면 `isMoved`(기존 시간표 아님).
+  - exam에 `src: {from, mkId}` = **시험으로 등록**한 수업(사용자: "14주차에 시험을 볼 수도 있다"). 수업 서랍 `#sxExam` → `registerAsExam(ref)`: 그 수업 자리(날짜·시작·길이·강의실·time)가 이 과목의 기본 시험 자리가 되고(`srcSession(c)` → `defaultDate/Start/Len/Room/Time`, `examWeekOf(c)`, `prevDate`도 그 주차 기준), 그 수업은 판에서 시험으로 바뀌며(`examTakesFixed/examTakesMakeup`), 원래 시험 주차 수업은 평소 수업(fixed)이 된다. 기본 자리(시험 주차 수업·그것을 대신한 보강)를 고르면 src를 지운다. 시간 줄인 수업(manual 보강)도 등록 가능(mkId). 되돌리기는 시험 서랍 `#dSrcReset` → `clearExamSrc(c)`. src가 가리키는 수업이 없어지면 무시(기본으로).
   - exam에 `keep: true` = **기존 시간표 수업 진행** 확정(done도 true). 옮기면 풀린다(`isKept(c)` = keep && !isMoved). 방식(필기·시험 없음 등)은 따로 고를 수 있어 "원래 시간에 시험"과 "시험 없이 수업" 둘 다 표현. 엑셀은 `methodLabel(c)`.
   - makeup: `{id, classId, from(결강일|''), to(보강일), start, end, room, note}`. 판에서 직접 옮긴 수업은 `manual: true`(id `${classId}|${원래 날짜}|m`, note '직접 옮김', 선택 `time:{from,to}`).
   - **다른 주차 수업 옮기기**(rules.js `sessionRef/sessionKey/sessionFree/sessionOf/applySession`): 8·15주차(와 시험 주차) 수업·직접 옮긴 수업은 바로, 다른 주차 수업은 판에서 꾹 눌러(drag.js `LONG_PRESS_MS` 600ms, `ui.unlocked`) 푼 뒤 끌기·서랍(`openSessionDrawer`, `ui.sess`). 원래 날짜·시간·강의실로 돌아가면 기록을 지운다. manual 보강은 `deriveMakeups`에서 시험을 밀거나 대신하지 않는다(시험보다 뒤면 경고만). 겹침 검사는 `place.self`로 자기 자신을 뺀다(`isSelfSession`). 보관된 계획에선 안 풀린다. 직접 옮긴 수업도 원래 주차를 따라 잠긴다. **다시 고정**: 풀린 수업을 움직이지 않고 다시 꾹 누르기(`armRelock`), 서랍 `#sxLock`, 위쪽 `#btnRelock`(풀린 개수) → `relockSession/relockAll`.
@@ -80,7 +81,7 @@ tests/helpers.mjs     vm 로더, 테스트용 xlsx/PDF/한글(makeHwp) 생성, �
 ## 겹침 규칙 (`itemsOn`, `conflictsOf`, `warningsOf` in rules.js)
 
 - 어떤 날짜에 점유되는 것 = (a) 그날 열리는 고정 수업: 그 날짜의 주차가 시험주차가 아니거나, 시험주차여도 NO_SLOT 과목. 단 결강일(makeup.from)의 그 수업은 빠짐 / (b) 그날로 잡힌 보강(kind 'makeup', 원래 주차 표시) / (c) 그 날짜에 배치된 모든 시험.
-- **보강으로 시험이 옮겨지는 경우**(`deriveMakeups` → `D.examMakeup`, 기본 시험 시간 `defaultDate/Start/Len/Room`이 보강 시간이 됨):
+- **보강으로 시험이 옮겨지는 경우**(`deriveMakeups` → `D.examMakeup`, 기본 시험 시간 `defaultDate/Start/Len/Room`이 보강 시간이 됨. 단 시험으로 등록한 수업(`exam.src`)이 있으면 그것이 우선):
   - replace: 시험 주차 수업 자체가 결강되고 보강됨.
   - push(**15주가 밀림**, `D.examPushed`): 보강일이 그 과목의 시험 주차 날짜보다 뒤이고 시험 주차 마지막 날 이하. 이때 원래 시험 주차 날짜의 수업은 평소 수업(fixed)으로 본다. 여러 개면 가장 늦은 보강. 사용자 요구: "보강으로 인해 15주가 밀릴 수도 있다".
   - 날짜별 배치 위 `#mkNotice`에 옮겨진 과목 목록(`shiftedByMakeup()`). 시험보다 뒤에 남은 보강은 경고.

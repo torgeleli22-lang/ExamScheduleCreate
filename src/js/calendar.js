@@ -65,12 +65,27 @@ function deriveMakeups() {
     if (!cur || m.to > cur.to) { D.examMakeup[c.id] = m; if (push) D.examPushed.add(c.id); else D.examPushed.delete(c.id); }
   }
 }
-/** 이 수업의 시험 주차 수업 날짜 (보강됐으면 보강일) */
-const defaultDate = c => D.examMakeup?.[c.id]?.to || D.colDates[c.day]?.[S.examWeek - 1] || '';
-const defaultStart = c => D.examMakeup?.[c.id]?.start ?? c.start;
-const defaultLen = c => { const m = D.examMakeup?.[c.id]; return m ? m.end - m.start + 1 : lenOf(c); };
-const defaultRoom = c => D.examMakeup?.[c.id]?.room || c.room;
-const prevDate = c => D.colDates[c.day]?.[S.examWeek - 2] || '';
+/** '시험으로 등록'한 수업(exam.src = {from, mkId}) → 그 수업 자리 {date, start, len, room, time, week, from, mk}.
+   등록하지 않았거나 그 수업이 없어졌으면 null (→ 기본: 시험 주차 수업 또는 그것을 대신한 보강) */
+function srcSession(c) {
+  const src = S.exams?.[c.id]?.src; if (!src) return null;
+  if (src.mkId) {
+    const m = (D.makeups || []).find(x => x.id === src.mkId && x.classId === c.id);
+    return m ? { date: m.to, start: m.start, len: m.end - m.start + 1, room: m.room || c.room, time: m.time || null, week: D.dateMap[m.from || m.to]?.week ?? null, from: m.from, mk: m } : null;
+  }
+  const info = D.dateMap[src.from];
+  if (!info || info.col !== c.day || D.cancelled?.has(`${c.id}|${src.from}`)) return null;
+  return { date: src.from, start: c.start, len: lenOf(c), room: c.room, time: null, week: info.week, from: src.from, mk: null };
+}
+/** 이 과목의 기본 시험 자리: 시험으로 등록한 수업 → (보강됐으면) 보강 → 시험 주차 수업 */
+const defaultDate = c => srcSession(c)?.date || D.examMakeup?.[c.id]?.to || D.colDates[c.day]?.[S.examWeek - 1] || '';
+const defaultStart = c => { const s = srcSession(c); return s ? s.start : (D.examMakeup?.[c.id]?.start ?? c.start); };
+const defaultLen = c => { const s = srcSession(c); if (s) return s.len; const m = D.examMakeup?.[c.id]; return m ? m.end - m.start + 1 : lenOf(c); };
+const defaultRoom = c => { const s = srcSession(c); return s ? s.room : (D.examMakeup?.[c.id]?.room || c.room); };
+const defaultTime = c => srcSession(c)?.time || null;
+/** 시험을 보는 수업의 주차 (14주차 수업을 시험으로 등록했으면 14, 아니면 시험 주차) */
+const examWeekOf = c => srcSession(c)?.week || S.examWeek;
+const prevDate = c => D.colDates[c.day]?.[examWeekOf(c) - 2] || '';
 function defaultExam(c) {
   return { method: '미정', date: defaultDate(c), start: defaultStart(c), len: defaultLen(c), room: defaultRoom(c), note: '', done: false };
 }
@@ -79,7 +94,12 @@ function rebaseUnmoved(change) {
   const unmoved = new Set(S.classes.filter(c => S.exams[c.id] && !isMoved(c)).map(c => c.id));
   change();
   derive();
-  for (const c of S.classes) if (unmoved.has(c.id)) Object.assign(S.exams[c.id], { date: defaultDate(c), start: defaultStart(c), len: defaultLen(c), room: defaultRoom(c) });
+  for (const c of S.classes) {
+    if (!unmoved.has(c.id)) continue;
+    const ex = S.exams[c.id], t = defaultTime(c);
+    Object.assign(ex, { date: defaultDate(c), start: defaultStart(c), len: defaultLen(c), room: defaultRoom(c) });
+    if (t) ex.time = { ...t }; else delete ex.time;
+  }
 }
 function dayInfoLabel(iso) {
   const info = D.dateMap[iso];
