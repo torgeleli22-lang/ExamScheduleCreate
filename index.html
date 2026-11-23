@@ -486,9 +486,27 @@ const dowOf = iso => new Date(iso + 'T00:00:00Z').getUTCDay();
 function fmt(iso) { if (!iso) return '-'; const [, m, d] = iso.split('-'); return `${+m}/${+d}(${DOW[dowOf(iso)]})`; }
 const groupOf = c => `${c.year}${c.ban}`;
 const lenOf = c => c.end - c.start + 1;
-const roomLabel = r => !r ? '-' : (/^\d+$/.test(r) ? r + '호' : r);
-const normRoom = r => String(r || '').replace(/호/g, '').replace(/\s+/g, '').toUpperCase();
-const cleanRoom = r => String(r || '').replace(/호/g, '').trim();
+/** 학과 보유 강의실 (사용자: 남관 111·212·401·404·412·413호, 산학관 101호). 강의실이 바뀌면 여기를 고친다.
+   저장은 기본 건물(남관)이면 번호만('412'), 다른 건물이면 건물+번호('산학관101') */
+const ROOMS = [{ building: '남관', rooms: ['111', '212', '401', '404', '412', '413'] }, { building: '산학관', rooms: ['101'] }];
+const MAIN_BUILDING = ROOMS[0].building;
+const OWNED_ROOMS = ROOMS.flatMap(b => b.rooms.map(n => (b.building === MAIN_BUILDING ? n : b.building + n)));
+/** 강의실 이름 → 저장 형태: '남관 412호'·'412호' → '412', '산학관 101호' → '산학관101', 번호만 '101' → 보유 강의실 중 하나뿐이면 '산학관101' */
+function canonRoom(r) {
+  let v = String(r || '').replace(/호/g, '').replace(/\s+/g, '');
+  if (v.startsWith(MAIN_BUILDING) && /^\d+$/.test(v.slice(MAIN_BUILDING.length))) v = v.slice(MAIN_BUILDING.length);
+  if (/^\d+$/.test(v) && !OWNED_ROOMS.includes(v)) {
+    const hit = OWNED_ROOMS.filter(x => x.length > v.length && x.endsWith(v) && /^\D+$/.test(x.slice(0, -v.length)));
+    if (hit.length === 1) v = hit[0];
+  }
+  return v;
+}
+/** 표시: '412' → '412호', '산학관101' → '산학관 101호' */
+const roomLabel = r => { const v = canonRoom(r); if (!v) return '-'; if (/^\d+$/.test(v)) return v + '호'; const m = v.match(/^(\D+?)(\d+)$/); return m ? `${m[1]} ${m[2]}호` : v; };
+/** 강의실 고르기 상자용: 건물까지 ('남관 412호') */
+const roomFull = r => { const v = canonRoom(r); return /^\d+$/.test(v) && OWNED_ROOMS.includes(v) ? `${MAIN_BUILDING} ${v}호` : roomLabel(v); };
+const normRoom = r => canonRoom(r).toUpperCase();
+const cleanRoom = r => canonRoom(r);
 const pRange = (s, len) => len <= 1 ? `${s}교시` : `${s}~${s + len - 1}교시`;
 const tRange = (s, len) => { const e = Math.min(NP, s + len - 1); return `${PERIODS[s - 1]?.[0] ?? '?'}~${PERIODS[e - 1]?.[1] ?? '?'}`; };
 const opts = (arr, cur, lab = x => x) => arr.map(v => `<option value="${esc(v)}"${String(v) === String(cur) ? ' selected' : ''}>${esc(lab(v))}</option>`).join('');
@@ -835,11 +853,14 @@ function itemsOn(iso, excludeId) {
   return out;
 }
 /** p = {date, start, len, room}. 교시가 겹치면서 같은 반 / 같은 교수 / 같은 강의실이면 겹침 */
-/* 합반 시험: 같은 과목의 다른 반 시험이 같은 날 같은 교시에 시작하면 한 시험(합반)으로 본다.
+/* 합반 시험: 같은 과목·같은 교수님의 다른 반 시험이 같은 날 같은 시각에 시작하면 한 시험(합반)으로 본다.
    → 교수·강의실 겹침으로 세지 않는다 (사용자: "15주차 수업을 동시에 진행하면 합반 시험").
-   시작 교시가 다르게 걸치거나, 다른 과목이면 지금처럼 겹침. */
+   과목이 같아도 교수님이 다르면 합반이 아니다(사용자) → 따로 보는 시험(같은 강의실이면 강의실 겹침).
+   시작 시각이 다르거나, 다른 과목이면 지금처럼 겹침. */
 const courseKey = c => String(c.course || '').replace(/\s+/g, '').toUpperCase();
-const isCombined = (c, it, t0) => it.kind === 'exam' && it.c.id !== c.id && groupOf(it.c) !== groupOf(c) && courseKey(it.c) === courseKey(c) && it.t0 === t0;
+const profKey = c => String(c.prof || '').replace(/\s+/g, '');
+const isCombined = (c, it, t0) => it.kind === 'exam' && it.c.id !== c.id && groupOf(it.c) !== groupOf(c)
+  && courseKey(it.c) === courseKey(c) && profKey(it.c) === profKey(c) && it.t0 === t0;
 /** p에 놓으면 함께 합반 시험을 보게 되는 다른 반 수업들 */
 function combinedAt(c, p) {
   if (!p.date) return [];
@@ -1153,7 +1174,7 @@ async function parseTimetableXlsx(buf) {
         let span = 1;
         while (k + span < np) { const nx = ws.getCell(r, hdr.c + 3 + k + span); if (nx.isMerged && nx.master && nx.master.address === cell.address) span++; else break; }
         const m = t.match(/^(.+?)\s*\(([^)]+)\)\s*-?\s*(.*)$/);
-        out.push({ day, year, ban: ban.toUpperCase(), start: k + 1, end: k + span, course: (m ? m[1] : t).trim(), prof: m ? m[2].trim() : '', room: (m ? m[3] : '').replace(/호/g, '').replace(/\s+/g, '') });
+        out.push({ day, year, ban: ban.toUpperCase(), start: k + 1, end: k + span, course: (m ? m[1] : t).trim(), prof: m ? m[2].trim() : '', room: cleanRoom(m ? m[3] : '') });
         k += span - 1;
       }
     }
@@ -1436,7 +1457,7 @@ function parseMakeups(text, classes, calendar, year) {
     const c = cands[0];
     if (cands.length > 1 && score(cands[1]) === score(c) && cands[1].ban !== c.ban) { unmatched.push({ line, why: `어느 반인지 알 수 없어요 (${cands.map(groupOf).join('/')})` }); continue; }
     const p = periods[periods.length - 1] || [c.start, c.end];
-    const room = (line.match(/(?<!\d)(\d{3,4})\s*호/) || [])[1] || c.room;
+    const room = cleanRoom((line.match(/(?<!\d)(\d{3,4})\s*호/) || [])[1]) || c.room;
     makeups.push({ id: `${c.id}|${from}|${to}|${p[0]}`, classId: c.id, from, to, start: p[0], end: p[1], room, note: line.replace(/\t+/g, ' ') });
   }
   return { makeups, unmatched };
@@ -2144,9 +2165,14 @@ function renderPlanPicker() {
 /* ---------- 강의실 선택 ----------
    예전엔 글자 칸 + 추천 목록(datalist)이라, 칸에 '413'이 있으면 '413'만 보였다 → 선택 상자로 전부 보여 준다.
    강의실 목록 = 모든 학기 시험의 시간표·시험·보강에 나온 강의실 전부(직접 입력한 강의실도 쓰이면 들어감). */
-const roomSort = (a, b) => { const na = /^\d+$/.test(a), nb = /^\d+$/.test(b); return na && nb ? +a - +b : na ? -1 : nb ? 1 : a.localeCompare(b, 'ko'); };
+const roomSort = (a, b) => {
+  const ia = OWNED_ROOMS.indexOf(a), ib = OWNED_ROOMS.indexOf(b);   // 보유 강의실 먼저(건물·번호 순)
+  if (ia >= 0 || ib >= 0) return ia < 0 ? 1 : ib < 0 ? -1 : ia - ib;
+  const na = /^\d+$/.test(a), nb = /^\d+$/.test(b); return na && nb ? +a - +b : na ? -1 : nb ? 1 : a.localeCompare(b, 'ko');
+};
+/** 고를 수 있는 강의실: 보유 강의실(ROOMS) + 시간표·시험·보강에 나온 다른 강의실(직접 입력한 것 포함) */
 function allRooms() {
-  const set = new Set();
+  const set = new Set(OWNED_ROOMS);
   const add = r => { const v = cleanRoom(r); if (v) set.add(v); };
   for (const p of Object.values(Store.plans)) {
     for (const c of p.classes || []) add(c.room);
@@ -2172,13 +2198,20 @@ function roomOptions(cur, c, place, { custom = true, blank = null } = {}) {
   let list = allRooms();
   if (curV && !list.includes(curV)) list = [...list, curV].sort(roomSort);
   const use = c && place && place.date ? roomUse(c, place) : null;
-  const o = r => { const u = use && use[normRoom(r)]; return `<option value="${esc(r)}"${r === curV ? ' selected' : ''}>${esc(roomLabel(r))}${u ? ` — 사용 중: ${esc(u.join(', '))}` : ''}</option>`; };
+  const o = r => { const u = use && use[normRoom(r)]; return `<option value="${esc(r)}"${r === curV ? ' selected' : ''}>${esc(roomFull(r))}${u ? ` — 사용 중: ${esc(u.join(', '))}` : ''}</option>`; };
   let html = blank !== null ? `<option value=""${curV ? '' : ' selected'}>${esc(blank)}</option>` : '';
   if (use) {
     const free = list.filter(r => !use[normRoom(r)]), busy = list.filter(r => use[normRoom(r)]);
     html += `<optgroup label="이 시간에 비어 있는 강의실 (${free.length})">${free.map(o).join('')}</optgroup>`;
     if (busy.length) html += `<optgroup label="이 시간에 사용 중 (${busy.length})">${busy.map(o).join('')}</optgroup>`;
-  } else html += list.map(o).join('');
+  } else {   // 시간 기준이 없으면 건물별
+    for (const b of ROOMS) {
+      const rs = list.filter(r => OWNED_ROOMS.includes(r) && (b.building === MAIN_BUILDING ? /^\d+$/.test(r) : r.startsWith(b.building)));
+      if (rs.length) html += `<optgroup label="${esc(b.building)}">${rs.map(o).join('')}</optgroup>`;
+    }
+    const other = list.filter(r => !OWNED_ROOMS.includes(r));
+    if (other.length) html += `<optgroup label="그 밖의 강의실">${other.map(o).join('')}</optgroup>`;
+  }
   if (custom) html += `<option value="__custom">직접 입력…</option>`;
   return html;
 }
@@ -2356,7 +2389,7 @@ function statusPills(st) {
   if (st.bad.length) out.push(`<span class="pill bad" title="${esc(st.bad.map(describeConflict).join('\n'))}">겹침 ${st.bad.length}</span>`);
   if (st.warn.length) out.push(`<span class="pill warn" title="${esc(st.warn.join('\n'))}">확인 ${st.warn.length}</span>`);
   if (st.moved) out.push('<span class="pill mv">변경</span>');
-  if (st.combined?.length) out.push(`<span class="pill cb" title="같은 과목 ${esc(combinedLabel(st.combined))}와 같은 시간에 한 시험">합반 ${esc(combinedLabel(st.combined))}</span>`);
+  if (st.combined?.length) out.push(`<span class="pill cb" title="같은 과목·같은 교수님 ${esc(combinedLabel(st.combined))}와 같은 시간에 한 시험">합반 ${esc(combinedLabel(st.combined))}</span>`);
   if (st.keep) out.push('<span class="pill ok">기존 시간표 수업 진행</span>');
   else if (st.done) out.push('<span class="pill ok">확정</span>');
   if (!out.length) out.push('<span class="pill na">기본</span>');
@@ -3055,7 +3088,7 @@ function openDrawer(id) {
           <select id="dPEnd" data-f="pend" aria-label="끝 교시"${dis}>${opts(range(ex.start, NP), Math.min(NP, ex.start + ex.len - 1), v => `${v}교시 (~${PERIODS[v - 1][1]})`)}</select></span>
           <small class="hint">${hasSlot(ex) ? `${toMin(tm.to) - toMin(tm.from)}분 · ${ex.time ? `직접 정한 시간(${pRange(ex.start, ex.len)}에 걸침) · 겹침은 분 단위로 검사해요` : '교시 시간 그대로'}` : ''}</small></div>
         <label class="field full" for="dRoom"><span>강의실</span><select id="dRoom" data-f="roomsel"${dis}>${roomOptions(ex.room, c, ex)}</select>
-          <input type="text" id="dRoomCustom" data-f="room" placeholder="강의실 직접 입력 (예: 515, 산학관203)" hidden></label>
+          <input type="text" id="dRoomCustom" data-f="room" placeholder="강의실 직접 입력 (예: 남관 515, 산학관 203)" hidden></label>
         <label class="field" for="dDone" style="justify-content:flex-end"><span>교수님 확인</span><span class="chk"><input type="checkbox" id="dDone" data-f="done"${ex.done ? ' checked' : ''}>확정</span></label>
         <label class="field full" for="dNote"><span>요청사항 · 메모</span><textarea id="dNote" data-f="note" rows="3" placeholder="예: 실기 2시간, 노트북 지참, 412호 희망">${esc(ex.note)}</textarea></label>
       </div>
@@ -3166,7 +3199,7 @@ function openRegister(preId) {
         <label class="field" for="rStart"><span>시작 교시</span><select id="rStart" data-r="start"${dis}>${opts(range(1, NP), r.start || 1, v => `${v}교시 (${PERIODS[v - 1][0]})`)}</select></label>
         <label class="field" for="rLen"><span>시험 길이</span><select id="rLen" data-r="len"${dis}>${opts(range(1, 6), r.len || 2, v => `${v}교시 (${v * 50}분)`)}</select></label>
         <label class="field full" for="rRoom"><span>강의실</span><select id="rRoom" data-r="room"${dis}>${roomOptions(r.room || '', id ? D.byId[id] : null, r.date ? { date: r.date, start: r.start || 1, len: r.len || 2 } : null)}</select>
-          <input type="text" id="rRoomCustom" data-r="roomtext" placeholder="강의실 직접 입력 (예: 515, 산학관203)" hidden></label>
+          <input type="text" id="rRoomCustom" data-r="roomtext" placeholder="강의실 직접 입력 (예: 남관 515, 산학관 203)" hidden></label>
         <label class="field full" for="rNote"><span>요청사항 · 메모</span><textarea id="rNote" data-r="note" rows="2"${id ? '' : ' disabled'}>${esc(r.note || '')}</textarea></label>
       </div>
       <div class="dsec"><h3>등록하면 이렇게 돼요</h3><div class="checks" id="rChecks"></div></div>

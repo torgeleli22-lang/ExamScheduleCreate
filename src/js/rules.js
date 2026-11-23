@@ -108,11 +108,14 @@ function itemsOn(iso, excludeId) {
   return out;
 }
 /** p = {date, start, len, room}. 교시가 겹치면서 같은 반 / 같은 교수 / 같은 강의실이면 겹침 */
-/* 합반 시험: 같은 과목의 다른 반 시험이 같은 날 같은 교시에 시작하면 한 시험(합반)으로 본다.
+/* 합반 시험: 같은 과목·같은 교수님의 다른 반 시험이 같은 날 같은 시각에 시작하면 한 시험(합반)으로 본다.
    → 교수·강의실 겹침으로 세지 않는다 (사용자: "15주차 수업을 동시에 진행하면 합반 시험").
-   시작 교시가 다르게 걸치거나, 다른 과목이면 지금처럼 겹침. */
+   과목이 같아도 교수님이 다르면 합반이 아니다(사용자) → 따로 보는 시험(같은 강의실이면 강의실 겹침).
+   시작 시각이 다르거나, 다른 과목이면 지금처럼 겹침. */
 const courseKey = c => String(c.course || '').replace(/\s+/g, '').toUpperCase();
-const isCombined = (c, it, t0) => it.kind === 'exam' && it.c.id !== c.id && groupOf(it.c) !== groupOf(c) && courseKey(it.c) === courseKey(c) && it.t0 === t0;
+const profKey = c => String(c.prof || '').replace(/\s+/g, '');
+const isCombined = (c, it, t0) => it.kind === 'exam' && it.c.id !== c.id && groupOf(it.c) !== groupOf(c)
+  && courseKey(it.c) === courseKey(c) && profKey(it.c) === profKey(c) && it.t0 === t0;
 /** p에 놓으면 함께 합반 시험을 보게 되는 다른 반 수업들 */
 function combinedAt(c, p) {
   if (!p.date) return [];

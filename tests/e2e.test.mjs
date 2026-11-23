@@ -597,18 +597,19 @@ test('엑셀: 한 교시를 나눠 쓰는 수업(09:55~12:10)과 시험(12:20~13
   await ctx.close();
 });
 
-test('강의실 고르기: 가진 강의실 전부, 그 시간에 비어 있음/사용 중, 직접 입력, 목록·등록 폼', async () => {
+test('강의실 고르기: 보유 강의실(남관·산학관), 그 시간에 비어 있음/사용 중, 직접 입력, 목록·등록 폼', async () => {
   const { ctx, page, errors } = await openApp(browser);
-  const rooms = [...new Set(SEED.classes.map(c => c.room))];
+  const rooms = ['111', '212', '401', '404', '412', '413', '산학관101'];   // 학과 보유 강의실 (시간표의 '남관412'도 412로)
   const opts = sel => page.$$eval(`${sel} option`, os => os.map(o => o.value).filter(v => v && v !== '__custom'));
   // 2A JAVA (12/8 화 6~8교시, 413호) 서랍
   await page.evaluate(() => window.__planner.openDrawer('화-2A-6'));
-  assert.deepEqual((await opts('#dRoom')).sort(), rooms.slice().sort());            // 강의실 전부
+  assert.deepEqual(await opts('#dRoom').then(v => v.slice().sort()), rooms.slice().sort());   // 보유 강의실 전부, 중복 없음
   assert.equal(await page.inputValue('#dRoom'), '413');
   const groups = await page.$$eval('#dRoom optgroup', gs => gs.map(g => g.label));
   assert.match(groups[0], /^이 시간에 비어 있는 강의실/); assert.match(groups[1], /^이 시간에 사용 중/);
   // 12/8 6~8교시에 412호는 2C 앱프로그래밍기초 시험이 씀
-  assert.match(await page.$eval('#dRoom option[value="412"]', o => o.textContent), /412호 — 사용 중: 2C 앱프로그래밍기초/);
+  assert.match(await page.$eval('#dRoom option[value="412"]', o => o.textContent), /^남관 412호 — 사용 중: 2C 앱프로그래밍기초/);
+  assert.match(await page.$eval('#dRoom option[value="산학관101"]', o => o.textContent), /^산학관 101호/);
   assert.equal(await page.$eval('#dRoom option[value="412"]', o => o.parentElement.label.startsWith('이 시간에 사용 중')), true);
   // 고르기
   await page.selectOption('#dRoom', '401');
@@ -624,6 +625,8 @@ test('강의실 고르기: 가진 강의실 전부, 그 시간에 비어 있음/
   await page.click('[data-tab="courses"]');
   const listOpts = await opts('#listTable tr[data-id="월-2A-2"] select[data-f="room"]');
   assert.deepEqual(listOpts.sort(), [...rooms, '515'].sort());
+  // 시간 기준이 없는 목록 상자는 건물별 + 그 밖의 강의실
+  assert.deepEqual(await page.$$eval('#listTable tr[data-id="월-2A-2"] select[data-f="room"] optgroup', gs => gs.map(g => g.label)), ['남관', '산학관', '그 밖의 강의실']);
   await page.selectOption('#listTable tr[data-id="월-2A-2"] select[data-f="room"]', '111');
   assert.equal((await examOf(page, '월-2A-2')).room, '111');
   // 시험 일정 등록 폼: 날짜·교시를 바꾸면 '사용 중'도 그 시간 기준으로

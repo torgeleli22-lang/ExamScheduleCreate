@@ -250,7 +250,7 @@ test('보강 신청 목록(.xls 모양): 분반 칸 101·102·103 → 반', () =
   ]);
 });
 
-test('합반 시험: 같은 과목 다른 반이 같은 날 같은 교시에 시작하면 교수·강의실 겹침 아님', () => {
+test('합반 시험: 같은 과목·같은 교수님의 다른 반이 같은 날 같은 시각에 시작하면 교수·강의실 겹침 아님 (교수님이 다르면 합반 아님)', () => {
   const core = loadCore();
   core.usePlan(seedPlan(core));
   const S = core.get('S');
@@ -269,12 +269,17 @@ test('합반 시험: 같은 과목 다른 반이 같은 날 같은 교시에 시
   assert.ok(kc.some(x => x.it.c.id === '목-2C-3' && x.kinds.includes('교수')));
   // 같은 교수님인데 강의실을 다르게 잡으면 겹침은 아니지만 확인 필요
   assert.match(core.warningsOf(b2, { ...same, room: '413' }).join(' '), /합반\(2A\)인데 강의실이 달라요\(413호·212호\)/);
-  // 교수님이 다른 합반(커리어디자인 2A 조동일 · 2B 박신성)은 강의실이 달라도 괜찮음
+  // 과목이 같아도 교수님이 다르면 합반 아님(사용자): 커리어디자인 2A 조동일 · 2B 박신성을 같은 12/17 1교시·같은 산학관101에 → 강의실 겹침
   const k2a = SEED.classes.find(x => x.id === '목-2A-1');
   S.exams['목-2B-3'] = { ...S.exams['목-2B-3'], start: 1, len: 2 };      // 2B를 2A와 같은 12/17 1교시로
-  assert.deepEqual(Array.from(core.combinedAt(k2a, { date: '2026-12-17', start: 1, len: 2, room: '산학관101' }), x => x.c.id), ['목-2B-3']);
-  assert.deepEqual(Array.from(core.statusOf(k2a).bad), []);
-  assert.equal(core.statusOf(k2a).combined.length, 1);
+  assert.equal(core.combinedAt(k2a, { date: '2026-12-17', start: 1, len: 2, room: '산학관101' }).length, 0);
+  assert.equal(core.statusOf(k2a).combined.length, 0);
+  assert.deepEqual(Array.from(core.statusOf(k2a).bad, x => `${x.it.c.id}:${x.kinds.join('·')}`), ['목-2B-3:강의실']);
+  // 기본 일정의 커리어디자인 2B(박신성)·2C(이성욱)도 12/17 3~4교시에 같이 있지만 합반 아님, 강의실이 달라 겹침도 없음
+  S.exams['목-2B-3'] = { ...S.exams['목-2B-3'], start: 3, len: 2 };
+  const k2c = SEED.classes.find(x => x.id === '목-2C-3');
+  assert.equal(core.statusOf(k2c).combined.length, 0);
+  assert.deepEqual(Array.from(core.statusOf(k2c).bad), []);
   // 같은 반이 겹치는 건 합반이어도 여전히 겹침 (같은 반이 두 시험)
   assert.equal(core.combinedAt(b2, { date: '2026-12-16', start: 2, len: 3, room: '212' }).length, 0);
 });
@@ -465,4 +470,25 @@ test('시험으로 등록: 14주차 수업 자리에서 시험, 15주차 수업�
   ex.method = '시험 없음';
   core.registerAsExam(core.sessionRef(mine(d14, 'makeup')[0]));
   assert.equal(ex.method, '미정');
+});
+
+test('보유 강의실: 이름 맞추기(남관412 = 412, 101 = 산학관101), 표시, 같은 강의실이면 겹침', () => {
+  const core = loadCore();
+  assert.deepEqual(Array.from(core.get('OWNED_ROOMS')), ['111', '212', '401', '404', '412', '413', '산학관101']);
+  const C = r => core.canonRoom(r);
+  assert.equal(C('남관412'), '412'); assert.equal(C('남관 412호'), '412'); assert.equal(C('412호'), '412');
+  assert.equal(C('산학관 101호'), '산학관101'); assert.equal(C('산학관101'), '산학관101'); assert.equal(C('101'), '산학관101');
+  assert.equal(C('515'), '515'); assert.equal(C(''), '');
+  assert.equal(core.roomLabel('남관412'), '412호'); assert.equal(core.roomLabel('산학관101'), '산학관 101호');
+  assert.equal(core.roomFull('412'), '남관 412호'); assert.equal(core.roomFull('101'), '산학관 101호');
+  assert.equal(core.normRoom('남관412'), core.normRoom('412'));
+  // 시간표에 '남관412'로 적힌 수업(목 2C 커리어디자인 3~4교시)과 '412'에 놓은 시험은 같은 강의실 → 겹침
+  core.usePlan(seedPlan(core));
+  const S = core.get('S'), dm = core.get('D.dateMap');
+  const thu = Object.keys(dm).find(k => dm[k].col === '목' && dm[k].week === 14);
+  const other = SEED.classes.find(c => c.year === 1 && c.ban === 'A');
+  const ex = S.exams[other.id];
+  Object.assign(ex, { date: thu, start: 3, len: 2, room: '412' }); delete ex.time;
+  const bad = core.statusOf(other).bad;
+  assert.ok(bad.some(x => x.it.c.id === '목-2C-3' && Array.from(x.kinds).includes('강의실')), bad.map(core.describeConflict).join(' / '));
 });

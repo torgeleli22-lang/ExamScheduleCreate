@@ -22,7 +22,7 @@ function openDrawer(id) {
           <select id="dPEnd" data-f="pend" aria-label="끝 교시"${dis}>${opts(range(ex.start, NP), Math.min(NP, ex.start + ex.len - 1), v => `${v}교시 (~${PERIODS[v - 1][1]})`)}</select></span>
           <small class="hint">${hasSlot(ex) ? `${toMin(tm.to) - toMin(tm.from)}분 · ${ex.time ? `직접 정한 시간(${pRange(ex.start, ex.len)}에 걸침) · 겹침은 분 단위로 검사해요` : '교시 시간 그대로'}` : ''}</small></div>
         <label class="field full" for="dRoom"><span>강의실</span><select id="dRoom" data-f="roomsel"${dis}>${roomOptions(ex.room, c, ex)}</select>
-          <input type="text" id="dRoomCustom" data-f="room" placeholder="강의실 직접 입력 (예: 515, 산학관203)" hidden></label>
+          <input type="text" id="dRoomCustom" data-f="room" placeholder="강의실 직접 입력 (예: 남관 515, 산학관 203)" hidden></label>
         <label class="field" for="dDone" style="justify-content:flex-end"><span>교수님 확인</span><span class="chk"><input type="checkbox" id="dDone" data-f="done"${ex.done ? ' checked' : ''}>확정</span></label>
         <label class="field full" for="dNote"><span>요청사항 · 메모</span><textarea id="dNote" data-f="note" rows="3" placeholder="예: 실기 2시간, 노트북 지참, 412호 희망">${esc(ex.note)}</textarea></label>
       </div>
@@ -133,7 +133,7 @@ function openRegister(preId) {
         <label class="field" for="rStart"><span>시작 교시</span><select id="rStart" data-r="start"${dis}>${opts(range(1, NP), r.start || 1, v => `${v}교시 (${PERIODS[v - 1][0]})`)}</select></label>
         <label class="field" for="rLen"><span>시험 길이</span><select id="rLen" data-r="len"${dis}>${opts(range(1, 6), r.len || 2, v => `${v}교시 (${v * 50}분)`)}</select></label>
         <label class="field full" for="rRoom"><span>강의실</span><select id="rRoom" data-r="room"${dis}>${roomOptions(r.room || '', id ? D.byId[id] : null, r.date ? { date: r.date, start: r.start || 1, len: r.len || 2 } : null)}</select>
-          <input type="text" id="rRoomCustom" data-r="roomtext" placeholder="강의실 직접 입력 (예: 515, 산학관203)" hidden></label>
+          <input type="text" id="rRoomCustom" data-r="roomtext" placeholder="강의실 직접 입력 (예: 남관 515, 산학관 203)" hidden></label>
         <label class="field full" for="rNote"><span>요청사항 · 메모</span><textarea id="rNote" data-r="note" rows="2"${id ? '' : ' disabled'}>${esc(r.note || '')}</textarea></label>
       </div>
       <div class="dsec"><h3>등록하면 이렇게 돼요</h3><div class="checks" id="rChecks"></div></div>

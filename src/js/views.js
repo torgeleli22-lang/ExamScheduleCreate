@@ -46,9 +46,14 @@ function renderPlanPicker() {
 /* ---------- 강의실 선택 ----------
    예전엔 글자 칸 + 추천 목록(datalist)이라, 칸에 '413'이 있으면 '413'만 보였다 → 선택 상자로 전부 보여 준다.
    강의실 목록 = 모든 학기 시험의 시간표·시험·보강에 나온 강의실 전부(직접 입력한 강의실도 쓰이면 들어감). */
-const roomSort = (a, b) => { const na = /^\d+$/.test(a), nb = /^\d+$/.test(b); return na && nb ? +a - +b : na ? -1 : nb ? 1 : a.localeCompare(b, 'ko'); };
+const roomSort = (a, b) => {
+  const ia = OWNED_ROOMS.indexOf(a), ib = OWNED_ROOMS.indexOf(b);   // 보유 강의실 먼저(건물·번호 순)
+  if (ia >= 0 || ib >= 0) return ia < 0 ? 1 : ib < 0 ? -1 : ia - ib;
+  const na = /^\d+$/.test(a), nb = /^\d+$/.test(b); return na && nb ? +a - +b : na ? -1 : nb ? 1 : a.localeCompare(b, 'ko');
+};
+/** 고를 수 있는 강의실: 보유 강의실(ROOMS) + 시간표·시험·보강에 나온 다른 강의실(직접 입력한 것 포함) */
 function allRooms() {
-  const set = new Set();
+  const set = new Set(OWNED_ROOMS);
   const add = r => { const v = cleanRoom(r); if (v) set.add(v); };
   for (const p of Object.values(Store.plans)) {
     for (const c of p.classes || []) add(c.room);
@@ -74,13 +79,20 @@ function roomOptions(cur, c, place, { custom = true, blank = null } = {}) {
   let list = allRooms();
   if (curV && !list.includes(curV)) list = [...list, curV].sort(roomSort);
   const use = c && place && place.date ? roomUse(c, place) : null;
-  const o = r => { const u = use && use[normRoom(r)]; return `<option value="${esc(r)}"${r === curV ? ' selected' : ''}>${esc(roomLabel(r))}${u ? ` — 사용 중: ${esc(u.join(', '))}` : ''}</option>`; };
+  const o = r => { const u = use && use[normRoom(r)]; return `<option value="${esc(r)}"${r === curV ? ' selected' : ''}>${esc(roomFull(r))}${u ? ` — 사용 중: ${esc(u.join(', '))}` : ''}</option>`; };
   let html = blank !== null ? `<option value=""${curV ? '' : ' selected'}>${esc(blank)}</option>` : '';
   if (use) {
     const free = list.filter(r => !use[normRoom(r)]), busy = list.filter(r => use[normRoom(r)]);
     html += `<optgroup label="이 시간에 비어 있는 강의실 (${free.length})">${free.map(o).join('')}</optgroup>`;
     if (busy.length) html += `<optgroup label="이 시간에 사용 중 (${busy.length})">${busy.map(o).join('')}</optgroup>`;
-  } else html += list.map(o).join('');
+  } else {   // 시간 기준이 없으면 건물별
+    for (const b of ROOMS) {
+      const rs = list.filter(r => OWNED_ROOMS.includes(r) && (b.building === MAIN_BUILDING ? /^\d+$/.test(r) : r.startsWith(b.building)));
+      if (rs.length) html += `<optgroup label="${esc(b.building)}">${rs.map(o).join('')}</optgroup>`;
+    }
+    const other = list.filter(r => !OWNED_ROOMS.includes(r));
+    if (other.length) html += `<optgroup label="그 밖의 강의실">${other.map(o).join('')}</optgroup>`;
+  }
   if (custom) html += `<option value="__custom">직접 입력…</option>`;
   return html;
 }
@@ -258,7 +270,7 @@ function statusPills(st) {
   if (st.bad.length) out.push(`<span class="pill bad" title="${esc(st.bad.map(describeConflict).join('\n'))}">겹침 ${st.bad.length}</span>`);
   if (st.warn.length) out.push(`<span class="pill warn" title="${esc(st.warn.join('\n'))}">확인 ${st.warn.length}</span>`);
   if (st.moved) out.push('<span class="pill mv">변경</span>');
-  if (st.combined?.length) out.push(`<span class="pill cb" title="같은 과목 ${esc(combinedLabel(st.combined))}와 같은 시간에 한 시험">합반 ${esc(combinedLabel(st.combined))}</span>`);
+  if (st.combined?.length) out.push(`<span class="pill cb" title="같은 과목·같은 교수님 ${esc(combinedLabel(st.combined))}와 같은 시간에 한 시험">합반 ${esc(combinedLabel(st.combined))}</span>`);
   if (st.keep) out.push('<span class="pill ok">기존 시간표 수업 진행</span>');
   else if (st.done) out.push('<span class="pill ok">확정</span>');
   if (!out.length) out.push('<span class="pill na">기본</span>');
