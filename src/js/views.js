@@ -270,7 +270,7 @@ function statusPills(st) {
   if (st.bad.length) out.push(`<span class="pill bad" title="${esc(st.bad.map(describeConflict).join('\n'))}">겹침 ${st.bad.length}</span>`);
   if (st.warn.length) out.push(`<span class="pill warn" title="${esc(st.warn.join('\n'))}">확인 ${st.warn.length}</span>`);
   if (st.moved) out.push('<span class="pill mv">변경</span>');
-  if (st.combined?.length) out.push(`<span class="pill cb" title="같은 과목 ${esc(combinedLabel(st.combined))}와 같은 시간에 한 시험">합반 ${esc(combinedLabel(st.combined))}</span>`);
+  if (st.combined?.length) out.push(`<span class="pill cb" title="같은 과목·같은 교수님 ${esc(combinedLabel(st.combined))}와 같은 시간에 한 시험">합반 ${esc(combinedLabel(st.combined))}</span>`);
   if (st.keep) out.push('<span class="pill ok">기존 시간표 수업 진행</span>');
   else if (st.done) out.push('<span class="pill ok">확정</span>');
   if (!out.length) out.push('<span class="pill na">기본</span>');
