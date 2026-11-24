@@ -108,14 +108,14 @@ function itemsOn(iso, excludeId) {
   return out;
 }
 /** p = {date, start, len, room}. 교시가 겹치면서 같은 반 / 같은 교수 / 같은 강의실이면 겹침 */
-/* 합반 시험: 같은 과목·같은 교수님의 다른 반 시험이 같은 날 같은 시각에 시작하면 한 시험(합반)으로 본다.
-   → 교수·강의실 겹침으로 세지 않는다 (사용자: "15주차 수업을 동시에 진행하면 합반 시험").
+/* 합반 시험: 같은 교수님의 다른 반 시험이 같은 날 같은 시각에 시작하면 한 시험(합반)으로 본다(과목은 달라도 됨).
+   → 교수·강의실 겹침으로 세지 않는다 (사용자: "15주차 수업을 동시에 진행하면 합반 시험", "과목이 달라도 교수가 같다면 합반").
    과목이 같아도 교수님이 다르면 합반이 아니다(사용자) → 따로 보는 시험(같은 강의실이면 강의실 겹침).
-   시작 시각이 다르거나, 다른 과목이면 지금처럼 겹침. */
+   시작 시각이 다르면 지금처럼 교수 겹침. 교수님 이름이 비어 있으면 합반으로 보지 않는다. */
 const courseKey = c => String(c.course || '').replace(/\s+/g, '').toUpperCase();
 const profKey = c => String(c.prof || '').replace(/\s+/g, '');
 const isCombined = (c, it, t0) => it.kind === 'exam' && it.c.id !== c.id && groupOf(it.c) !== groupOf(c)
-  && courseKey(it.c) === courseKey(c) && profKey(it.c) === profKey(c) && it.t0 === t0;
+  && !!profKey(c) && profKey(it.c) === profKey(c) && it.t0 === t0;
 /** p에 놓으면 함께 합반 시험을 보게 되는 다른 반 수업들 */
 function combinedAt(c, p) {
   if (!p.date) return [];
@@ -141,7 +141,8 @@ function conflictsOf(c, p) {
   }
   return res;
 }
-const combinedLabel = list => list.map(x => groupOf(x.c)).join('·');
+/** 합반 상대 글자: '2A' (과목이 다르면 '2C 커리어디자인') */
+const combinedLabel = (list, base) => list.map(x => (base && courseKey(x.c) !== courseKey(base) ? `${groupOf(x.c)} ${x.c.course}` : groupOf(x.c))).join('·');
 function warningsOf(c, p) {
   const w = [];
   if (!p.date) { w.push('날짜를 정해 주세요'); return w; }
@@ -157,7 +158,7 @@ function warningsOf(c, p) {
   if (p.time && (toMin(p.time.from) < toMin(DAY_FROM) || toMin(p.time.to) > toMin(DAY_TO))) w.push(`수업 시간(${DAY_FROM}~${DAY_TO}) 밖이에요`);
   // 합반인데 같은 교수님이 서로 다른 강의실 → 한 강의실로 맞춰야 함
   const apart = combinedAt(c, p).filter(x => x.c.prof && x.c.prof === c.prof && normRoom(x.room) !== normRoom(p.room));
-  if (apart.length) w.push(`합반(${combinedLabel(apart)})인데 강의실이 달라요(${roomLabel(p.room)}·${[...new Set(apart.map(x => roomLabel(x.room)))].join('·')}). 같은 교수님이라 한 강의실로 맞춰 주세요`);
+  if (apart.length) w.push(`합반(${combinedLabel(apart, c)})인데 강의실이 달라요(${roomLabel(p.room)}·${[...new Set(apart.map(x => roomLabel(x.room)))].join('·')}). 같은 교수님이라 한 강의실로 맞춰 주세요`);
   for (const m of D.makeups || []) {
     if (m.classId !== c.id || D.examMakeup?.[c.id] === m || srcSession(c)?.mk === m) continue;
     if (m.to > p.date) w.push(`${m.manual ? '옮긴 수업' : '보강'}(${fmt(m.to)} ${pRange(m.start, m.end - m.start + 1)})이 시험보다 뒤에 있어요`);

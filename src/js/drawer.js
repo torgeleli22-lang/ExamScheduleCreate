@@ -79,9 +79,9 @@ function refreshSessionChecks() {
     ...cf.map(x => `<div class="it bad">${esc(describeConflict(x))}</div>`)].join('');
 }
 /** 합반 안내 줄: 같은 시간에 한 시험을 보는 다른 반들 */
-function combinedLines(list) {
+function combinedLines(list, base) {
   if (!list.length) return [];
-  return [`<div class="it ok">합반 시험: ${list.map(x => `${esc(groupOf(x.c))}(${esc(x.c.prof)}, ${esc(roomLabel(x.room))})`).join(', ')}와 같은 시간 · 교수·강의실 겹침으로 보지 않아요</div>`];
+  return [`<div class="it ok">합반 시험: ${list.map(x => `${esc(groupOf(x.c))}${base && courseKey(x.c) !== courseKey(base) ? ` ${esc(x.c.course)}` : ''}(${esc(x.c.prof)}, ${esc(roomLabel(x.room))})`).join(', ')}와 같은 시간 · 교수·강의실 겹침으로 보지 않아요</div>`];
 }
 function refreshDrawerChecks() {
   const id = ui.drawerId, c = D.byId[id]; if (!c || $('#drawer').hidden) return;
@@ -90,7 +90,7 @@ function refreshDrawerChecks() {
   if (st.noslot) box.innerHTML = `<div class="it ok">${esc(ex.method)}: 시험 시간을 잡지 않아요. 이 과목의 ${S.examWeek}주차 수업은 원래 시간에 하는 것으로 봐요.</div>`;
   else box.innerHTML = [
     `<div class="it ${st.bad.length ? 'bad' : 'ok'}">${fmt(ex.date)} ${examTime(ex)} (${pRange(ex.start, ex.len)}) · ${esc(roomLabel(ex.room))}${st.bad.length ? '' : ' · 겹치는 일정 없음'}</div>`,
-    ...combinedLines(st.combined),
+    ...combinedLines(st.combined, c),
     ...st.bad.map(x => `<div class="it bad">${esc(describeConflict(x))}</div>`),
     ...st.warn.map(w => `<div class="it warn">${esc(w)}</div>`)].join('');
   const slotsEl = $('#dSlots');
@@ -164,7 +164,7 @@ function refreshRegister() {
   const rs = $('#rRoom'); if (rs && rs.value !== '__custom') rs.innerHTML = roomOptions(p.room, c, p);
   const cf = conflictsOf(c, p), wn = warningsOf(c, p);
   box.innerHTML = [`<div class="it ${cf.length ? 'bad' : 'ok'}">${fmt(p.date)} ${pRange(p.start, p.len)} ${tRange(p.start, p.len)} · ${esc(roomLabel(p.room))}${cf.length ? '' : ' · 겹치는 일정 없음'}</div>`,
-    ...combinedLines(combinedAt(c, p)), ...cf.map(x => `<div class="it bad">${esc(describeConflict(x))}</div>`), ...wn.map(w => `<div class="it warn">${esc(w)}</div>`)].join('');
+    ...combinedLines(combinedAt(c, p), c), ...cf.map(x => `<div class="it bad">${esc(describeConflict(x))}</div>`), ...wn.map(w => `<div class="it warn">${esc(w)}</div>`)].join('');
   const fs = freeSlots(c, p.len, p.room), def = defaultDate(c);
   sl.innerHTML = fs.length ? fs.map(x => `<div class="slotday"><div class="lbl"><b>${fmt(x.d)}</b>${x.d === def ? ' 기본' : ''}<br>${esc(D.dateMap[x.d] ? `${D.dateMap[x.d].col}${D.dateMap[x.d].week}주차` : '')}</div>
     <div class="opts">${x.starts.map(s => `<button type="button" class="slotbtn${x.d === p.date && s === p.start ? ' cur' : ''}" data-rslot="${x.d}|${s}">${pRange(s, p.len)}</button>`).join('')}</div></div>`).join('')

@@ -853,14 +853,14 @@ function itemsOn(iso, excludeId) {
   return out;
 }
 /** p = {date, start, len, room}. 교시가 겹치면서 같은 반 / 같은 교수 / 같은 강의실이면 겹침 */
-/* 합반 시험: 같은 과목·같은 교수님의 다른 반 시험이 같은 날 같은 시각에 시작하면 한 시험(합반)으로 본다.
-   → 교수·강의실 겹침으로 세지 않는다 (사용자: "15주차 수업을 동시에 진행하면 합반 시험").
+/* 합반 시험: 같은 교수님의 다른 반 시험이 같은 날 같은 시각에 시작하면 한 시험(합반)으로 본다(과목은 달라도 됨).
+   → 교수·강의실 겹침으로 세지 않는다 (사용자: "15주차 수업을 동시에 진행하면 합반 시험", "과목이 달라도 교수가 같다면 합반").
    과목이 같아도 교수님이 다르면 합반이 아니다(사용자) → 따로 보는 시험(같은 강의실이면 강의실 겹침).
-   시작 시각이 다르거나, 다른 과목이면 지금처럼 겹침. */
+   시작 시각이 다르면 지금처럼 교수 겹침. 교수님 이름이 비어 있으면 합반으로 보지 않는다. */
 const courseKey = c => String(c.course || '').replace(/\s+/g, '').toUpperCase();
 const profKey = c => String(c.prof || '').replace(/\s+/g, '');
 const isCombined = (c, it, t0) => it.kind === 'exam' && it.c.id !== c.id && groupOf(it.c) !== groupOf(c)
-  && courseKey(it.c) === courseKey(c) && profKey(it.c) === profKey(c) && it.t0 === t0;
+  && !!profKey(c) && profKey(it.c) === profKey(c) && it.t0 === t0;
 /** p에 놓으면 함께 합반 시험을 보게 되는 다른 반 수업들 */
 function combinedAt(c, p) {
   if (!p.date) return [];
@@ -886,7 +886,8 @@ function conflictsOf(c, p) {
   }
   return res;
 }
-const combinedLabel = list => list.map(x => groupOf(x.c)).join('·');
+/** 합반 상대 글자: '2A' (과목이 다르면 '2C 커리어디자인') */
+const combinedLabel = (list, base) => list.map(x => (base && courseKey(x.c) !== courseKey(base) ? `${groupOf(x.c)} ${x.c.course}` : groupOf(x.c))).join('·');
 function warningsOf(c, p) {
   const w = [];
   if (!p.date) { w.push('날짜를 정해 주세요'); return w; }
@@ -902,7 +903,7 @@ function warningsOf(c, p) {
   if (p.time && (toMin(p.time.from) < toMin(DAY_FROM) || toMin(p.time.to) > toMin(DAY_TO))) w.push(`수업 시간(${DAY_FROM}~${DAY_TO}) 밖이에요`);
   // 합반인데 같은 교수님이 서로 다른 강의실 → 한 강의실로 맞춰야 함
   const apart = combinedAt(c, p).filter(x => x.c.prof && x.c.prof === c.prof && normRoom(x.room) !== normRoom(p.room));
-  if (apart.length) w.push(`합반(${combinedLabel(apart)})인데 강의실이 달라요(${roomLabel(p.room)}·${[...new Set(apart.map(x => roomLabel(x.room)))].join('·')}). 같은 교수님이라 한 강의실로 맞춰 주세요`);
+  if (apart.length) w.push(`합반(${combinedLabel(apart, c)})인데 강의실이 달라요(${roomLabel(p.room)}·${[...new Set(apart.map(x => roomLabel(x.room)))].join('·')}). 같은 교수님이라 한 강의실로 맞춰 주세요`);
   for (const m of D.makeups || []) {
     if (m.classId !== c.id || D.examMakeup?.[c.id] === m || srcSession(c)?.mk === m) continue;
     if (m.to > p.date) w.push(`${m.manual ? '옮긴 수업' : '보강'}(${fmt(m.to)} ${pRange(m.start, m.end - m.start + 1)})이 시험보다 뒤에 있어요`);
@@ -2289,7 +2290,7 @@ function renderDaySection(d, statusCache) {
       const badge = st.bad.length ? `<span class="badge b-bad">겹침</span>` : st.combined.length ? `<span class="badge b-cb">합반</span>` : st.keep ? `<span class="badge b-ok">기존</span>` : st.done ? `<span class="badge b-ok">확정</span>` : st.moved ? `<span class="badge b-mv">이동</span>` : '';
       const tip = [`${it.c.course} (${it.c.prof}) ${g}`, `${fmt(ex.date)} ${examTime(ex)} (${pRange(ex.start, ex.len)}) · ${roomLabel(ex.room)} · ${ex.method}`,
         srcSession(it.c) ? `${examWeekOf(it.c)}주차 수업을 시험으로 등록함 (${S.examWeek}주차 수업은 평소 수업)` : '',
-        st.moved ? `↪ ${examWeekOf(it.c)}주차 수업 ${fmt(defaultDate(it.c))} ${pRange(defaultStart(it.c), defaultLen(it.c))}에서 옮김` : '', st.keep ? '✓ 기존 시간표 수업 진행' : '', st.combined.length ? `합반: ${combinedLabel(st.combined)}와 같은 시간에 한 시험` : '', ...st.bad.map(describeConflict), ...st.warn].filter(Boolean).join('\n');
+        st.moved ? `↪ ${examWeekOf(it.c)}주차 수업 ${fmt(defaultDate(it.c))} ${pRange(defaultStart(it.c), defaultLen(it.c))}에서 옮김` : '', st.keep ? '✓ 기존 시간표 수업 진행' : '', st.combined.length ? `합반: ${combinedLabel(st.combined, it.c)}와 같은 시간에 한 시험` : '', ...st.bad.map(describeConflict), ...st.warn].filter(Boolean).join('\n');
       return `<button type="button" class="blk exam${nar} y${esc(year)}${st.bad.length ? ' bad' : ''}${badge ? ' has-badge' : ''}" style="${pos}" data-id="${esc(it.c.id)}" title="${esc(tip)}"><span class="t">${esc(it.c.course)}</span><span class="s">${ex.time ? `${esc(examTime(ex))} · ` : ''}${st.moved && (ex.date !== defaultDate(it.c) || ex.start !== defaultStart(it.c)) ? `${examWeekOf(it.c)}주차 · ${esc(fmt(defaultDate(it.c)))}에서 옮김` : st.moved ? `${examWeekOf(it.c)}주차 · 시간 변경` : `${examWeekOf(it.c)}주차${srcSession(it.c) ? ' 수업 시험' : D.examMakeup[it.c.id] ? '(보강)' : ''} · ${esc(it.c.prof)} · ${esc(roomLabel(ex.room))}`}</span>${badge}</button>`;
     }).join('');
     rows += `<div class="grow${prevYear !== null && prevYear !== year ? ' yb' : ''}"><div class="glabel y${esc(year)}">${esc(g)}</div><div class="track" style="grid-template-rows:repeat(${lanes},minmax(30px,auto))">${cells}${blocks}</div></div>`;
@@ -2389,7 +2390,7 @@ function statusPills(st) {
   if (st.bad.length) out.push(`<span class="pill bad" title="${esc(st.bad.map(describeConflict).join('\n'))}">겹침 ${st.bad.length}</span>`);
   if (st.warn.length) out.push(`<span class="pill warn" title="${esc(st.warn.join('\n'))}">확인 ${st.warn.length}</span>`);
   if (st.moved) out.push('<span class="pill mv">변경</span>');
-  if (st.combined?.length) out.push(`<span class="pill cb" title="같은 과목·같은 교수님 ${esc(combinedLabel(st.combined))}와 같은 시간에 한 시험">합반 ${esc(combinedLabel(st.combined))}</span>`);
+  if (st.combined?.length) out.push(`<span class="pill cb" title="같은 교수님 ${esc(combinedLabel(st.combined, c))}와 같은 시간에 한 시험">합반 ${esc(combinedLabel(st.combined))}</span>`);
   if (st.keep) out.push('<span class="pill ok">기존 시간표 수업 진행</span>');
   else if (st.done) out.push('<span class="pill ok">확정</span>');
   if (!out.length) out.push('<span class="pill na">기본</span>');
@@ -3145,9 +3146,9 @@ function refreshSessionChecks() {
     ...cf.map(x => `<div class="it bad">${esc(describeConflict(x))}</div>`)].join('');
 }
 /** 합반 안내 줄: 같은 시간에 한 시험을 보는 다른 반들 */
-function combinedLines(list) {
+function combinedLines(list, base) {
   if (!list.length) return [];
-  return [`<div class="it ok">합반 시험: ${list.map(x => `${esc(groupOf(x.c))}(${esc(x.c.prof)}, ${esc(roomLabel(x.room))})`).join(', ')}와 같은 시간 · 교수·강의실 겹침으로 보지 않아요</div>`];
+  return [`<div class="it ok">합반 시험: ${list.map(x => `${esc(groupOf(x.c))}${base && courseKey(x.c) !== courseKey(base) ? ` ${esc(x.c.course)}` : ''}(${esc(x.c.prof)}, ${esc(roomLabel(x.room))})`).join(', ')}와 같은 시간 · 교수·강의실 겹침으로 보지 않아요</div>`];
 }
 function refreshDrawerChecks() {
   const id = ui.drawerId, c = D.byId[id]; if (!c || $('#drawer').hidden) return;
@@ -3156,7 +3157,7 @@ function refreshDrawerChecks() {
   if (st.noslot) box.innerHTML = `<div class="it ok">${esc(ex.method)}: 시험 시간을 잡지 않아요. 이 과목의 ${S.examWeek}주차 수업은 원래 시간에 하는 것으로 봐요.</div>`;
   else box.innerHTML = [
     `<div class="it ${st.bad.length ? 'bad' : 'ok'}">${fmt(ex.date)} ${examTime(ex)} (${pRange(ex.start, ex.len)}) · ${esc(roomLabel(ex.room))}${st.bad.length ? '' : ' · 겹치는 일정 없음'}</div>`,
-    ...combinedLines(st.combined),
+    ...combinedLines(st.combined, c),
     ...st.bad.map(x => `<div class="it bad">${esc(describeConflict(x))}</div>`),
     ...st.warn.map(w => `<div class="it warn">${esc(w)}</div>`)].join('');
   const slotsEl = $('#dSlots');
@@ -3230,7 +3231,7 @@ function refreshRegister() {
   const rs = $('#rRoom'); if (rs && rs.value !== '__custom') rs.innerHTML = roomOptions(p.room, c, p);
   const cf = conflictsOf(c, p), wn = warningsOf(c, p);
   box.innerHTML = [`<div class="it ${cf.length ? 'bad' : 'ok'}">${fmt(p.date)} ${pRange(p.start, p.len)} ${tRange(p.start, p.len)} · ${esc(roomLabel(p.room))}${cf.length ? '' : ' · 겹치는 일정 없음'}</div>`,
-    ...combinedLines(combinedAt(c, p)), ...cf.map(x => `<div class="it bad">${esc(describeConflict(x))}</div>`), ...wn.map(w => `<div class="it warn">${esc(w)}</div>`)].join('');
+    ...combinedLines(combinedAt(c, p), c), ...cf.map(x => `<div class="it bad">${esc(describeConflict(x))}</div>`), ...wn.map(w => `<div class="it warn">${esc(w)}</div>`)].join('');
   const fs = freeSlots(c, p.len, p.room), def = defaultDate(c);
   sl.innerHTML = fs.length ? fs.map(x => `<div class="slotday"><div class="lbl"><b>${fmt(x.d)}</b>${x.d === def ? ' 기본' : ''}<br>${esc(D.dateMap[x.d] ? `${D.dateMap[x.d].col}${D.dateMap[x.d].week}주차` : '')}</div>
     <div class="opts">${x.starts.map(s => `<button type="button" class="slotbtn${x.d === p.date && s === p.start ? ' cur' : ''}" data-rslot="${x.d}|${s}">${pRange(s, p.len)}</button>`).join('')}</div></div>`).join('')
@@ -3417,7 +3418,7 @@ function updateTarget(x, y) {
     drag.target = place;
     tip.hidden = false;
     const cb = combinedAt(c, place);
-    tip.textContent = `${fmt(t.date)} ${pRange(start, ex.len)} ${examTime(tt)}` + (cf.length ? '\n' + cf.map(describeConflict).join('\n') : ' · 겹침 없음') + (cb.length ? `\n합반: ${combinedLabel(cb)}와 같은 시간에 한 시험` : '') + (wn.length ? '\n' + wn.join('\n') : '');
+    tip.textContent = `${fmt(t.date)} ${pRange(start, ex.len)} ${examTime(tt)}` + (cf.length ? '\n' + cf.map(describeConflict).join('\n') : ' · 겹침 없음') + (cb.length ? `\n합반: ${combinedLabel(cb, c)}와 같은 시간에 한 시험` : '') + (wn.length ? '\n' + wn.join('\n') : '');
   }
   tip.style.whiteSpace = 'pre-line';
   tip.style.left = Math.min(window.innerWidth - 330, e.clientX + 14) + 'px';
