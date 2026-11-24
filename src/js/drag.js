@@ -66,7 +66,7 @@ function updateTarget(x, y) {
     drag.target = place;
     tip.hidden = false;
     const cb = combinedAt(c, place);
-    tip.textContent = `${fmt(t.date)} ${pRange(start, ex.len)} ${examTime(tt)}` + (cf.length ? '\n' + cf.map(describeConflict).join('\n') : ' · 겹침 없음') + (cb.length ? `\n합반: ${combinedLabel(cb)}와 같은 시간에 한 시험` : '') + (wn.length ? '\n' + wn.join('\n') : '');
+    tip.textContent = `${fmt(t.date)} ${pRange(start, ex.len)} ${examTime(tt)}` + (cf.length ? '\n' + cf.map(describeConflict).join('\n') : ' · 겹침 없음') + (cb.length ? `\n합반: ${combinedLabel(cb, c)}와 같은 시간에 한 시험` : '') + (wn.length ? '\n' + wn.join('\n') : '');
   }
   tip.style.whiteSpace = 'pre-line';
   tip.style.left = Math.min(window.innerWidth - 330, e.clientX + 14) + 'px';

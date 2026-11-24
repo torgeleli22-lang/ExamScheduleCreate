@@ -250,7 +250,7 @@ test('보강 신청 목록(.xls 모양): 분반 칸 101·102·103 → 반', () =
   ]);
 });
 
-test('합반 시험: 같은 과목·같은 교수님의 다른 반이 같은 날 같은 시각에 시작하면 교수·강의실 겹침 아님 (교수님이 다르면 합반 아님)', () => {
+test('합반 시험: 같은 교수님의 다른 반이 같은 날 같은 시각에 시작하면(과목은 달라도) 교수·강의실 겹침 아님, 교수님이 다르면 합반 아님', () => {
   const core = loadCore();
   core.usePlan(seedPlan(core));
   const S = core.get('S');
@@ -264,9 +264,17 @@ test('합반 시험: 같은 과목·같은 교수님의 다른 반이 같은 날
   const kinds = Array.from(core.conflictsOf(b2, { ...same, start: 7 }), x => x.kinds.join('·'));
   assert.deepEqual(Array.from(kinds), ['교수·강의실']);
   assert.equal(core.combinedAt(b2, { ...same, start: 7 }).length, 0);
-  // 다른 과목(이성욱 커리어디자인 2C, 12/17 3~4교시)과 같은 시간이면 교수 겹침
-  const kc = core.conflictsOf(b2, { date: '2026-12-17', start: 3, len: 2, room: '999' });
+  // 과목이 달라도 같은 교수님이면 합반(사용자): 이성욱 웹자바 2A를 이성욱 커리어디자인 2C(12/17 3~4교시, 412호)와 같은 시각에
+  const a2 = SEED.classes.find(x => x.id === '목-2A-6');
+  const withCareer = { date: '2026-12-17', start: 3, len: 2, room: '412' };
+  assert.deepEqual(Array.from(core.combinedAt(a2, withCareer), x => x.c.id), ['목-2C-3']);
+  assert.deepEqual(Array.from(core.conflictsOf(a2, withCareer)), []);
+  assert.equal(core.combinedLabel(core.combinedAt(a2, withCareer), a2), '2C 커리어디자인');     // 과목이 다르면 과목 이름도
+  assert.match(core.warningsOf(a2, { ...withCareer, room: '999' }).join(' '), /합반\(2C 커리어디자인\)인데 강의실이 달라요/);
+  // 시작 시각이 다르면 합반 아님 → 교수 겹침
+  const kc = core.conflictsOf(a2, { ...withCareer, start: 4, len: 1, room: '999' });
   assert.ok(kc.some(x => x.it.c.id === '목-2C-3' && x.kinds.includes('교수')));
+  assert.equal(core.combinedAt(a2, { ...withCareer, start: 4, len: 1 }).length, 0);
   // 같은 교수님인데 강의실을 다르게 잡으면 겹침은 아니지만 확인 필요
   assert.match(core.warningsOf(b2, { ...same, room: '413' }).join(' '), /합반\(2A\)인데 강의실이 달라요\(413호·212호\)/);
   // 과목이 같아도 교수님이 다르면 합반 아님(사용자): 커리어디자인 2A 조동일 · 2B 박신성을 같은 12/17 1교시·같은 산학관101에 → 강의실 겹침
